@@ -1,10 +1,5 @@
 name: Inspect CIADI+ source
-on:
-  push:
-    paths:
-      - 'ciadi+ (1).zip'
-      - '.github/workflows/inspect-ciadi-source.yml'
-  workflow_dispatch:
+on: push
 jobs:
   inspect:
     runs-on: ubuntu-latest
@@ -15,10 +10,8 @@ jobs:
           rm -rf extracted
           mkdir extracted
           unzip -q 'ciadi+ (1).zip' -d extracted
-          echo '--- ZIP CONTENTS ---'
-          find extracted -maxdepth 4 -type f | sort | head -300
-          echo '--- PROJECT MARKERS ---'
-          find extracted -maxdepth 6 -type f \( -name 'settings.gradle' -o -name 'settings.gradle.kts' -o -name 'build.gradle' -o -name 'build.gradle.kts' -o -name 'gradlew' -o -name 'AndroidManifest.xml' \) -print
+          find extracted -maxdepth 5 -type f | sort | head -500
+          find extracted -maxdepth 8 -type f \( -name 'settings.gradle' -o -name 'settings.gradle.kts' -o -name 'build.gradle' -o -name 'build.gradle.kts' -o -name 'gradlew' -o -name 'AndroidManifest.xml' \) -print
       - name: Package extracted source
         run: zip -qr ciadi-source-extracted.zip extracted
       - uses: actions/upload-artifact@v4
