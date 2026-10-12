@@ -19,7 +19,7 @@ jobs:
       - name: Confirmar dashboard de origem
         shell: pwsh
         run: |
-          $source = "CIADI_DASHBOARD_FINANCEIRO(1).html"
+          $source = "CIADI_DASHBOARD_FINANCEIRO.html"
           if (!(Test-Path $source)) {
             throw "Falta o ficheiro '$source' na raiz do repositório. Carregue o dashboard financeiro CIADI para o GitHub e volte a executar."
           }
