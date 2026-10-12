@@ -5,10 +5,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'CIADI_DASHBOARD_FINANCEIRO.html'
-      - 'ciadi-windows/**'
-      - '.github/workflows/ciadi-windows-setup.yml'
     tags:
       - 'ciadi-v*'
 
