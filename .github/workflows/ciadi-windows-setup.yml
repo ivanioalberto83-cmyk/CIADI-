@@ -1,0 +1,63 @@
+name: CIADI Windows Setup
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'ciadi-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Confirmar dashboard de origem
+        shell: pwsh
+        run: |
+          $source = "CIADI_DASHBOARD_FINANCEIRO(1).html"
+          if (!(Test-Path $source)) {
+            throw "Falta o ficheiro '$source' na raiz do repositório. Carregue o dashboard financeiro CIADI para o GitHub e volte a executar."
+          }
+          Copy-Item $source "ciadi-windows/index.html" -Force
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ciadi-windows/package.json
+
+      - name: Instalar dependências
+        working-directory: ciadi-windows
+        run: npm install --no-audit
+
+      - name: Compilar Setup.exe
+        working-directory: ciadi-windows
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Disponibilizar Setup.exe para teste
+        uses: actions/upload-artifact@v4
+        with:
+          name: CIADI-Windows-Setup
+          path: ciadi-windows/release/CIADI-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publicar versão para atualizações automáticas
+        if: startsWith(github.ref, 'refs/tags/ciadi-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ciadi-windows/release/CIADI-Setup-*.exe
+            ciadi-windows/release/latest.yml
+            ciadi-windows/release/*.blockmap
+          generate_release_notes: true
