@@ -3,6 +3,12 @@ name: CIADI Windows Setup
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-windows-setup.yml'
     tags:
       - 'ciadi-v*'
 
@@ -29,8 +35,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: ciadi-windows/package.json
 
       - name: Validar e sincronizar versão da release
         if: startsWith(github.ref, 'refs/tags/ciadi-v')
