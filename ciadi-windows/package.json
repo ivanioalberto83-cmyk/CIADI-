@@ -1,0 +1,46 @@
+{
+  "name": "ciadi-dashboard-windows",
+  "version": "1.0.0",
+  "description": "Aplicação Windows do dashboard financeiro CIADI",
+  "main": "main.cjs",
+  "author": "CIADI",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "electron": "^35.7.5",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ao.ciadi.dashboard",
+    "productName": "CIADI Dashboard",
+    "asar": true,
+    "directories": { "output": "release" },
+    "files": [
+      "index.html",
+      "main.cjs",
+      "preload.cjs",
+      "package.json",
+      "node_modules/electron-updater/**/*"
+    ],
+    "publish": [{ "provider": "github", "owner": "ivanioalberto83-cmyk", "repo": "CIADI-" }],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "artifactName": "CIADI-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CIADI Dashboard",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
