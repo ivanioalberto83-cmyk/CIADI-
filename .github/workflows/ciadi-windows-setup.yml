@@ -16,19 +16,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validar e sincronizar versão da release
-        if: startsWith(github.ref, 'refs/tags/ciadi-v')
-        shell: pwsh
-        working-directory: ciadi-windows
-        run: |
-          $tag = "${{ github.ref_name }}"
-          if ($tag -notmatch '^ciadi-v(\d+\.\d+\.\d+)$') {
-            throw "Tag inválida: '$tag'. Use ciadi-vMAJOR.MINOR.PATCH, por exemplo ciadi-v1.0.1."
-          }
-          $version = $Matches[1]
-          npm version $version --no-git-tag-version --allow-same-version
-          Write-Host "Versão da aplicação definida para $version"
-
       - name: Confirmar dashboard de origem
         shell: pwsh
         run: |
@@ -44,6 +31,19 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: ciadi-windows/package.json
+
+      - name: Validar e sincronizar versão da release
+        if: startsWith(github.ref, 'refs/tags/ciadi-v')
+        shell: pwsh
+        working-directory: ciadi-windows
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^ciadi-v(\d+\.\d+\.\d+)$') {
+            throw "Tag inválida: '$tag'. Use ciadi-vMAJOR.MINOR.PATCH, por exemplo ciadi-v1.0.1."
+          }
+          $version = $Matches[1]
+          npm version $version --no-git-tag-version --allow-same-version
+          Write-Host "Versão da aplicação definida para $version"
 
       - name: Instalar dependências
         working-directory: ciadi-windows
