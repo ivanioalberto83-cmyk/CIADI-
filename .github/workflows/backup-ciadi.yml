@@ -1,6 +1,9 @@
 name: Backup automatico CIADI Dashboard
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     # Todos os dias às 02:30 UTC (03:30 em Angola)
     - cron: "30 2 * * *"
