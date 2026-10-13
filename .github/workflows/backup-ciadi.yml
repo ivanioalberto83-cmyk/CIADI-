@@ -1,0 +1,55 @@
+name: Backup automatico CIADI Dashboard
+
+on:
+  schedule:
+    # Todos os dias às 02:30 UTC (03:30 em Angola)
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ciadi-dashboard-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Criar e verificar backup do repositório
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Obter histórico completo do Git
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Criar arquivos de backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backup-output
+          git bundle create backup-output/CIADI-Dashboard.bundle --all
+          git archive --format=zip --output=backup-output/CIADI-Dashboard-source.zip HEAD
+          (
+            cd backup-output
+            sha256sum CIADI-Dashboard.bundle CIADI-Dashboard-source.zip > SHA256SUMS.txt
+          )
+
+      - name: Validar bundle Git e hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git bundle verify backup-output/CIADI-Dashboard.bundle
+          (cd backup-output && sha256sum --check SHA256SUMS.txt)
+          test -s backup-output/CIADI-Dashboard.bundle
+          test -s backup-output/CIADI-Dashboard-source.zip
+
+      - name: Guardar artefactos do backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: CIADI-Dashboard-backup-${{ github.run_id }}
+          path: backup-output/
+          if-no-files-found: error
+          retention-days: 90
