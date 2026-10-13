@@ -1,4 +1,4 @@
-# CIADI Dashboard — Plano de correção e testes sem alteração de produção
+# CIADI Dashboard — Plano integrado de correção, formulários e documentos
 
 **Estado:** preparação estática / auditoria somente de leitura.  
 **Projeto Supabase:** `egpkkttbcaukqnnxyhjv`.  
@@ -95,6 +95,47 @@ A Edge Function `ciadi-saft-gerar` está configurada com verificação JWT e val
 - **Storage:** inventariar objetos e preparar cópia dos ficheiros e metadados; buckets públicos e privados devem conservar as respetivas permissões.
 - **Recuperação:** restaurar numa base de teste isolada, validar contagens, relações, políticas RLS, funções e ficheiros; registar duração e limitações.
 - Nunca incluir dados clínicos reais, tokens ou segredos num artefacto público do GitHub.
+
+## 6. Formulários e documentos — auditoria e testes
+
+Esta frente cobre os formulários clínicos, administrativos e financeiros do Dashboard, sem substituir avaliação profissional nem alterar dados clínicos em produção durante a auditoria.
+
+### Formulários a inventariar e validar
+
+- Ficha de pré-atendimento / triagem.
+- Ficha de avaliação e diagnóstico clínico, com acesso limitado aos profissionais autorizados.
+- Acompanhamento clínico e evolução.
+- Formulário ABC e acompanhamento ABA, com acesso familiar limitado aos registos expressamente autorizados.
+- Registos de consulta e encaminhamento por especialidade.
+- Consentimentos e autorizações do responsável, incluindo autorização para partilha de documentos.
+- Formulários administrativos: pacientes/famílias, profissionais, equipas, agendamentos e recrutamento, conforme existam no Dashboard.
+- Formulários financeiros: faturação, pagamentos, recibos, notas de crédito/débito e dados fiscais.
+
+### Documentos a inventariar e validar
+
+- Relatório de avaliação, plano de intervenção e relatório de acompanhamento.
+- Ficha clínica e resumo de consulta.
+- Documento de consentimento/autorização.
+- Fatura, recibo, nota de crédito/débito e exportação SAF-T.
+- PDF para impressão, com cabeçalho/rodapé CIADI, identificação necessária, data, paginação e espaço de assinatura quando aplicável.
+- Cópia digital partilhada por e-mail ou WhatsApp apenas após autorização explícita e validação do destinatário.
+
+### Testes de aceitação
+
+- Cada formulário guarda, consulta e atualiza o registo correto, sem duplicação inesperada.
+- Campos obrigatórios, formatos, datas e relações com paciente, responsável, profissional, especialidade e agendamento são validados.
+- A autorização é verificada no servidor; esconder um botão no frontend não conta como controlo de acesso.
+- Paciente/família não consegue abrir fichas clínicas de terceiros nem campos internos reservados ao profissional.
+- Profissional só cria/consulta documentos dos pacientes e atendimentos que lhe estão atribuídos.
+- PDF/ impressão mantém os dados corretos e não inclui campos internos indevidos.
+- E-mail/WhatsApp não envia automaticamente sem confirmação do utilizador; erros de envio são apresentados sem expor dados clínicos em logs.
+- Documentos emitidos mantêm histórico, data, autor e ligação ao registo de origem; correções financeiras usam estorno/documento retificativo em vez de apagar o histórico.
+- Anexos são armazenados em bucket privado, com políticas de acesso testadas e links temporários quando apropriado.
+- Testar criação, leitura, edição, atualização, impressão, download e falhas de rede em cada perfil autorizado.
+
+### Entregável necessário antes de corrigir
+
+Criar uma matriz **formulário/documento × perfil × ação** (ver, criar, editar, assinar, imprimir, descarregar, partilhar e eliminar/retificar). Nenhuma permissão de eliminação ou partilha deve ser presumida. Mapear cada formulário às tabelas, funções, vistas, buckets e páginas que o utilizam antes de modificar código ou políticas.
 
 ## Critério de conclusão
 
