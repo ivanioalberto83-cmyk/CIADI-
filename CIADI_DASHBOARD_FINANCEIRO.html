@@ -168,6 +168,13 @@ async function viewATRecord(kind,id){
     if(r.dados_json?.tipo==="habilidades"){const o=await sb.from("ciadi_at_registos_objetivos").select("*").eq("sessao_id",id).maybeSingle();if(o.data)fields.push(["Métrica",o.data.metrica],["Alvo",o.data.alvo],["Oportunidades",o.data.oportunidades],["Respostas independentes",o.data.respostas_independentes],["Respostas com ajuda",o.data.respostas_com_ajuda]);}
     if(r.dados_json?.tipo==="incidente"){const i=await sb.from("ciadi_at_incidentes").select("*").eq("sessao_id",id).maybeSingle();if(i.data)fields.push(["Tipo de incidente",i.data.tipo],["Gravidade",i.data.gravidade],["Descrição",i.data.descricao],["Resposta adotada",i.data.resposta_adotada],["Encaminhado para",i.data.encaminhado_para]);}
   }
+  if(!isManager){
+    const [prCheck,asCheck]=await Promise.all([sb.from("profissionais").select("id,perfil_id").eq("ativo",true),sb.from("ciadi_atribuicoes_at").select("profissional_id,paciente_id,supervisor_profissional_id,ativo,permissoes").eq("ativo",true)]);
+    if(prCheck.error||asCheck.error){toast((prCheck.error||asCheck.error).message);return;}
+    const mineCheck=(prCheck.data||[]).find(p=>p.perfil_id===me.id);
+    const canRead=(asCheck.data||[]).some(a=>a.paciente_id===r.paciente_id&&a.ativo!==false&&(a.profissional_id===mineCheck?.id||a.supervisor_profissional_id===mineCheck?.id)&&(!a.permissoes||a.permissoes.consultar_acompanhamento!==false));
+    if(!canRead){toast("Sem permissão para consultar este registo clínico.");return;}
+  }
   const ins=await sb.from("instituicao").select("logo_url").limit(1).maybeSingle();logo=ins.data?.logo_url||"";
   fields=fields.filter(x=>x[1]!==null&&x[1]!==undefined&&x[1]!=="").map(x=>({label:String(x[0]),value:String(x[1])}));
   window.__ciadiATPreview={title,patient,professional,date,state,fields,logo};
