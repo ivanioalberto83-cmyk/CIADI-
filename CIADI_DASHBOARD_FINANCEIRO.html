@@ -76,11 +76,24 @@ async function ensureATProfessional(profissionalId){
   return q.data;
 }
 async function openATForm(tipo){
-  if(!['admin','gestor'].includes(profile?.tipo) && !myOwnATAccess()) { toast('Acesso à área A.T. não autorizado.'); return; }
-  const [pRes,prRes]=await Promise.all([sb.from('pacientes').select('id,nome_completo').eq('ativo',true).order('nome_completo'),sb.from('profissionais').select('id,nome_completo,registro_profissional,eh_at,ativo').eq('ativo',true).order('nome_completo')]);
-  if(pRes.error||prRes.error)throw(pRes.error||prRes.error);
-  const patients=pRes.data||[],pros=prRes.data||[];
-  if(!patients.length){toast('Cadastre primeiro um paciente ativo.');return;}
+  const isManager=['admin','gestor'].includes(profile?.tipo);
+  if(!isManager && !myOwnATAccess()) { toast('Acesso à área A.T. não autorizado.'); return; }
+  // Carregar estado e atribuições separadamente para diagnosticar selecções vazias.
+  const [pRes,prRes,asRes]=await Promise.all([
+    sb.from('pacientes').select('id,nome_completo,ativo').order('nome_completo'),
+    sb.from('profissionais').select('id,nome_completo,registro_profissional,eh_at,ativo,perfil_id').eq('ativo',true).order('nome_completo'),
+    sb.from('ciadi_atribuicoes_at').select('profissional_id,paciente_id,ativo,permissoes').eq('ativo',true)
+  ]);
+  if(pRes.error||prRes.error||asRes.error)throw(pRes.error||prRes.error||asRes.error);
+  const allPatients=pRes.data||[],allPros=prRes.data||[],assignments=asRes.data||[];
+  const activePatients=allPatients.filter(p=>p.ativo===true||p.ativo==='true'||p.ativo===1);
+  const myProf=allPros.find(p=>p.perfil_id===me.id);
+  const pros=isManager?allPros:(myProf?[myProf]:[]);
+  const permittedAssignments=assignments.filter(a=>a.profissional_id===myProf?.id&&a.paciente_id&&(!a.permissoes||a.permissoes.registar_acompanhamento!==false));
+  const allowedIds=new Set(permittedAssignments.map(a=>a.paciente_id));
+  const patients=isManager?activePatients:activePatients.filter(p=>allowedIds.has(p.id));
+  if(!patients.length){toast(isManager?'Não foram encontrados pacientes activos. Verifique o estado dos registos e as permissões de leitura.':'Não há pacientes activos atribuídos ao seu perfil de A.T. Peça ao gestor para confirmar a atribuição e a permissão de registo.');return;}
+  if(!pros.length){toast('O seu perfil ainda não está associado a um profissional activo. Peça ao gestor para verificar o cadastro.');return;}
   const title={diario:'Novo Registo Diário A.T.',comportamento:'Novo Registo de Comportamento / ABC',habilidades:'Novo Registo de Habilidades',incidente:'Novo Incidente A.T.'}[tipo];
   let extra='';
   if(tipo==='diario') extra=`${textareaField('objetivo_sessao','Objetivo da sessão','',true)}${textareaField('atividades','Atividades realizadas','',true)}${textareaField('progresso_observado','Progresso observado','',true)}${textareaField('recomendacoes_familia','Recomendações à família','',true)}${textareaField('observacoes','Observações','',true)}`;
