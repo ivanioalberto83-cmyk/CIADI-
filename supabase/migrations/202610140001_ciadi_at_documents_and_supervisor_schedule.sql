@@ -29,14 +29,16 @@ create policy ciadi_at_docs_read_assigned on public.ciadi_at_documentos_clinicos
 );
 drop policy if exists ciadi_at_docs_insert_assigned on public.ciadi_at_documentos_clinicos;
 create policy ciadi_at_docs_insert_assigned on public.ciadi_at_documentos_clinicos for insert to authenticated with check (
-  (ciadi_is_management() or (criado_por=auth.uid() and exists (
-    select 1 from public.ciadi_atribuicoes_at a
-    join public.profissionais pr on (pr.id=a.profissional_id or pr.id=a.supervisor_profissional_id)
-    where a.id=ciadi_at_documentos_clinicos.atribuicao_id
-      and a.paciente_id=ciadi_at_documentos_clinicos.paciente_id
-      and a.ativo=true and pr.perfil_id=auth.uid() and pr.ativo=true
-      and coalesce((a.permissoes->>'consultar_acompanhamento')::boolean,true)=true
-  ))
+  criado_por=auth.uid() and (
+    ciadi_is_management() or exists (
+      select 1 from public.ciadi_atribuicoes_at a
+      join public.profissionais pr on (pr.id=a.profissional_id or pr.id=a.supervisor_profissional_id)
+      where a.id=ciadi_at_documentos_clinicos.atribuicao_id
+        and a.paciente_id=ciadi_at_documentos_clinicos.paciente_id
+        and a.ativo=true and pr.perfil_id=auth.uid() and pr.ativo=true
+        and coalesce((a.permissoes->>'consultar_acompanhamento')::boolean,true)=true
+    )
+  )
 );
 drop policy if exists ciadi_at_docs_update_assigned on public.ciadi_at_documentos_clinicos;
 create policy ciadi_at_docs_update_assigned on public.ciadi_at_documentos_clinicos for update to authenticated using (
