@@ -31,10 +31,14 @@
     ],
     "publish": [{ "provider": "github", "owner": "ivanioalberto83-cmyk", "repo": "CIADI-" }],
     "win": {
+      "icon": "ciadi.ico",
       "target": [{ "target": "nsis", "arch": ["x64"] }],
       "artifactName": "CIADI-Setup-${version}.${ext}"
     },
     "nsis": {
+      "installerIcon": "ciadi.ico",
+      "uninstallerIcon": "ciadi.ico",
+      "installerHeaderIcon": "ciadi.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
