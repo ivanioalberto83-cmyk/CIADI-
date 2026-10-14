@@ -40,12 +40,12 @@ async function acompanhantesAT(){
   const [patRes, prRes, atRes] = await Promise.all([
     sb.from('pacientes').select('id,nome_completo,data_nascimento').order('nome_completo'),
     sb.from('profissionais').select('id,nome_completo,registro_profissional,especialidade_id,eh_at,ativo,perfil_id').eq('ativo',true).order('nome_completo'),
-    sb.from('ciadi_atribuicoes_at').select('id,profissional_id,paciente_id,agendamento_id,data_inicio,data_fim,ativo,permissoes,created_at').eq('ativo',true).order('created_at',{ascending:false})
+    sb.from('ciadi_atribuicoes_at').select('id,profissional_id,paciente_id,supervisor_profissional_id,agendamento_id,data_inicio,data_fim,ativo,permissoes,created_at').eq('ativo',true).order('created_at',{ascending:false})
   ]);
   if(patRes.error) throw patRes.error; if(prRes.error) throw prRes.error; if(atRes.error) throw atRes.error;
   const patients=patRes.data||[], pros=prRes.data||[], assignments=atRes.data||[];
   const myProf=pros.find(x=>x.perfil_id===me.id);
-  const allowedAssignments=isManager?assignments:assignments.filter(a=>a.profissional_id===myProf?.id);
+  const allowedAssignments=isManager?assignments:assignments.filter(a=>a.profissional_id===myProf?.id||a.supervisor_profissional_id===myProf?.id);
   const byP=Object.fromEntries(patients.map(x=>[x.id,x])); const byPr=Object.fromEntries(pros.map(x=>[x.id,x]));
   const atPros=pros.filter(x=>x.eh_at===true || x.perfil_id===me.id);
   document.getElementById('content').innerHTML=`
@@ -124,9 +124,19 @@ async function saveATAssignment(){
 
 async function atHistory(){
   if(!canAccessAT()){toast("Acesso à área A.T. não autorizado.");return;}
+  const isManager=["admin","gestor"].includes(profile?.tipo);
+  const [pr,ar]=await Promise.all([
+    sb.from("profissionais").select("id,perfil_id").eq("ativo",true),
+    sb.from("ciadi_atribuicoes_at").select("profissional_id,paciente_id,supervisor_profissional_id,ativo,permissoes").eq("ativo",true)
+  ]);
+  if(pr.error||ar.error){toast((pr.error||ar.error).message);return;}
+  const myProf=(pr.data||[]).find(p=>p.perfil_id===me.id);
+  const permitted=(ar.data||[]).filter(a=>(isManager||a.profissional_id===myProf?.id||a.supervisor_profissional_id===myProf?.id)&&a.paciente_id&&a.ativo!==false&&(!a.permissoes||a.permissoes.consultar_acompanhamento!==false));
+  const patientIds=[...new Set(permitted.map(a=>a.paciente_id))];
+  if(!patientIds.length){tablePage("Histórico A.T.","Não existem registos atribuídos ou supervisionados para este perfil.",'<div class="card p-5">Peça ao responsável do CIADI para verificar as atribuições e permissões de consulta.</div>');return;}
   const [a,s]=await Promise.all([
-    sb.from("ciadi_acompanhamentos_diarios_aba").select("id,paciente_id,data_registo,data_relatorio,tipo_sessao,estado,pacientes(nome_completo)").order("created_at",{ascending:false}).limit(100),
-    sb.from("ciadi_at_sessoes").select("id,paciente_id,data_sessao,data_relatorio,estado,dados_json,pacientes(nome_completo)").order("created_at",{ascending:false}).limit(100)
+    sb.from("ciadi_acompanhamentos_diarios_aba").select("id,paciente_id,data_registo,data_relatorio,tipo_sessao,estado,pacientes(nome_completo)").in("paciente_id",patientIds).order("created_at",{ascending:false}).limit(100),
+    sb.from("ciadi_at_sessoes").select("id,paciente_id,data_sessao,data_relatorio,estado,dados_json,pacientes(nome_completo)").in("paciente_id",patientIds).order("created_at",{ascending:false}).limit(100)
   ]);
   if(a.error||s.error){tablePage("Histórico A.T.","Erro ao carregar registos.",'<div class="card p-5 text-red-600">'+esc((a.error||s.error).message)+"</div>");return;}
   const rows=[...(a.data||[]).map(r=>({id:r.id,k:"aba",d:r.data_relatorio||r.data_registo,p:r.pacientes?.nome_completo||"—",t:r.tipo_sessao==="comportamento"?"Comportamento / ABC":"Registo diário",e:r.estado})),...(s.data||[]).map(r=>({id:r.id,k:"sessao",d:r.data_relatorio||r.data_sessao,p:r.pacientes?.nome_completo||"—",t:({habilidades:"Habilidades",incidente:"Incidente",diario:"Registo diário",comportamento:"Comportamento / ABC"})[r.dados_json?.tipo]||"Sessão A.T.",e:r.estado}))].sort((x,y)=>String(y.d||"").localeCompare(String(x.d||"")));
@@ -134,6 +144,14 @@ async function atHistory(){
 }
 async function viewATRecord(kind,id){
   if(!canAccessAT()){toast("Acesso à área A.T. não autorizado.");return;}
+  const isManager=["admin","gestor"].includes(profile?.tipo);
+  if(!isManager){
+    const [pr,ar]=await Promise.all([sb.from("profissionais").select("id,perfil_id").eq("ativo",true),sb.from("ciadi_atribuicoes_at").select("profissional_id,paciente_id,supervisor_profissional_id,ativo,permissoes").eq("ativo",true)]);
+    if(pr.error||ar.error){toast((pr.error||ar.error).message);return;}
+    const mine=(pr.data||[]).find(p=>p.perfil_id===me.id);
+    const allowed=(ar.data||[]).some(a=>a.paciente_id&&a.ativo!==false&&(a.profissional_id===mine?.id||a.supervisor_profissional_id===mine?.id)&&(!a.permissoes||a.permissoes.consultar_acompanhamento!==false));
+    if(!allowed){toast("Este perfil não tem autorização para consultar os registos desta criança.");return;}
+  }
   let r,patient="—",professional="—",date="",title="Registo A.T.",state="registado",fields=[],logo="";
   if(kind==="aba"){
     const q=await sb.from("ciadi_acompanhamentos_diarios_aba").select("*").eq("id",id).single();if(q.error)return toast(q.error.message);r=q.data;
