@@ -27,6 +27,32 @@ jobs:
           }
           Copy-Item $source "ciadi-windows/index.html" -Force
 
+      - name: Criar ícone Windows a partir do logótipo CIADI
+        shell: pwsh
+        run: |
+          $html = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
+          $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
+          if (!$match.Success) {
+            throw "Não foi encontrado um logótipo PNG incorporado no dashboard CIADI."
+          }
+          $png = [Convert]::FromBase64String($match.Groups[1].Value)
+          $ico = New-Object byte[] (22 + $png.Length)
+          $ico[0] = 0
+          $ico[1] = 0
+          $ico[2] = 1
+          $ico[3] = 0
+          $ico[4] = 1
+          $ico[5] = 0
+          $ico[6] = 0
+          $ico[7] = 0
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]1), 0, $ico, 10, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]32), 0, $ico, 12, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]$png.Length), 0, $ico, 14, 4)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]22), 0, $ico, 18, 4)
+          [Buffer]::BlockCopy($png, 0, $ico, 22, $png.Length)
+          [IO.File]::WriteAllBytes("ciadi-windows/ciadi.ico", $ico)
+          Write-Host "Ícone CIADI criado a partir do logótipo oficial incorporado no dashboard."
+
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
