@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - 'audit/formularios-ciadi-*'
     tags:
       - 'ciadi-v*'
 
@@ -21,7 +22,7 @@ jobs:
       - name: Confirmar dashboard de origem
         shell: pwsh
         run: |
-          $source = "CIADI_DASHBOARD_FINANCEIRO.html"
+          $source = "index.html"
           if (!(Test-Path $source)) {
             throw "Falta o ficheiro '$source' na raiz do repositório. Carregue o dashboard financeiro CIADI para o GitHub e volte a executar."
           }
@@ -30,7 +31,7 @@ jobs:
       - name: Criar ícone Windows a partir do logótipo CIADI
         shell: pwsh
         run: |
-          $html = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
+          $html = Get-Content "index.html" -Raw
           $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
           if (!$match.Success) {
             throw "Não foi encontrado um logótipo PNG incorporado no dashboard CIADI."
