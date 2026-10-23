@@ -31,3 +31,14 @@
 
 ## Limitação conhecida
 Esta alteração usa o diálogo de impressão do navegador/sistema operativo para gerar PDF. Não implementa ainda descarregamento direto de um ficheiro PDF por JavaScript. Esse requisito só deve ser considerado concluído após validar a solução funcional no navegador e decidir se é necessária uma biblioteca PDF local, com dependências e licenças revistas.
+
+
+## Identidade visual CIADI — documentação
+
+- [x] Logótipo oficial incorporado na pré-visualização A4 de faturação, substituindo o texto simples “CIADI”.
+- [x] Função comum `printBase()` usa o mesmo logótipo incorporado para comprovativos, fichas clínicas, triagem e outros documentos encaminhados por essa função.
+- [x] Cabeçalho documental padronizado com logótipo, nome institucional, contactos e linha institucional laranja.
+- [ ] Teste visual real em navegador e PDF exportado continua pendente.
+- [ ] RH e Aprovisionamento: os módulos não constam do menu nem da implementação atual deste Dashboard. Não se deve afirmar que os documentos desses módulos já foram alterados. Quando forem implementados, devem reutilizar o mesmo cabeçalho e `CIADI_LOGO_DATA_URI`, sem duplicar ou substituir o logótipo por texto.
+
+**Regra para os próximos módulos:** toda a documentação imprimível/exportável (faturas, faturas-recibo, recibos, notas de crédito, formulários clínicos, RH e aprovisionamento) deve incluir o logótipo CIADI, identificação institucional, contactos, data de emissão e paginação adequada. Em documentos clínicos, manter a indicação de confidencialidade quando aplicável.
