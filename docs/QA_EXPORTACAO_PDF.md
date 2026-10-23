@@ -42,3 +42,12 @@ Esta alteração usa o diálogo de impressão do navegador/sistema operativo par
 - [ ] RH e Aprovisionamento: os módulos não constam do menu nem da implementação atual deste Dashboard. Não se deve afirmar que os documentos desses módulos já foram alterados. Quando forem implementados, devem reutilizar o mesmo cabeçalho e `CIADI_LOGO_DATA_URI`, sem duplicar ou substituir o logótipo por texto.
 
 **Regra para os próximos módulos:** toda a documentação imprimível/exportável (faturas, faturas-recibo, recibos, notas de crédito, formulários clínicos, RH e aprovisionamento) deve incluir o logótipo CIADI, identificação institucional, contactos, data de emissão e paginação adequada. Em documentos clínicos, manter a indicação de confidencialidade quando aplicável.
+
+
+## Correção adicional — bloqueio de pop-up
+
+- [x] A janela de impressão da faturação é aberta sincronamente no clique do utilizador, antes das consultas ao Supabase.
+- [x] A janela previamente aberta é reutilizada por `printBase()` para escrever o documento depois de os dados serem carregados.
+- [x] Em caso de erro na consulta, a janela apresenta uma mensagem em vez de ficar em branco.
+- [x] Verificações estáticas do código confirmam a abertura antecipada e a passagem da janela para a função de impressão.
+- [ ] O comportamento real ainda precisa de teste em Chrome/Windows com dados fictícios; esta verificação não foi possível através da inspeção do repositório.
