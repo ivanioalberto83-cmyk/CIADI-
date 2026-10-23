@@ -51,3 +51,6 @@ Esta alteração usa o diálogo de impressão do navegador/sistema operativo par
 - [x] Em caso de erro na consulta, a janela apresenta uma mensagem em vez de ficar em branco.
 - [x] Verificações estáticas do código confirmam a abertura antecipada e a passagem da janela para a função de impressão.
 - [ ] O comportamento real ainda precisa de teste em Chrome/Windows com dados fictícios; esta verificação não foi possível através da inspeção do repositório.
+
+- [x] A pré-visualização dos documentos clínicos também abre a janela no clique, antes da consulta assíncrona, e mantém o conteúdo original do documento.
+- [ ] O botão de impressão das avaliações clínicas usa atualmente `window.print()` na página inteira; requer correção separada para imprimir apenas a avaliação.
