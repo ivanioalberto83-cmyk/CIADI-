@@ -15,6 +15,21 @@ function createWindow() {
   });
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // O dashboard usa window.open('', '_blank') para preparar documentos e imprimir.
+    // Permitir apenas a janela vazia local; não permitir que pop-ups abram sites externos dentro do Electron.
+    if (url === 'about:blank' || url === '') {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 900, height: 1100,
+          webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true
+          }
+        }
+      };
+    }
     if (url.startsWith('https://') || url.startsWith('http://')) {
       dialog.showMessageBox(mainWindow, {
         type: 'question', title: 'Abrir ligação externa',
