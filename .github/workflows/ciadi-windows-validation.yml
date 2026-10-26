@@ -1,0 +1,49 @@
+name: CIADI Windows - validação gratuita
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-windows-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    runs-on: windows-latest
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ciadi-windows/package-lock.json
+
+      - name: Validar sintaxe JavaScript
+        working-directory: ciadi-windows
+        shell: pwsh
+        run: |
+          node --check main.cjs
+          node --check preload.cjs
+
+      - name: Instalar dependências
+        working-directory: ciadi-windows
+        run: npm install --no-audit
+
+      - name: Compilar instalador de teste (sem publicar)
+        working-directory: ciadi-windows
+        run: npm run dist:win -- --publish never
+
+      - name: Guardar Setup.exe de homologação
+        uses: actions/upload-artifact@v4
+        with:
+          name: CIADI-Windows-Setup-homologacao
+          path: ciadi-windows/release/CIADI-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 7
