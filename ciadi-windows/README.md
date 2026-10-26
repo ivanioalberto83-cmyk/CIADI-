@@ -4,7 +4,7 @@ Este diretório empacota o dashboard existente como aplicação Windows (Electro
 
 ## Fonte da aplicação
 - A raiz do repositório deve conter `CIADI_DASHBOARD_FINANCEIRO.html`.
-- O workflow de compilação copia esse ficheiro para `ciadi-windows/index.html) sem editar o original.
+- O workflow de compilação copia esse ficheiro para `ciadi-windows/index.html` sem editar o original.
 - Não substitua nem reorganize a estrutura do dashboard para publicar uma atualização. Faça alterações funcionais no ficheiro original, teste-as e mantenha uma cópia/commit da versão anterior.
 
 ## Compilação e validação gratuitas
