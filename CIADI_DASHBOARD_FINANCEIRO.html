@@ -128,7 +128,7 @@ async function sosAlerts(){
     list.innerHTML=rows.map(r=>{
       const when=r.created_at||r.createdAt||r.data_hora||r.created_on||'';
       const lat=Number(r.latitude), lon=Number(r.longitude);
-      const hasLocation=r.localizacao_autorizada===true&&Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180;
+      const hasLocation=r.localizacao_autorizada===true&&r.latitude!==null&&r.latitude!==undefined&&r.longitude!==null&&r.longitude!==undefined&&Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180;
       const level=String(r.nivel_emergencia||r.severidade||'URGENTE').toUpperCase();
       const badge=level==='CRITICO'?'bg-red-100 text-red-800':level==='ATENCAO'?'bg-amber-100 text-amber-800':'bg-orange-100 text-orange-800';
       const id=String(r.id||'').slice(0,8);
