@@ -2,9 +2,9 @@
 
 ## Alteração desta branch
 
-Foi acrescentado ao Dashboard um módulo **Alertas SOS** que consulta `public.ciadi_sos_alertas`, apresenta os alertas que a sessão autenticada está autorizada a ler e tenta atualizar a lista através do Supabase Realtime. Existe também o botão **Atualizar agora** como recuperação manual.
+Foram acrescentados ao Dashboard dois módulos de receção: **Alertas SOS**, que consulta `public.ciadi_sos_alertas` e tenta atualizar a lista através do Supabase Realtime, e **Pedidos de triagem (site)**, que lê os pedidos submetidos pelo formulário institucional na tabela `agendamentos_aba`. Ambos oferecem atualização manual.
 
-O módulo está restrito na interface a perfis `admin`, `gestor` e `operador`; a autorização real continua a depender de RLS e permissões no banco de dados. A interface não altera o estado do alerta nem afirma que WhatsApp/email foram entregues. A localização só é ligada ao mapa se o registo indicar consentimento/autorização e tiver coordenadas válidas.
+A vista SOS está restrita na interface a perfis `admin`, `gestor` e `operador`; a fila de triagem do site está restrita a `admin` e `gestor`. A autorização real continua a depender de RLS e permissões no banco de dados. A interface não altera o estado do alerta nem afirma que WhatsApp/email foram entregues. A localização só é ligada ao mapa se o registo indicar consentimento/autorização e tiver coordenadas válidas.
 
 ## Projeto partilhado
 
