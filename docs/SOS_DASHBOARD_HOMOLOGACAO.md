@@ -11,5 +11,5 @@
 ## Restrições
 - Não altera `main`, não aplica migrações à base de dados e não envia mensagens reais.
 - O Realtime só funciona depois da migração aditiva ser revista e aplicada numa janela aprovada. Até lá, a consulta manual pode funcionar se as políticas RLS autorizarem.
-- Confirmar as políticas RLS da tabela antes de homologação; a interface não substitui autorização no banco.
+- Verificação read-only confirmou RLS activa: leitura própria ou por `ciadi_is_management()` (perfil activo `admin`/`gestor`). A interface mantém a restrição visual e a autorização efectiva continua no banco.
 - Não considerar pronto para produção até validar os perfis, RLS, localização autorizada e eventos Realtime.
