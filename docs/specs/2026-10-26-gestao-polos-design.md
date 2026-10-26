@@ -16,7 +16,7 @@ Esta etapa é documental. Não cria tabelas, não altera registos, não aplica m
 | Polo | Código indicado | Localização | Confirmação |
 |---|---|---|---|
 | POLO TALATONA | 1012 | TALATONA RUA DO CENTRO LOGÍSTICO | Nome, código e localização fornecidos |
-| POLO JARDIM DE ROSAS | Por confirmar | Condomínio Jardim de Rosas, Talatona, Luanda | Código e localização operacional exacta por confirmar |
+| POLO JARDIM DE ROSAS | 1013 | Condomínio Jardim de Rosas, Talatona, Luanda | Código confirmado pelo utilizador; localização operacional por confirmar |
 
 A auditoria de esquema identificou `public.finance_centros_custo` (RLS ativo, um registo) e `public.finance_despesas` (RLS ativo, campo textual `centro_custo`). As tabelas operacionais examinadas — incluindo `agendamentos`, `ciadi_triagens`, `ciadi_sos_alertas`, `ciadi_at_sessoes`, `pacientes` e `profissionais` — não apresentavam um campo de polo na listagem de colunas consultada. Os dados completos do único centro de custo e as políticas RLS detalhadas ainda não foram confirmados. Não se deve presumir que o centro existente corresponde a qualquer dos polos.
 
@@ -84,7 +84,7 @@ A opção 1 é a recomendação de desenho, sujeita a revisão do esquema comple
 ## 9. Condições por resolver antes da migração
 
 1. Qual é o nome e o código do centro de custo actualmente existente, e a que finalidade corresponde?
-2. Qual é o código definitivo do POLO JARDIM DE ROSAS?
+2. Confirmar a localização operacional exacta do POLO JARDIM DE ROSAS.
 3. Um polo deve ter exactamente um centro de custo principal ou pode relacionar-se com vários centros de custo?
 4. Que funções/papéis podem atribuir utilizadores e profissionais a polos?
 5. Que tabelas operacionais devem receber a associação ao polo na primeira fase?
