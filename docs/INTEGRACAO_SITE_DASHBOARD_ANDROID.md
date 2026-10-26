@@ -2,7 +2,7 @@
 
 ## Alteração desta branch
 
-Foram acrescentados ao Dashboard dois módulos de receção: **Alertas SOS**, que consulta `public.ciadi_sos_alertas` e tenta atualizar a lista através do Supabase Realtime, e **Pedidos de triagem (site)**, que lê os pedidos submetidos pelo formulário institucional na tabela `agendamentos_aba`. Ambos oferecem atualização manual.
+Foram acrescentados ao Dashboard dois módulos de receção: **Alertas SOS**, que consulta `public.ciadi_sos_alertas` e tenta atualizar a lista através do Supabase Realtime, e **Pedidos de triagem (site)**, que lê a fila `ciadi_triagens`, alimentada pela RPC validada `ciadi_registrar_triagem_publica` do site institucional. Ambos oferecem atualização manual.
 
 A vista SOS está restrita na interface a perfis `admin`, `gestor` e `operador`; a fila de triagem do site está restrita a `admin` e `gestor`. A autorização real continua a depender de RLS e permissões no banco de dados. A interface não altera o estado do alerta nem afirma que WhatsApp/email foram entregues. A localização só é ligada ao mapa se o registo indicar consentimento/autorização e tiver coordenadas válidas.
 
