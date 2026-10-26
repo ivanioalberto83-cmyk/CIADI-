@@ -18,7 +18,7 @@
 <script>
 const SUPABASE_URL='https://egpkkttbcaukqnnxyhjv.supabase.co';
 const SUPABASE_KEY='sb_publishable_SSA6B6gfnaUxKhOzReE6HQ_utqQRebz';
-let sb=null, me=null, profile=null, current='overview';
+let sb=null, me=null, profile=null, current='overview', sosChannel=null;
 function initSupabase(){
   if(sb) return sb;
   if(!window.supabase || typeof window.supabase.createClient!=='function') throw new Error('A biblioteca do Supabase não foi carregada. Verifique a ligação à Internet.');
@@ -26,14 +26,14 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu=[['overview','Visão geral'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
+const menu=[['overview','Visão geral'],['sos','🚨 Emergências SOS'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
 function visibleMenu(){ return menu.filter(([id])=> id!=='acompanhantes_at' || canAccessAT()); }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosDashboard(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
   const isManager=['admin','gestor'].includes(profile?.tipo);
@@ -705,6 +705,44 @@ function printTriage(r){
       <div class="field full"><div class="label">Informações adicionais</div><div class="value">${esc(r.informacoes_adicionais||'Não informado')}</div></div>
     </div></div>
     <div class="signature"><div class="line">Responsável CIADI</div><div class="line">Profissional</div></div>`)
+}
+
+/* ===== CIADI SOS — leitura segura em homologação ===== */
+async function sosDashboard(setupRealtime=true){
+  const c=document.getElementById('content');
+  if(!['admin','gestor'].includes(profile?.tipo)){
+    c.innerHTML='<div class="card p-6"><h2 class="text-xl font-black">Acesso restrito</h2><p class="text-slate-600 mt-2">A área de emergências está disponível apenas para perfis autorizados de administração e gestão.</p></div>';
+    return;
+  }
+  if(setupRealtime && !sosChannel){
+    sosChannel=sb.channel('ciadi-sos-dashboard-homologacao')
+      .on('postgres_changes',{event:'*',schema:'public',table:'ciadi_sos_alertas'},()=>{
+        if(current==='sos') sosDashboard(false);
+      })
+      .subscribe((status)=>{
+        if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+          const st=document.getElementById('sosRealtimeState');
+          if(st) st.textContent='Atualização em tempo real indisponível — use Atualizar.';
+        }else if(status==='SUBSCRIBED'){
+          const st=document.getElementById('sosRealtimeState');
+          if(st) st.textContent='Ligação em tempo real activa.';
+        }
+      });
+  }
+  c.innerHTML='<div class="card p-6">A carregar alertas SOS...</div>';
+  const {data,error}=await sb.from('ciadi_sos_alertas')
+    .select('id,perfil_id,paciente_id,tipo,mensagem,latitude,longitude,localizacao_autorizada,estado,criado_em,recebido_em,encerrado_em,atendido_por,observacoes')
+    .order('criado_em',{ascending:false}).limit(100);
+  if(error){
+    c.innerHTML=`<div class="mb-5"><h2 class="text-3xl font-black">🚨 Emergências SOS</h2><p class="text-slate-500 mt-1">Alertas registados no CIADI.</p></div><div class="card p-5 border border-red-200"><b>Não foi possível consultar os alertas.</b><p class="text-sm mt-2">${esc(error.message)}</p><button onclick="sosDashboard()" class="mt-4 border rounded-xl px-4 py-2">Tentar novamente</button></div>`;
+    return;
+  }
+  const rows=data||[];
+  const active=rows.filter(r=>!['encerrado','fechado','resolvido','concluido'].includes(String(r.estado||'').toLowerCase())).length;
+  c.innerHTML=`<div class="flex flex-wrap justify-between items-center gap-3 mb-5"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Resposta operacional</span><h2 class="text-3xl font-black mt-1">🚨 Emergências SOS</h2><p class="text-slate-500">Alertas recentes registados no sistema. Os detalhes obedecem às permissões da sessão e às políticas de acesso.</p></div><button onclick="sosDashboard(false)" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">↻ Atualizar</button></div>
+  <div class="grid sm:grid-cols-3 gap-4 mb-5"><div class="card p-5"><div class="text-sm text-slate-500">Alertas listados</div><div class="text-3xl font-black mt-1">${rows.length}</div></div><div class="card p-5"><div class="text-sm text-slate-500">Em aberto / activos</div><div class="text-3xl font-black mt-1 text-red-600">${active}</div></div><div class="card p-5"><div class="text-sm text-slate-500">Actualização</div><div id="sosRealtimeState" class="text-sm font-semibold mt-2">A ligar ao tempo real…</div></div></div>
+  ${rows.length?`<div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left text-slate-500"><th class="p-3">Data/hora</th><th class="p-3">Tipo</th><th class="p-3">Estado</th><th class="p-3 min-w-64">Mensagem</th><th class="p-3">Localização</th><th class="p-3">Referência</th></tr></thead><tbody>${rows.map(r=>{const authorized=r.localizacao_autorizada===true&&r.latitude!==null&&r.longitude!==null;const mapUrl=authorized?'https://maps.google.com/?q='+encodeURIComponent(String(r.latitude)+','+String(r.longitude)):'';const state=String(r.estado||'aberto');const critical=/crit|urgente|emerg/i.test(String(r.tipo||''));return `<tr class="border-b align-top hover:bg-orange/5"><td class="p-3 whitespace-nowrap">${esc(r.criado_em?new Date(r.criado_em).toLocaleString('pt-PT',{timeZone:'Africa/Luanda'}):'—')}</td><td class="p-3"><span class="inline-flex rounded-full px-2 py-1 font-bold ${critical?'bg-red-100 text-red-700':'bg-orange-100 text-orange-800'}">${esc(r.tipo||'SOS')}</span></td><td class="p-3"><span class="font-semibold">${esc(state)}</span></td><td class="p-3 max-w-lg whitespace-pre-wrap break-words">${esc(String(r.mensagem||'Sem descrição').slice(0,700))}</td><td class="p-3">${authorized?`<a class="text-orange underline font-bold" target="_blank" rel="noopener noreferrer" href="${mapUrl}">Ver mapa autorizado</a>`:'Não partilhada'}</td><td class="p-3 font-mono text-xs">${esc(String(r.id||'').slice(0,8))}</td></tr>`}).join('')}</tbody></table></div>`:'<div class="card p-8 text-center"><div class="text-4xl">🛟</div><h3 class="font-black text-xl mt-3">Nenhum alerta encontrado</h3><p class="text-slate-500 mt-2">Os novos alertas aparecerão aqui quando a tabela estiver acessível.</p></div>'}
+  <p class="text-xs text-slate-500 mt-4">A lista é apenas de consulta nesta fase. Não envia WhatsApp, SMS ou e-mail e não altera o estado dos alertas.</p>`;
 }
 
 async function boot(){
