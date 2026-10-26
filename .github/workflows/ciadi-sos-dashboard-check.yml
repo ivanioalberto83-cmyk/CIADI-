@@ -7,11 +7,13 @@ on:
       - 'index.html'
       - 'docs/SOS_DASHBOARD_HOMOLOGACAO.md'
       - '.github/workflows/ciadi-sos-dashboard-check.yml'
+      - 'supabase/migrations/202610260001_ciadi_sos_whatsapp_realtime.sql'
   push:
     branches: [ feat/sos-dashboard-realtime-homologacao ]
     paths:
       - 'index.html'
       - '.github/workflows/ciadi-sos-dashboard-check.yml'
+      - 'supabase/migrations/202610260001_ciadi_sos_whatsapp_realtime.sql'
 
 permissions:
   contents: read
@@ -26,6 +28,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Validate additive SOS Realtime migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          SQL="supabase/migrations/202610260001_ciadi_sos_whatsapp_realtime.sql"
+          test -s "$SQL"
+          grep -Fq "pubname = 'supabase_realtime'" "$SQL"
+          grep -Fq "tablename = 'ciadi_sos_alertas'" "$SQL"
+          grep -Fqi "alter publication supabase_realtime add table public.ciadi_sos_alertas" "$SQL"
+          grep -Fqi "if not exists" "$SQL"
+          if grep -Eiq "(drop table|truncate|delete from|alter table .* drop policy|disable row level security)" "$SQL"; then
+            echo "Unsafe/destructive SQL pattern found in SOS Realtime migration" >&2
+            exit 1
+          fi
+          echo "SOS Realtime migration static checks passed."
       - name: Extract and validate inline JavaScript
         shell: bash
         run: |
