@@ -353,3 +353,14 @@ Documento: Manual do Utilizador do Software CIADI
 Versão: 1.0 (rascunho de homologação)  
 Data: 26/10/2026  
 Estado de aprovação: pendente de validação funcional e institucional  
+
+
+## 8. Documentos complementares e estado de aprovação
+
+A documentação associada a esta versão está na mesma branch de revisão:
+
+- **Base Institucional de Procedimentos (BIP), versão 0.1:** [abrir documento](../procedimentos/CIADI_BASE_INSTITUCIONAL_PROCEDIMENTOS_v0.1.md).
+- **Plano de testes de segurança de RH e Aprovisionamento:** [abrir documento](../security/2026-10-26-plano-testes-rh-aprovisionamento.md).
+
+Estes documentos são minutas para revisão. A base de procedimentos ainda requer aprovação da Direção, validação clínica/técnica, nomeação de responsáveis e confirmação dos contactos de emergência e salvaguarda. O manual deve ser considerado documento de referência em revisão até a homologação confirmar os passos no software real.
+
