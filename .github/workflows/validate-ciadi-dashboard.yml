@@ -1,0 +1,76 @@
+name: Validate CIADI dashboard integration
+
+on:
+  pull_request:
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'index.html'
+      - '.github/workflows/validate-ciadi-dashboard.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'index.html'
+      - '.github/workflows/validate-ciadi-dashboard.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Confirm entry HTML matches the dashboard source
+        run: cmp -s CIADI_DASHBOARD_FINANCEIRO.html index.html
+      - name: Check inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class ScriptExtractor(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.in_script = False
+                  self.external = False
+                  self.parts = []
+
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower() == "script":
+                      self.in_script = True
+                      self.external = any(k.lower() == "src" for k, _ in attrs)
+
+              def handle_endtag(self, tag):
+                  if tag.lower() == "script":
+                      self.in_script = False
+                      self.external = False
+                      self.parts.append("\n;\n")
+
+              def handle_data(self, data):
+                  if self.in_script and not self.external:
+                      self.parts.append(data)
+
+          parser = ScriptExtractor()
+          parser.feed(Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8"))
+          Path("/tmp/ciadi-inline.js").write_text("".join(parser.parts), encoding="utf-8")
+          PY
+          node --check /tmp/ciadi-inline.js
+      - name: Verify integration entry points and public-key safety
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
+          checks = {
+              "SOS receiver": "async function sosAlerts()" in dashboard and "ciadi_sos_alertas" in dashboard,
+              "site intake receiver": "async function siteTriageRequests()" in dashboard and "agendamentos_aba" in dashboard,
+              "navigation routes": "id==='sos'" in dashboard and "id==='pedidos_site'" in dashboard,
+              "shared Supabase project": "https://egpkkttbcaukqnnxyhjv.supabase.co" in dashboard,
+              "no service-role credential marker": "SUPABASE_SERVICE_ROLE_KEY" not in dashboard and "service_role" not in dashboard.lower(),
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
