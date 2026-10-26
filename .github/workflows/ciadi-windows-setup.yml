@@ -19,14 +19,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Confirmar dashboard de origem
+      - name: Confirmar e sincronizar dashboard de origem
         shell: pwsh
         run: |
-          $source = "index.html"
+          # Preferir o ficheiro canónico do Dashboard; aceitar index.html apenas como fallback.
+          $source = "CIADI_DASHBOARD_FINANCEIRO.html"
           if (!(Test-Path $source)) {
-            throw "Falta o ficheiro '$source' na raiz do repositório. Carregue o dashboard financeiro CIADI para o GitHub e volte a executar."
+            $source = "index.html"
+          }
+          if (!(Test-Path $source)) {
+            throw "Falta CIADI_DASHBOARD_FINANCEIRO.html (ou index.html de fallback) na raiz do repositório."
+          }
+          $html = Get-Content $source -Raw
+          if ($html.Length -lt 1000 -or $html -match 'versão completa e actualizada do site CIADI está disponível') {
+            throw "O ficheiro de origem parece ser um placeholder, não o Dashboard completo. Build cancelado."
           }
           Copy-Item $source "ciadi-windows/index.html" -Force
+          Write-Host "Dashboard de origem: $source"
 
       - name: Criar ícone Windows a partir do logótipo CIADI
         shell: pwsh
