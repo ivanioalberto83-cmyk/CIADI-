@@ -1,0 +1,47 @@
+name: Validate CIADI Dashboard SOS
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - 'docs/SOS_DASHBOARD_HOMOLOGACAO.md'
+      - '.github/workflows/ciadi-sos-dashboard-check.yml'
+  push:
+    branches: [ feat/sos-dashboard-realtime-homologacao ]
+    paths:
+      - 'index.html'
+      - '.github/workflows/ciadi-sos-dashboard-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inline-javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Extract and validate inline JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r'<script\\b[^>]*>(.*?)</script\\s*>', html, flags=re.I | re.S)
+          inline = [script for script in scripts if script.strip()]
+          if not inline:
+              raise SystemExit("No inline JavaScript found in index.html")
+          for index, script in enumerate(inline):
+              Path(f"/tmp/ciadi-dashboard-{index}.js").write_text(script, encoding="utf-8")
+          print(f"Extracted {len(inline)} inline JavaScript block(s).")
+          PY
+          for file in /tmp/ciadi-dashboard-*.js; do
+            node --check "$file"
+          done
