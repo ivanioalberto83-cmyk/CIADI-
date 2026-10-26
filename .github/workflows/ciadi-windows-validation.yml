@@ -30,6 +30,34 @@ jobs:
           node --check main.cjs
           node --check preload.cjs
 
+      - name: Preparar HTML e ícone do CIADI
+        shell: pwsh
+        run: |
+          $source = "CIADI_DASHBOARD_FINANCEIRO.html"
+          if (!(Test-Path $source)) {
+            throw "Falta o ficheiro '$source' na raiz do repositório."
+          }
+          Copy-Item $source "ciadi-windows/index.html" -Force
+          $html = Get-Content $source -Raw
+          $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
+          if (!$match.Success) {
+            throw "Não foi encontrado um logótipo PNG incorporado no dashboard CIADI."
+          }
+          $png = [Convert]::FromBase64String($match.Groups[1].Value)
+          $ico = New-Object byte[] (22 + $png.Length)
+          $ico[0] = 0
+          $ico[1] = 0
+          $ico[2] = 1
+          $ico[3] = 0
+          $ico[4] = 1
+          $ico[5] = 0
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]1), 0, $ico, 10, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]32), 0, $ico, 12, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]$png.Length), 0, $ico, 14, 4)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]22), 0, $ico, 18, 4)
+          [Buffer]::BlockCopy($png, 0, $ico, 22, $png.Length)
+          [IO.File]::WriteAllBytes("ciadi-windows/ciadi.ico", $ico)
+
       - name: Instalar dependências
         working-directory: ciadi-windows
         run: npm install --no-audit
