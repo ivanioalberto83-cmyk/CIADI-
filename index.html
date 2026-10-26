@@ -145,13 +145,13 @@ async function sosAlerts(){
     status.textContent='A atualizar alertas...';
     const {data,error}=await sb.from('ciadi_sos_alertas').select('*').limit(100);
     if(error){status.textContent='Não foi possível consultar os alertas. Verifique a política RLS e as permissões de leitura para a gestão.';list.innerHTML='<div class="border border-red-200 bg-red-50 rounded-xl p-4 text-sm text-red-800">'+esc(error.message)+'</div>';return;}
-    const rows=(data||[]).slice().sort((a,b)=>new Date(b.created_at||b.createdAt||b.data_hora||0)-new Date(a.created_at||a.createdAt||a.data_hora||0));
+    const rows=(data||[]).slice().sort((a,b)=>new Date(b.criado_em||b.created_at||b.createdAt||b.data_hora||0)-new Date(a.criado_em||a.created_at||a.createdAt||a.data_hora||0));
     if(!rows.length){status.textContent='Ligação ao Supabase concluída; não existem alertas disponíveis para este perfil.';list.innerHTML='<div class="border rounded-xl p-5 text-slate-500">Ainda não há alertas para apresentar.</div>';return;}
     const ids=[...new Set(rows.map(x=>x.paciente_id).filter(Boolean))];
     let patients={};
     if(ids.length){const pr=await sb.from('pacientes').select('id,nome_completo').in('id',ids);if(!pr.error)patients=Object.fromEntries((pr.data||[]).map(p=>[p.id,p.nome_completo]));}
     list.innerHTML=rows.map(r=>{
-      const when=r.created_at||r.createdAt||r.data_hora||r.created_on||'';
+      const when=r.criado_em||r.created_at||r.createdAt||r.data_hora||r.created_on||'';
       const lat=Number(r.latitude), lon=Number(r.longitude);
       const hasLocation=r.localizacao_autorizada===true&&r.latitude!==null&&r.latitude!==undefined&&r.longitude!==null&&r.longitude!==undefined&&Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180;
       const level=String(r.nivel_emergencia||r.severidade||'URGENTE').toUpperCase();
