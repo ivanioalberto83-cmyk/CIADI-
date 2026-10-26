@@ -64,7 +64,7 @@ jobs:
           dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
           checks = {
               "SOS receiver": "async function sosAlerts()" in dashboard and "ciadi_sos_alertas" in dashboard,
-              "site intake receiver": "async function siteTriageRequests()" in dashboard and "agendamentos_aba" in dashboard,
+              "site intake receiver": "async function siteTriageRequests()" in dashboard and "ciadi_triagens" in dashboard,
               "navigation routes": "id==='sos'" in dashboard and "id==='pedidos_site'" in dashboard,
               "shared Supabase project": "https://egpkkttbcaukqnnxyhjv.supabase.co" in dashboard,
               "no service-role credential marker": "SUPABASE_SERVICE_ROLE_KEY" not in dashboard and "service_role" not in dashboard.lower(),
