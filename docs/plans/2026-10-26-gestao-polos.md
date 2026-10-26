@@ -4,7 +4,7 @@
 
 **Goal:** Add controlled management of CIADI operational poles, link each pole to an approved financial cost center, and support scoped views in the Web and Windows dashboards without corrupting historical data.
 
-**Architecture:** Keep operational poles separate from the existing financial cost-center catalog and link them through an explicit, server-enforced relationship after confirming the current schema and policies. Implement authorization in Supabase RLS and use the existing Dashboard HTML as the shared UI source copied by the Windows Setup workflow. The plan is gated: no production migration or release until the unresolved product decisions below are approved and non-production validation succeeds.
+**Architecture:** Keep operational poles separate from the existing financial cost-center catalog and link each pole to exactly one primary cost center through an explicit, server-enforced relationship after confirming the current schema and policies. The existing cost-center record must first be identified and must remain unassigned until its purpose is confirmed. Implement authorization in Supabase RLS and use the existing Dashboard HTML as the shared UI source copied by the Windows Setup workflow. The plan is gated: no production migration or release until remaining product decisions are approved and non-production validation succeeds.
 
 **Tech Stack:** Supabase PostgreSQL/Auth/RLS, existing Supabase JS v2 client, HTML/JavaScript/Tailwind dashboard, Electron 35 / electron-builder, GitHub Actions on Node.js 22, Node built-in test runner for isolated validation where suitable.
 
@@ -143,7 +143,7 @@
 
 1. **Existing financial center:** what is the purpose of the one existing `finance_centros_custo` record, and should it be assigned to either pole? Do not assume.
 2. **Jardim de Rosas address:** confirm the exact operational location text for POLO JARDIM DE ROSAS (code `1013`).
-3. **Relationship cardinality:** should each pole have exactly one primary cost center, or can one pole be linked to multiple cost centers?
+3. **Relationship cardinality — confirmed:** one primary cost center per pole. This decision is settled and is no longer a blocker.
 4. **User assignments:** which existing roles may assign users and professionals to poles, and should managers be restricted to assigned poles?
 5. **First-phase operational scope:** which tables must be pole-scoped in the first release: appointments, triage requests, SOS alerts, AT sessions, patients, professionals, expenses, or only a subset?
 6. **Historical expenses:** should historical expenses remain “Não atribuídas” until manually reviewed, or is there an approved explicit mapping rule? No automatic mapping will occur without approval.
