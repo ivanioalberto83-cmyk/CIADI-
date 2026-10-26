@@ -18,14 +18,14 @@ Esta etapa é documental. Não cria tabelas, não altera registos, não aplica m
 | POLO TALATONA | 1012 | TALATONA RUA DO CENTRO LOGÍSTICO | Nome, código e localização fornecidos |
 | POLO JARDIM DE ROSAS | 1013 | Condomínio Jardim de Rosas, Talatona, Luanda | Código confirmado pelo utilizador; localização operacional por confirmar |
 
-A auditoria de esquema identificou `public.finance_centros_custo` (RLS ativo, um registo) e `public.finance_despesas` (RLS ativo, campo textual `centro_custo`). As tabelas operacionais examinadas — incluindo `agendamentos`, `ciadi_triagens`, `ciadi_sos_alertas`, `ciadi_at_sessoes`, `pacientes` e `profissionais` — não apresentavam um campo de polo na listagem de colunas consultada. Os dados completos do único centro de custo e as políticas RLS detalhadas ainda não foram confirmados. Não se deve presumir que o centro existente corresponde a qualquer dos polos.
+A auditoria de esquema identificou `public.finance_centros_custo` (RLS ativo, um registo) e `public.finance_despesas` (RLS ativo, campo textual `centro_custo`). O SQL fornecido para `finance_centros_custo` confirma: `id` UUID como chave primária; `codigo` e `nome` obrigatórios; `codigo` com restrição `UNIQUE`; `descricao` opcional; `ativo` obrigatório por omissão `true`; datas `created_at`/`updated_at` com `now()` por omissão; `empresa_id` opcional; e índice em `empresa_id`. O SQL define a estrutura, não revela os valores do registo existente. As tabelas operacionais examinadas — incluindo `agendamentos`, `ciadi_triagens`, `ciadi_sos_alertas`, `ciadi_at_sessoes`, `pacientes` e `profissionais` — não apresentavam um campo de polo na listagem de colunas consultada. Os dados completos do único centro de custo e as políticas RLS detalhadas ainda não foram confirmados. Não se deve presumir que o centro existente corresponde a qualquer dos polos.
 
 ## Decisões confirmadas pelo utilizador — 2026-10-26
 
 - O centro de custo existente deve ser identificado primeiro; não deve ser associado a nenhum polo até se conhecer o seu nome, código e finalidade.
-- Cada polo terá **um único centro de custo principal** na primeira versão.
+- Cada polo terá **um único centro de custo principal** na primeira versão (decisão confirmada pelo utilizador).
 - Os códigos dos polos continuam a ser dados de entrada fornecidos pelo utilizador; não foram inseridos na base de dados.
-- A consulta de metadados read-only confirmou que `finance_centros_custo` tem um registo e RLS activo, mas a ferramenta disponível não revelou o conteúdo desse registo. A consulta SQL de leitura usada anteriormente foi bloqueada por controlos de segurança; não será contornada por outro executor. A identificação do registo continua pendente.
+- A consulta de metadados read-only confirmou que `finance_centros_custo` tem um registo e RLS activo, mas a ferramenta disponível não revelou o conteúdo desse registo. O utilizador forneceu o DDL da tabela, que confirma a restrição `UNIQUE` sobre `codigo` e o índice `idx_fin_centros_empresa`; estes metadados não identificam o registo. A consulta SQL de leitura usada anteriormente foi bloqueada por controlos de segurança; não será contornada por outro executor. A identificação do registo continua pendente.
 - A listagem de esquema confirmou que `finance_despesas.centro_custo` é texto livre e que `finance_despesas` tem zero registos nesta contagem. Não se deve converter ou inferir relações a partir do texto.
 - `agendamentos`, `ciadi_triagens`, `ciadi_sos_alertas`, `ciadi_at_sessoes`, `pacientes` e `profissionais` não têm uma coluna directa de polo na listagem de esquema consultada; todas estas tabelas têm RLS activo.
 - Esta auditoria não expôs o conteúdo das políticas RLS individuais nem prova que a aplicação esteja protegida em todos os caminhos. É necessária revisão de políticas por tabela antes de desenhar a migração.
@@ -95,7 +95,6 @@ A opção 1 é a recomendação de desenho, sujeita a revisão do esquema comple
 
 1. Qual é o nome e o código do centro de custo actualmente existente, e a que finalidade corresponde?
 2. Confirmar a localização operacional exacta do POLO JARDIM DE ROSAS.
-3. Um polo deve ter exactamente um centro de custo principal ou pode relacionar-se com vários centros de custo?
 4. Que funções/papéis podem atribuir utilizadores e profissionais a polos?
 5. Que tabelas operacionais devem receber a associação ao polo na primeira fase?
 6. Que política aprovada deve ser aplicada às despesas históricas e às despesas ainda sem polo?
