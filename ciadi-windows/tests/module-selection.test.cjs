@@ -52,6 +52,19 @@ test('dashboard maps each launcher to a landing page and filters navigation by m
   assert.match(dashboard, /await go\(defaultLandingForModule\(\)\)/);
 });
 
+test('invoice A4 preview, saved preview and PDF use consistent commercial customer details', () => {
+  assert.match(dashboard, /function invoiceClientAddress\(c\)/);
+  assert.match(dashboard, /function invoiceClientContact\(c\)/);
+  assert.match(dashboard, /data-address=.*invoiceClientAddress\(x\)/);
+  assert.match(dashboard, /data-email=.*x\.email/);
+  assert.match(dashboard, /Morada de faturação:/);
+  assert.match(dashboard, /E-mail: \$\{esc\(x\.email\|\|'—'\)\}/);
+  assert.match(dashboard, /Telefone: \$\{esc\(x\.phone\|\|'—'\)\}/);
+  assert.match(dashboard, /address:invoiceClientAddress\(d\.finance_clientes\)/);
+  assert.match(dashboard, /complete no cadastro comercial/);
+  assert.doesNotMatch(dashboard, /a ligação automática destes novos registos ao seletor de adquirente da fatura/);
+});
+
 test('inline dashboard JavaScript parses without syntax errors', () => {
   const scripts = [...dashboard.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
   const inlineScripts = scripts.filter(([, attrs, body]) => !/\bsrc\s*=/.test(attrs) && body.trim());
