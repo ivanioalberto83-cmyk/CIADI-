@@ -62,11 +62,17 @@ create policy ciadi_centros_acesso_self_read
 
 -- A gestão das atribuições fica limitada aos utilizadores reconhecidos como staff.
 drop policy if exists ciadi_centros_acesso_staff_manage on public.ciadi_centros_acesso;
-create policy ciadi_centros_acesso_staff_manage
+create policy ciadi_centros_acesso_admin_manage
   on public.ciadi_centros_acesso
   for all to authenticated
-  using (public.is_staff())
-  with check (public.is_staff());
+  using (
+    exists (select 1 from public.perfis p
+      where p.id=(select auth.uid()) and p.ativo=true and p.tipo='admin')
+  )
+  with check (
+    exists (select 1 from public.perfis p
+      where p.id=(select auth.uid()) and p.ativo=true and p.tipo='admin')
+  );
 
 -- Os utilizadores só conseguem listar centros ativos que lhes foram atribuídos.
 drop policy if exists ciadi_centros_custo_assigned_read on public.finance_centros_custo;
