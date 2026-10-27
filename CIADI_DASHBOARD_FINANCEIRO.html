@@ -27,6 +27,16 @@ const MODULE_MENU = {
   recepcao: ['overview','agendamentos','pedidos_site','pacientes','profissionais','familias']
 };
 const MODULE_LANDING = { adm:'overview', suporte:'auditoria', rh:'rh', recepcao:'agendamentos' };
+const MODULE_LABEL = { adm:'Administração', suporte:'Suporte Informático', rh:'Recursos Humanos', recepcao:'Receção' };
+function applyModuleBranding(){
+  if(!CIADI_MODULE || !MODULE_LABEL[CIADI_MODULE]) return;
+  document.title = 'CIADI — ' + MODULE_LABEL[CIADI_MODULE];
+  const loginSubtitle = document.querySelector('#login p.text-sm.text-slate-500');
+  const headerSubtitle = document.querySelector('#app header .text-xs.text-slate-500');
+  if(loginSubtitle) loginSubtitle.textContent = 'Módulo: ' + MODULE_LABEL[CIADI_MODULE];
+  if(headerSubtitle) headerSubtitle.textContent = 'CIADI · ' + MODULE_LABEL[CIADI_MODULE];
+}
+applyModuleBranding();
 function defaultLandingForModule(){ return MODULE_LANDING[CIADI_MODULE] || 'overview'; }
 function moduleAllowsPage(id){ return !CIADI_MODULE || !MODULE_MENU[CIADI_MODULE] || MODULE_MENU[CIADI_MODULE].includes(id); }
 window.commercialRegistryFilter=window.commercialRegistryFilter||'todos'; // Estado global compatível com os handlers inline.
