@@ -739,6 +739,47 @@ async function ciadiHR(){
       <div class="mt-4 rounded-xl bg-amber-50 text-amber-900 p-4 text-sm">Integração atual: consulta de dados existentes em Supabase. Não foram criados registos nem alteradas permissões. Folha salarial, processamento de salários, INSS/IRT e lançamentos contabilísticos de RH ainda não foram validados neste módulo.</div>`);
   }catch(e){sectionError('Recursos Humanos',e)}
 }
+async function newPurchaseOrder(){
+  try{
+    const {data:registry,error:re}=await sb.from('finance_clientes').select('id,nome,nome_comercial,nif,tipo,tipo_adquirente,ativo').eq('ativo',true).order('nome');
+    if(re)throw re;
+    const suppliers=(registry||[]).filter(r=>String(r.tipo_adquirente||r.tipo||'').toLowerCase()==='fornecedor');
+    if(!suppliers.length)throw new Error('Cadastre primeiro pelo menos um fornecedor ativo.');
+    const {data:company,error:ce}=await sb.from('finance_empresas').select('id,razao_social').eq('ativo',true).eq('empresa_principal',true).maybeSingle();
+    if(ce)throw ce;
+    if(!company?.id)throw new Error('Configure a empresa principal em Empresas & Emitente.');
+    const today=new Date().toISOString().slice(0,10);
+    const number='OC-'+today.replace(/-/g,'')+'-'+String(Date.now()).slice(-6);
+    const formHtml='<div class="grid md:grid-cols-2 gap-4">'+
+      selectField('fornecedor_id','Fornecedor',suppliers.map(x=>({value:x.id,label:(x.nome_comercial||x.nome)+' · NIF '+(x.nif||'—')})),'',true)+
+      inputField('numero','Número da ordem',number,'text',true)+
+      inputField('data_ordem','Data da ordem',today,'date',true)+
+      inputField('data_prevista','Entrega prevista','','date')+
+      inputField('descricao_linha','Descrição do artigo/serviço','','text',true)+
+      inputField('quantidade','Quantidade','1','number',true,'min="0.001" step="0.001"')+
+      inputField('preco_unitario','Preço unitário','0','number',true,'min="0" step="0.01"')+
+      textareaField('observacoes','Observações','',true)+'</div>'+
+      '<p class="text-xs text-slate-500 mt-3">A ordem fica submetida e aguarda aprovação. Esta versão regista uma linha por ordem; múltiplas linhas e receção física serão homologadas antes da produção.</p>';
+    await modal('Nova ordem de compra',formHtml,async fd=>{
+      const quantity=Number(fd.get('quantidade')||0), price=Number(fd.get('preco_unitario')||0);
+      if(!(quantity>0)||price<0)throw new Error('Indique quantidade positiva e preço não negativo.');
+      const {data,error}=await sb.rpc('finance_compras_criar_ordem',{p_numero:String(fd.get('numero')||'').trim(),p_empresa_id:company.id,p_fornecedor_id:fd.get('fornecedor_id'),p_data_ordem:fd.get('data_ordem'),p_data_prevista:fd.get('data_prevista')||null,p_observacoes:fd.get('observacoes')||null,p_linhas:[{descricao:String(fd.get('descricao_linha')||'').trim(),quantidade:quantity,preco_unitario:price}]});
+      if(error)throw error;
+      await audit('CRIAR_ORDEM_COMPRA','finance_compras_ordens',data,{numero:number,empresa_id:company.id});
+      toast('Ordem de compra submetida para aprovação.');
+      closeModal();ciadiProcurement();
+    });
+  }catch(e){toast(e?.message||'Não foi possível criar a ordem de compra.')}
+}
+async function decidePurchaseOrder(orderId,approve){
+  try{
+    const {data,error}=await sb.rpc('finance_compras_aprovar_ordem',{p_ordem_id:orderId,p_aprovar:approve});
+    if(error)throw error;
+    await audit(approve?'APROVAR_ORDEM_COMPRA':'REJEITAR_ORDEM_COMPRA','finance_compras_ordens',orderId,data||{});
+    toast(approve?'Ordem de compra aprovada.':'Ordem de compra rejeitada.');
+    ciadiProcurement();
+  }catch(e){toast(e?.message||'Não foi possível decidir a ordem de compra.')}
+}
 async function ciadiProcurement(){
   try{
     const [reg,exp,ord]=await Promise.all([
