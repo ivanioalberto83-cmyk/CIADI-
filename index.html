@@ -19,7 +19,7 @@
 const SUPABASE_URL='https://egpkkttbcaukqnnxyhjv.supabase.co';
 const SUPABASE_KEY='sb_publishable_SSA6B6gfnaUxKhOzReE6HQ_utqQRebz';
 let sb=null, me=null, profile=null, current='overview', sosChannel=null;
-let commercialRegistryFilter='todos'; // Filtro inicial do cadastro comercial.
+window.commercialRegistryFilter=window.commercialRegistryFilter||'todos'; // Estado global compatível com os handlers inline.
 function initSupabase(){
   if(sb) return sb;
   if(!window.supabase || typeof window.supabase.createClient!=='function') throw new Error('A biblioteca do Supabase não foi carregada. Verifique a ligação à Internet.');
@@ -847,11 +847,11 @@ async function commercialRegistries(){
     const {data,error}=await sb.from('finance_clientes').select('id,nome,nome_comercial,nif,email,telefone,whatsapp,endereco,cidade,provincia,pais,tipo,tipo_adquirente,contacto_principal,municipio,bairro,codigo_postal,endereco_faturacao,endereco_prestacao,observacoes,ativo,paciente_id,created_at').order('nome');
     if(error)throw error;
     const rows=data||[];
-    const filtered=commercialRegistryFilter==='todos'?rows:rows.filter(r=>(r.tipo_adquirente||r.tipo||'cliente').toLowerCase()===commercialRegistryFilter);
+    const filtered=window.commercialRegistryFilter==='todos'?rows:rows.filter(r=>(r.tipo_adquirente||r.tipo||'cliente').toLowerCase()===commercialRegistryFilter);
     const types=[['todos','Todos'],['cliente','Clientes'],['entidade','Entidades'],['fornecedor','Fornecedores']];
     tablePage('Clientes, Entidades e Fornecedores','Cadastro comercial central para faturação, contratos e aprovisionamento. Os registos são guardados em finance_clientes, já existente; não são criadas tabelas nem alteradas políticas.',`
       <div class="flex flex-wrap gap-2 justify-between mb-4">
-        <div class="flex flex-wrap gap-2">${types.map(([v,l])=>`<button onclick="commercialRegistryFilter='${v}';commercialRegistries()" class="${commercialRegistryFilter===v?'bg-orange text-white':'border'} rounded-xl px-3 py-2">${l}</button>`).join('')}</div>
+        <div class="flex flex-wrap gap-2">${types.map(([v,l])=>`<button onclick="window.commercialRegistryFilter='${v}';commercialRegistries()" class="${window.commercialRegistryFilter===v?'bg-orange text-white':'border'} rounded-xl px-3 py-2">${l}</button>`).join('')}</div>
         <div class="flex flex-wrap gap-2"><button onclick="editCommercialRegistry(null,'cliente')" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Novo cliente</button><button onclick="editCommercialRegistry(null,'entidade')" class="border border-orange text-orange rounded-xl px-4 py-2 font-bold">+ Nova entidade</button><button onclick="editCommercialRegistry(null,'fornecedor')" class="border border-orange text-orange rounded-xl px-4 py-2 font-bold">+ Novo fornecedor</button></div>
       </div>
       <div class="grid sm:grid-cols-3 gap-3 mb-4">
