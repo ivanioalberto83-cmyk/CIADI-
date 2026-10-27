@@ -19,6 +19,16 @@
 const SUPABASE_URL='https://egpkkttbcaukqnnxyhjv.supabase.co';
 const SUPABASE_KEY='sb_publishable_SSA6B6gfnaUxKhOzReE6HQ_utqQRebz';
 let sb=null, me=null, profile=null, current='overview', sosChannel=null;
+const CIADI_MODULE = new URLSearchParams(window.location.search).get('ciadiModule');
+const MODULE_MENU = {
+  adm: ['overview','financeiro','faturacao','cadastros_comerciais','polos_acessos','aprovisionamento','caixa','contabilidade','saft','especialidades','triagens','conteudos','multimedia','marketing','janeth','utilizadores','instituicao','empresas','clinica','auditoria'],
+  suporte: ['overview','polos_acessos','biometria','auditoria','utilizadores','instituicao'],
+  rh: ['overview','rh','rh_folha','biometria','acompanhantes_at'],
+  recepcao: ['overview','agendamentos','pedidos_site','pacientes','profissionais','familias']
+};
+const MODULE_LANDING = { adm:'overview', suporte:'auditoria', rh:'rh', recepcao:'agendamentos' };
+function defaultLandingForModule(){ return MODULE_LANDING[CIADI_MODULE] || 'overview'; }
+function moduleAllowsPage(id){ return !CIADI_MODULE || !MODULE_MENU[CIADI_MODULE] || MODULE_MENU[CIADI_MODULE].includes(id); }
 window.commercialRegistryFilter=window.commercialRegistryFilter||'todos'; // Estado global compatível com os handlers inline.
 function canManageHR(){return ['admin','gestor'].includes(String(profile?.tipo||'').trim().toLowerCase());}
 function initSupabase(){
@@ -32,10 +42,10 @@ const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_sit
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
-function visibleMenu(){ return menu.filter(([id])=> id!=='acompanhantes_at' || canAccessAT()); }
+function visibleMenu(){ return menu.filter(([id])=> moduleAllowsPage(id) && (id!=='acompanhantes_at' || canAccessAT())); }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='cadastros_comerciais')return commercialRegistries(); if(id==='rh')return ciadiHR(); if(id==='rh_folha')return ciadiPayroll(); if(id==='polos_acessos')return ciadiPoloAccess(); if(id==='biometria')return biometricHub(); if(id==='aprovisionamento')return ciadiProcurement(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){if(!moduleAllowsPage(id)){toast('Este módulo não está selecionado para esta estação.');return;}current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='cadastros_comerciais')return commercialRegistries(); if(id==='rh')return ciadiHR(); if(id==='rh_folha')return ciadiPayroll(); if(id==='polos_acessos')return ciadiPoloAccess(); if(id==='biometria')return biometricHub(); if(id==='aprovisionamento')return ciadiProcurement(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 
 function openCiadiBiometric(){
   const desktop=window.ciadiDesktop;
@@ -1361,7 +1371,7 @@ async function enter(u){
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
-    nav(); await go('overview');
+    nav(); await go(defaultLandingForModule());
   }catch(e){
     console.error('CIADI perfil',e);
     document.getElementById('login').classList.remove('hiddenx');
