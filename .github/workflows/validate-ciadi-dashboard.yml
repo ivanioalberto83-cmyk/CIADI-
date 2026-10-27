@@ -169,7 +169,7 @@ jobs:
           dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
           checks = {
               "RH document emission is implemented": "async function generateHRDocument(kind,staffId)" in dashboard,
-              "service declaration action is present": "generateHRDocument(\\'servico\\'" in dashboard,
+              "service declaration action is present": "generateHRDocument(\'servico\'" in dashboard,
               "salary declaration does not claim to be a payslip": "não substitui recibo de vencimento" in dashboard.lower(),
               "RH document generation requires manager permission": "if(!canManageHR())throw new Error('Apenas Admin/Gestor de RH autorizado pode emitir documentos.')" in dashboard,
               "expense workflow schema is probed before writes": "async function detectExpenseWorkflowSchema()" in dashboard and "if(await detectExpenseWorkflowSchema())" in dashboard,
