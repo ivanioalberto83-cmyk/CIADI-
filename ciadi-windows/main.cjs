@@ -74,8 +74,8 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   installApplicationMenu();
-  await ensureStationPolo();
   createWindow();
+  await ensureStationPolo();
   if (app.isPackaged) {
     autoUpdater.autoDownload = false;
     autoUpdater.on('checking-for-update', () => console.log('A verificar atualizações do CIADI…'));
