@@ -12,6 +12,7 @@ on:
     branches:
       - main
       - feature/ciadi-compras-contabilidade-integrada
+      - fix/ciadi-rh-polos-compras-20261027
     tags:
       - 'ciadi-v*'
 
@@ -19,8 +20,28 @@ permissions:
   contents: write
 
 jobs:
+  validate-module-selection:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.build_setup == false)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependências de teste
+        working-directory: ciadi-windows
+        run: npm install --no-audit
+      - name: Verificar sintaxe do processo Windows
+        working-directory: ciadi-windows
+        run: node --check main.cjs
+      - name: Testar seleção de módulos, atalhos e navegação
+        working-directory: ciadi-windows
+        run: npm test
+
   build-windows:
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/ciadi-v') || (github.event_name == 'workflow_dispatch' && inputs.build_setup == true)
+    if: startsWith(github.ref, 'refs/tags/ciadi-v') || (github.event_name == 'workflow_dispatch' && inputs.build_setup == true)
     runs-on: windows-latest
     steps:
       - name: Checkout
