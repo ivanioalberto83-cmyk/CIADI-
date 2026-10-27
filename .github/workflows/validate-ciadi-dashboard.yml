@@ -6,6 +6,9 @@ on:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
       - '.github/workflows/validate-ciadi-dashboard.yml'
+      - 'supabase/migrations/**'
+      - 'docs/PLANO-MIGRACAO-COMPRAS-CONTABILIDADE-PRODUCAO.md'
+      - 'docs/AUDITORIA-COMERCIAL-CONTABIL-CIADI-2026-10-27.md'
   push:
     branches:
       - main
@@ -13,6 +16,9 @@ on:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
       - '.github/workflows/validate-ciadi-dashboard.yml'
+      - 'supabase/migrations/**'
+      - 'docs/PLANO-MIGRACAO-COMPRAS-CONTABILIDADE-PRODUCAO.md'
+      - 'docs/AUDITORIA-COMERCIAL-CONTABIL-CIADI-2026-10-27.md'
 
 jobs:
   validate:
@@ -57,6 +63,73 @@ jobs:
           Path("/tmp/ciadi-inline.js").write_text("".join(parser.parts), encoding="utf-8")
           PY
           node --check /tmp/ciadi-inline.js
+      - name: Verify purchase/accounting migration safety contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          sql = Path("supabase/migrations/20261027120000_ciadi_compras_contabilidade.sql").read_text(encoding="utf-8")
+          checks = {
+              "migration remains transactional": sql.strip().startswith("-- CIADI ERP") and "begin;" in sql.lower() and sql.strip().endswith("commit;"),
+              "persistent supplier FK": "finance_despesas_fornecedor_id_fkey" in sql and "references public.finance_clientes(id)" in sql,
+              "approval required before posting": "d.aprovacao_estado <> 'aprovada'" in sql,
+              "idempotent expense posting": "where despesa_id = d.id" in sql and "uq_finance_lancamentos_despesa" in sql,
+              "open accounting period required": "finance_periodos_contabeis" in sql and "estado <> 'fechado'" in sql,
+              "configured purchases journal required": "codigo = 'COM'" in sql,
+              "configured expense rule required": "operacao = 'DESPESA'" in sql,
+              "balanced accounting validation": "perform public.finance_validar_lancamento(lanc)" in sql,
+              "orders are approved explicitly": "finance_compras_aprovar_ordem" in sql and "'submetida'" in sql and "'rejeitada'" in sql,
+              "order can link to its expense": "finance_compras_vincular_despesa" in sql and "finance_compras_ordens_despesa_id_fkey" in sql or "references public.finance_despesas(id)" in sql,
+              "no production credentials in migration": "service_role" not in sql.lower() and "supabase_service_role_key" not in sql.lower(),
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
+      - name: Verify invoice accounting migration safety contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          sql = Path("supabase/migrations/20261027160000_ciadi_faturacao_contabilizacao_segura.sql").read_text(encoding="utf-8")
+          checks = {
+              "migration is transactional": sql.strip().startswith("-- CIADI") and "begin;" in sql.lower() and sql.strip().endswith("commit;"),
+              "only supported invoice types are posted": "not in ('FT','FR')" in sql,
+              "discount reduces revenue base": "subtotal,0) - coalesce(d.desconto,0)" in sql,
+              "tax and base must reconcile to total": "round(base + imposto,2) <> total" in sql,
+              "withholding is blocked without an account rule": "RETENCAO_SEM_REGRA" in sql,
+              "existing unposted journal is not silently accepted": "LANÇAMENTO_EXISTENTE_PENDENTE" in sql,
+              "sales journal is selected by configured code": "codigo = 'VEN'" in sql and "tipo = 'vendas'" not in sql,
+              "balanced journal validator is required": "ciadi_finance_contabilizar_lancamento(lid)" in sql,
+              "no service-role credentials": "service_role" not in sql.lower(),
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
+      - name: Run accounting arithmetic unit tests
+        run: python -m unittest discover -s tests -p 'test_ciadi_accounting_math.py' -v
+
+      - name: Verify fiscal issue remains gated until AGT validation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          gate = Path("supabase/migrations/20261027170000_ciadi_bloquear_emissao_ate_validacao_agt.sql").read_text(encoding="utf-8").lower()
+          accounting = Path("supabase/migrations/20261027160000_ciadi_faturacao_contabilizacao_segura.sql").read_text(encoding="utf-8")
+          checks = {
+              "fiscal issue gate is transactional": "begin;" in gate and "\ncommit;" in gate,
+              "fiscal issue execute revoked from public": "from public, anon, authenticated" in gate,
+              "gate does not drop or delete data": "drop table" not in gate and "delete from" not in gate,
+              "gate does not alter document series": "update public.finance_series" not in gate.lower(),
+              "accounting discount is subtracted before posting": "subtotal,0) - coalesce(d.desconto,0)" in accounting,
+              "withholding without a rule is blocked": "RETENCAO_SEM_REGRA" in accounting,
+              "posting requires emitted fiscal and document states": "d.fiscal_status <> 'emitido' or d.document_status <> 'emitido'" in accounting,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
       - name: Verify integration entry points and public-key safety
         run: |
           python - <<'PY'
@@ -65,9 +138,21 @@ jobs:
           checks = {
               "SOS receiver": "async function sosAlerts()" in dashboard and "ciadi_sos_alertas" in dashboard,
               "site intake receiver": "async function siteTriageRequests()" in dashboard and "ciadi_triagens" in dashboard,
+              "supplier FK remains safely gated until schema is approved": "O esquema atual de finance_despesas não disponibiliza fornecedor_id" in dashboard,
+              "expense approval RPC": "finance_aprovar_despesa" in dashboard and "approveExpense" in dashboard,
+              "expense accounting RPC": "finance_postar_despesa" in dashboard and "postExpense" in dashboard,
+              "purchase order creation RPC": "finance_compras_criar_ordem" in dashboard and "newPurchaseOrder" in dashboard,
+              "purchase order approval RPC": "finance_compras_aprovar_ordem" in dashboard and "decidePurchaseOrder" in dashboard,
+              "order-to-expense linkage is blocked when schema is missing": "async function linkPurchaseExpense(orderId)" in dashboard and "finance_despesas não tem a coluna fornecedor_id" in dashboard,
+              "purchase order list": "finance_compras_ordens" in dashboard,
               "navigation routes": "id==='sos'" in dashboard and "id==='pedidos_site'" in dashboard,
               "shared Supabase project": "https://egpkkttbcaukqnnxyhjv.supabase.co" in dashboard,
               "no service-role credential marker": "SUPABASE_SERVICE_ROLE_KEY" not in dashboard and "service_role" not in dashboard.lower(),
+              "invoice UI saves a draft only": "Guardar rascunho de homologação" in dashboard and "ciadi_faturacao_criar_documento" in dashboard,
+              "invoice UI does not call official issue RPC": "sb.rpc('ciadi_faturacao_emitir_documento'" not in dashboard and 'sb.rpc("ciadi_faturacao_emitir_documento"' not in dashboard,
+              "draft clearly has no AGT fiscal validity": "Não tem validade fiscal AGT" in dashboard,
+              "series are explicitly marked as not AGT-validated": "Série de referência (não validada AGT)" in dashboard,
+              "draft flow warns fiscal authorization and transmission are pending": "autorização e transmissão AGT ainda carecem de validação" in dashboard,
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)

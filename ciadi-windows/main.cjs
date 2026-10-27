@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu, ipcMain } = require('electron');
 const path = require('node:path');
 const { autoUpdater } = require('electron-updater');
 
@@ -10,6 +10,8 @@ function openBiometricWindow() {
   biometricWindow.loadFile(path.join(__dirname, 'biometric-k20pro.html'));
   biometricWindow.on('closed', () => { biometricWindow = null; });
 }
+ipcMain.on('ciadi:open-biometric', () => openBiometricWindow());
+
 function installApplicationMenu() {
   const menu = Menu.buildFromTemplate([{ label: 'CIADI', submenu: [{ label: 'Assiduidade Biométrica (ZKTeco K20 Pro) — Homologação', click: openBiometricWindow }, { type: 'separator' }, { role: 'quit', label: 'Sair' }] }]);
   Menu.setApplicationMenu(menu);
