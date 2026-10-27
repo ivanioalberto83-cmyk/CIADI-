@@ -45,7 +45,7 @@ test('dashboard maps each launcher to a landing page and filters navigation by m
   for (const id of ['adm', 'suporte', 'rh', 'recepcao']) {
     assert.ok(dashboard.includes(id + ':'), 'module mapping missing: ' + id);
   }
-  assert.match(dashboard, /function defaultLandingForModule/);
+  assert.match(dashboard, /function applyModuleBranding/);\n  assert.match(dashboard, /function defaultLandingForModule/);
   assert.match(dashboard, /function moduleAllowsPage/);
   assert.match(dashboard, /if\(!moduleAllowsPage\(id\)\)/);
   assert.match(dashboard, /await go\(defaultLandingForModule\(\)\)/);
