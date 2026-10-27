@@ -30,3 +30,18 @@ A assinatura de produção do executável requer um certificado de assinatura de
 
 ## Limitação atual
 O Setup.exe e as atualizações automáticas só ficam validados após uma compilação Windows bem-sucedida e uma release publicada. A fonte `CIADI_DASHBOARD_FINANCEIRO(1).html` ainda tem de estar na raiz do repositório para o workflow concluir.
+
+
+## Módulo de homologação biométrica — ZKTeco K20 Pro
+
+O pacote inclui `biometric-k20pro.html`, acessível pelo menu da aplicação **CIADI → Assiduidade Biométrica (ZKTeco K20 Pro) — Homologação**.
+
+Estado nesta fase:
+- Importa e valida localmente ficheiros CSV exportados pelo software do terminal.
+- Permite mapear as colunas de matrícula/código e data/hora.
+- Mostra uma prévia e sinaliza duplicados, campos em falta e datas/hora não reconhecidas.
+- Não consulta nem grava no Supabase, não transmite o CSV e não se liga ao terminal por TCP/IP.
+- A ligação direta depende da confirmação do firmware, protocolo e SDK/API pelo fornecedor.
+- O módulo é uma ferramenta de homologação local, não um sistema de assiduidade já homologado.
+
+A página é incluída no instalador Windows. Esta alteração de código não publica uma release automaticamente; a compilação de teste tem de concluir com sucesso no GitHub Actions.

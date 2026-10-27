@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CIADI · Assiduidade Biométrica</title>
+<style>
+:root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#4b2b1f;background:#fbfdff;--orange:#f58200;--brown:#6f351f;--cream:#ffe7bf}
+*{box-sizing:border-box}body{margin:0;padding:24px;background:#fbfdff}.wrap{max-width:1100px;margin:auto}.card{background:#fff;border:1px solid #f1d8b7;border-radius:16px;padding:20px;margin:0 0 16px;box-shadow:0 4px 18px #6f351f0b}h1{margin:8px 0;color:var(--brown)}h2{margin:0 0 12px;font-size:18px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;color:#9b5700;text-transform:uppercase}.pill{display:inline-block;border-radius:999px;background:#fff0d9;color:#8a4900;padding:6px 10px;font-size:12px;font-weight:800}.muted{color:#6b7280;font-size:14px;line-height:1.55}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}label{display:block;font-size:13px;font-weight:700;margin:10px 0}input,select{display:block;width:100%;padding:10px;border:1px solid #d1d5db;border-radius:9px;background:white;margin-top:6px}button{background:var(--orange);color:#fff;border:0;border-radius:9px;padding:11px 15px;font-weight:800;cursor:pointer;margin-top:10px}button:disabled{opacity:.5;cursor:not-allowed}.notice{background:#fff7e8;border-left:4px solid var(--orange);padding:12px;border-radius:8px;font-size:13px;line-height:1.5}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:14px 0}.stat{background:#f8fafc;padding:12px;border-radius:10px}.stat strong{display:block;font-size:24px;margin-top:5px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}th{background:#fff0d9} .table-wrap{overflow:auto}.ok{color:#166534;font-weight:700}.bad{color:#b91c1c;font-weight:700}@media(max-width:600px){body{padding:12px}.card{padding:15px}}
+</style>
+</head>
+<body><main class="wrap">
+<section class="card"><div class="eyebrow">CIADI · Recursos Humanos</div><h1>Assiduidade Biométrica — ZKTeco K20 Pro</h1><span class="pill">Modo de homologação · sem produção</span><p class="muted">Esta primeira versão prepara a validação de ficheiros exportados pelo terminal. Não estabelece ligação TCP/IP, não consulta nem altera o Supabase e não envia o ficheiro para a internet.</p></section>
+<section class="grid">
+<div class="card"><h2>Ligação ao terminal</h2><p class="muted">A comunicação direta fica desativada até o fornecedor confirmar o firmware, protocolo e SDK/API do modelo exato.</p><div class="grid"><label>Endereço IP<input disabled placeholder="A configurar após homologação"></label><label>Porta TCP/IP<input disabled placeholder="A confirmar com fornecedor"></label></div><div class="notice">Estado: não conectado. Nenhuma tentativa de rede será efetuada nesta versão.</div></div>
+<div class="card"><h2>Validar exportação CSV</h2><p class="muted">Selecione um CSV exportado pelo software do terminal. O processamento ocorre localmente nesta janela.</p><input id="file" type="file" accept=".csv,.txt,text/csv,text/plain"><button id="load" type="button">Ler e mapear ficheiro</button><p id="fileState" class="muted">Nenhum ficheiro selecionado.</p></div>
+</section>
+<section class="card" id="mapping"><h2>Validação dos registos</h2><p class="muted">Selecione um ficheiro para iniciar. O resultado é apenas uma pré-validação: ainda não confirma a identidade do funcionário nem grava assiduidade.</p></section>
+<section class="card"><h2>Checklist antes de ativar a integração</h2><ul class="muted"><li>Confirmar versão de hardware/firmware, software e documentação do fornecedor.</li><li>Mapear matrícula do terminal para o identificador interno do funcionário.</li><li>Testar eventos repetidos, datas inválidas, códigos desconhecidos e fuso horário.</li><li>Testar armazenamento durante falha de rede e recuperação.</li><li>Realizar homologação isolada e obter autorização antes de qualquer escrita em produção.</li></ul><div class="notice">Privacidade: não exporte nem armazene imagens ou modelos de impressões digitais. Use apenas os eventos de assiduidade necessários.</div></section>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+let records=[],headers=[];
+function parseCSV(text){
+ const first=(text.split(/\r?\n/).find(x=>x.trim())||'');
+ const counts=[',',';','\t'].map(sep=>({sep,n:(first.match(new RegExp(sep==='\t'?'\\t':sep===';'?';':',','g'))||[]).length})).sort((a,b)=>b.n-a.n);
+ const sep=counts[0].sep;let rows=[],row=[],cell='',quoted=false;
+ for(let i=0;i<text.length;i++){const ch=text[i];if(ch==='"'&&quoted&&text[i+1]==='"'){cell+='"';i++;}else if(ch==='"'){quoted=!quoted;}else if(ch===sep&&!quoted){row.push(cell);cell='';}else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(v=>String(v).trim()))rows.push(row);row=[];cell='';}else cell+=ch;}
+ if(cell.length||row.length){row.push(cell);if(row.some(v=>String(v).trim()))rows.push(row);}return rows;
+}
+function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+$('load').addEventListener('click',async()=>{
+ const f=$('file').files[0];if(!f){$('fileState').textContent='Selecione um CSV primeiro.';return;}
+ try{const parsed=parseCSV(await f.text());if(parsed.length<2)throw new Error('O ficheiro precisa de cabeçalho e pelo menos uma linha.');headers=parsed[0].map((v,i)=>String(v||('Coluna '+(i+1))).replace(/^\uFEFF/,'').trim());records=parsed.slice(1).map((r,i)=>({line:i+2,cells:headers.map((_,j)=>String(r[j]??'').trim())}));
+ const opts=headers.map((h,i)=>'<option value="'+i+'">'+esc(h)+'</option>').join('');const idGuess=headers.findIndex(h=>/(matricula|codigo funcionario|employee id|userid|user id|pin|badge|identificador)/.test(norm(h)));const timeGuess=headers.findIndex(h=>/(timestamp|datetime|data hora|date time|hora|time|data|date)/.test(norm(h)));
+ $('mapping').innerHTML='<h2>Mapear colunas do ficheiro</h2><p class="muted">'+records.length+' linhas lidas. Confirme as colunas antes de validar.</p><div class="grid"><label>Matrícula / código do funcionário<select id="employee">'+opts+'</select></label><label>Data e hora do evento<select id="timestamp">'+opts+'</select></label></div><button id="validate" type="button">Executar validação local</button><div id="result"></div><p class="muted">Os dados permanecem nesta janela. Não há consulta de funcionários nem sincronização.</p>';
+ if(idGuess>=0)$('employee').value=String(idGuess);if(timeGuess>=0)$('timestamp').value=String(timeGuess);$('validate').addEventListener('click',validate);
+ $('fileState').textContent='Ficheiro lido localmente: '+f.name;
+ }catch(e){$('fileState').textContent='Erro: '+e.message;}
+});
+function validate(){
+ const ei=Number($('employee').value),ti=Number($('timestamp').value),seen=new Set();let dup=0,missing=0,bad=0;
+ const checked=records.map(r=>{const employee=(r.cells[ei]||'').trim(),stamp=(r.cells[ti]||'').trim(),key=employee+'|'+stamp;if(!employee||!stamp)missing++;if(employee&&stamp&&seen.has(key))dup++;seen.add(key);if(!stamp||Number.isNaN(Date.parse(stamp)))bad++;return{...r,employee,stamp,valid:!!employee&&!!stamp&&!Number.isNaN(Date.parse(stamp))};});
+ const preview=checked.slice(0,50).map(r=>'<tr><td>'+r.line+'</td><td>'+esc(r.employee||'—')+'</td><td>'+esc(r.stamp||'—')+'</td><td class="'+(r.valid?'ok':'bad')+'">'+(r.valid?'Formato reconhecido':'Verificar')+'</td></tr>').join('');
+ $('result').innerHTML='<div class="stats"><div class="stat">Linhas<strong>'+checked.length+'</strong></div><div class="stat">Duplicados<strong>'+dup+'</strong></div><div class="stat">Campos em falta<strong>'+missing+'</strong></div><div class="stat">Data/hora não reconhecida<strong>'+bad+'</strong></div></div><p class="notice">Pré-validação apenas. A data/hora é avaliada pelo interpretador do Windows e pode exigir ajuste ao formato do fornecedor. Não confirma a matrícula e não escreve na produção.</p><div class="table-wrap"><table><thead><tr><th>Linha</th><th>Código</th><th>Data/hora original</th><th>Estado</th></tr></thead><tbody>'+preview+'</tbody></table></div>'+(checked.length>50?'<p class="muted">A mostrar as primeiras 50 linhas.</p>':'');
+}
+</script></body></html>
