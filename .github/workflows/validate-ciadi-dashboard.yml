@@ -6,6 +6,8 @@ on:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
       - '.github/workflows/validate-ciadi-dashboard.yml'
+      - 'supabase/migrations/**'
+      - 'docs/PLANO-MIGRACAO-COMPRAS-CONTABILIDADE-PRODUCAO.md'
   push:
     branches:
       - main
@@ -13,6 +15,8 @@ on:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
       - '.github/workflows/validate-ciadi-dashboard.yml'
+      - 'supabase/migrations/**'
+      - 'docs/PLANO-MIGRACAO-COMPRAS-CONTABILIDADE-PRODUCAO.md'
 
 jobs:
   validate:
@@ -57,6 +61,28 @@ jobs:
           Path("/tmp/ciadi-inline.js").write_text("".join(parser.parts), encoding="utf-8")
           PY
           node --check /tmp/ciadi-inline.js
+      - name: Verify purchase/accounting migration safety contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          sql = Path("supabase/migrations/20261027120000_ciadi_compras_contabilidade.sql").read_text(encoding="utf-8")
+          checks = {
+              "migration remains transactional": sql.strip().startswith("-- CIADI ERP") and "begin;" in sql.lower() and sql.strip().endswith("commit;"),
+              "persistent supplier FK": "finance_despesas_fornecedor_id_fkey" in sql and "references public.finance_clientes(id)" in sql,
+              "approval required before posting": "d.aprovacao_estado <> 'aprovada'" in sql,
+              "idempotent expense posting": "where despesa_id = d.id" in sql and "uq_finance_lancamentos_despesa" in sql,
+              "open accounting period required": "finance_periodos_contabeis" in sql and "estado <> 'fechado'" in sql,
+              "configured purchases journal required": "codigo = 'COM'" in sql,
+              "configured expense rule required": "operacao = 'DESPESA'" in sql,
+              "balanced accounting validation": "perform public.finance_validar_lancamento(lanc)" in sql,
+              "orders are approved explicitly": "finance_compras_aprovar_ordem" in sql and "'submetida'" in sql and "'rejeitada'" in sql,
+              "no production credentials in migration": "service_role" not in sql.lower() and "supabase_service_role_key" not in sql.lower(),
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
       - name: Verify integration entry points and public-key safety
         run: |
           python - <<'PY'
