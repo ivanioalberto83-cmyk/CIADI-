@@ -86,6 +86,27 @@ jobs:
           if not all(checks.values()):
               raise SystemExit(1)
           PY
+      - name: Verify invoice accounting migration safety contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          sql = Path("supabase/migrations/20261027160000_ciadi_faturacao_contabilizacao_segura.sql").read_text(encoding="utf-8")
+          checks = {
+              "migration is transactional": sql.strip().startswith("-- CIADI") and "begin;" in sql.lower() and sql.strip().endswith("commit;"),
+              "only supported invoice types are posted": "not in ('FT','FR')" in sql,
+              "discount reduces revenue base": "subtotal,0) - coalesce(d.desconto,0)" in sql,
+              "tax and base must reconcile to total": "round(base + imposto,2) <> total" in sql,
+              "withholding is blocked without an account rule": "RETENCAO_SEM_REGRA" in sql,
+              "existing unposted journal is not silently accepted": "LANÇAMENTO_EXISTENTE_PENDENTE" in sql,
+              "sales journal is selected by configured code": "codigo = 'VEN'" in sql and "tipo = 'vendas'" not in sql,
+              "balanced journal validator is required": "ciadi_finance_contabilizar_lancamento(lid)" in sql,
+              "no service-role credentials": "service_role" not in sql.lower(),
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
       - name: Verify integration entry points and public-key safety
         run: |
           python - <<'PY'
