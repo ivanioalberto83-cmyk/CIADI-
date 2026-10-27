@@ -107,6 +107,29 @@ jobs:
           if not all(checks.values()):
               raise SystemExit(1)
           PY
+      - name: Run accounting arithmetic unit tests
+        run: python -m unittest discover -s tests -p 'test_ciadi_accounting_math.py' -v
+
+      - name: Verify fiscal issue remains gated until AGT validation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          gate = Path("supabase/migrations/20261027170000_ciadi_bloquear_emissao_ate_validacao_agt.sql").read_text(encoding="utf-8").lower()
+          accounting = Path("supabase/migrations/20261027160000_ciadi_faturacao_contabilizacao_segura.sql").read_text(encoding="utf-8")
+          checks = {
+              "fiscal issue gate is transactional": "begin;" in gate and gate.strip().endswith("commit;"),
+              "fiscal issue execute revoked from public": "from public, anon, authenticated" in gate,
+              "gate does not drop or delete data": "drop table" not in gate and "delete from" not in gate,
+              "gate does not alter document series": "update public.finance_series" not in gate.lower(),
+              "accounting discount is subtracted before posting": "subtotal,0) - coalesce(d.desconto,0)" in accounting,
+              "withholding without a rule is blocked": "RETENCAO_SEM_REGRA" in accounting,
+              "posting requires emitted fiscal and document states": "d.fiscal_status <> 'emitido' or d.document_status <> 'emitido'" in accounting,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
       - name: Verify integration entry points and public-key safety
         run: |
           python - <<'PY'
