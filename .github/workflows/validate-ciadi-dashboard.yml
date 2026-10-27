@@ -8,6 +8,7 @@ on:
       - '.github/workflows/validate-ciadi-dashboard.yml'
       - 'supabase/migrations/**'
       - 'docs/PLANO-MIGRACAO-COMPRAS-CONTABILIDADE-PRODUCAO.md'
+      - 'docs/AUDITORIA-COMERCIAL-CONTABIL-CIADI-2026-10-27.md'
   push:
     branches:
       - main
@@ -17,6 +18,7 @@ on:
       - '.github/workflows/validate-ciadi-dashboard.yml'
       - 'supabase/migrations/**'
       - 'docs/PLANO-MIGRACAO-COMPRAS-CONTABILIDADE-PRODUCAO.md'
+      - 'docs/AUDITORIA-COMERCIAL-CONTABIL-CIADI-2026-10-27.md'
 
 jobs:
   validate:
@@ -102,6 +104,9 @@ jobs:
               "navigation routes": "id==='sos'" in dashboard and "id==='pedidos_site'" in dashboard,
               "shared Supabase project": "https://egpkkttbcaukqnnxyhjv.supabase.co" in dashboard,
               "no service-role credential marker": "SUPABASE_SERVICE_ROLE_KEY" not in dashboard and "service_role" not in dashboard.lower(),
+              "invoice UI saves a draft only": "Guardar rascunho de homologação" in dashboard and "ciadi_faturacao_criar_documento" in dashboard,
+              "invoice UI does not call official issue RPC": "sb.rpc('ciadi_faturacao_emitir_documento'" not in dashboard and 'sb.rpc("ciadi_faturacao_emitir_documento"' not in dashboard,
+              "draft clearly has no AGT fiscal validity": "Não tem validade fiscal AGT." in dashboard,
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
