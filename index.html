@@ -28,14 +28,14 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['cadastros_comerciais','👥 Clientes, Entidades e Fornecedores'],['rh','👔 Recursos Humanos'],['rh_folha','💰 Folha salarial'],['biometria','🖐️ Assiduidade Biométrica'],['aprovisionamento','📦 Aprovisionamento / Compras'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
+const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['cadastros_comerciais','👥 Clientes, Entidades e Fornecedores'],['rh','👔 Recursos Humanos'],['rh_folha','💰 Folha salarial'],['polos_acessos','🏢 Polos e acessos'],['biometria','🖐️ Assiduidade Biométrica'],['aprovisionamento','📦 Aprovisionamento / Compras'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
 function visibleMenu(){ return menu.filter(([id])=> id!=='acompanhantes_at' || canAccessAT()); }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='cadastros_comerciais')return commercialRegistries(); if(id==='rh')return ciadiHR(); if(id==='rh_folha')return ciadiPayroll(); if(id==='biometria')return biometricHub(); if(id==='aprovisionamento')return ciadiProcurement(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='cadastros_comerciais')return commercialRegistries(); if(id==='rh')return ciadiHR(); if(id==='rh_folha')return ciadiPayroll(); if(id==='polos_acessos')return ciadiPoloAccess(); if(id==='biometria')return biometricHub(); if(id==='aprovisionamento')return ciadiProcurement(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 
 function openCiadiBiometric(){
   const desktop=window.ciadiDesktop;
@@ -776,6 +776,64 @@ async function editKnowledge(r){await modal('Editar conhecimento Janeth',`<div c
 async function users(){try{const {data,error}=await sb.from('perfis').select('*').order('created_at',{ascending:false});if(error)throw error;tablePage('Utilizadores','Perfis de acesso existentes no CIADI.',`<div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Nome</th><th>Email</th><th>Tipo</th><th>Telefone</th><th>Estado</th><th>Acções</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4">${esc(r.nome_exibicao||r.nome_completo)}</td><td>${esc(r.email)}</td><td>${esc(r.tipo)}</td><td>${esc(r.telefone)}</td><td>${r.ativo?'Activo':'Inactivo'}</td><td><button class="border rounded-lg px-2 py-1" onclick='editUser(${JSON.stringify(r).replace(/'/g,'&#39;')})'>Editar</button></td></tr>`).join('')}</tbody></table></div>`)}catch(e){sectionError('Utilizadores',e)}}
 async function editUser(r){await modal('Editar utilizador',`<div class="grid md:grid-cols-2 gap-4">${inputField('nome_completo','Nome completo',r.nome_completo||'','text',true)}${inputField('nome_exibicao','Nome de exibição',r.nome_exibicao||'')}${inputField('email','Email',r.email||'','email')}${inputField('telefone','Telefone',r.telefone||'')}${selectField('tipo','Tipo',['admin','gestor','profissional','paciente','responsavel'].map(x=>({value:x,label:x})),r.tipo,true)}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={nome_completo:fd.get('nome_completo'),nome_exibicao:fd.get('nome_exibicao')||null,email:fd.get('email')||null,telefone:fd.get('telefone')||null,tipo:fd.get('tipo'),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('perfis').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','perfis',r.id,patch);toast('Utilizador actualizado.');users()})}
 
+async function ciadiPoloAccess(){
+  if(String(profile?.tipo||'').trim().toLowerCase()!=='admin'){
+    document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso reservado ao Administrador do CIADI.</b><p class="text-sm text-slate-500 mt-2">A configuração dos acessos aos polos não é feita pelo instalador nem por utilizadores comuns.</p></div>';return;
+  }
+  try{
+    const [pr,cc,ar]=await Promise.all([
+      sb.from('perfis').select('id,nome_completo,email,tipo,ativo').order('nome_completo'),
+      sb.from('finance_centros_custo').select('id,codigo,nome,ativo').eq('ativo',true).order('nome'),
+      sb.from('ciadi_centros_acesso').select('id,perfil_id,centro_custo_id,ativo,principal,created_at').order('created_at',{ascending:false})
+    ]);
+    for(const x of [pr,cc,ar])if(x.error){
+      if(x.error.code==='PGRST205'||x.error.code==='42P01'||/ciadi_centros_acesso/i.test(x.error.message||'')){
+        tablePage('Polos e acessos','Atribuição explícita de utilizadores aos polos CIADI.',`<div class="rounded-xl border border-amber-300 bg-amber-50 text-amber-900 p-5"><b>Estrutura de acessos ainda não aplicada.</b><p class="mt-2 text-sm">A migração de associações por polo está preparada no ramo de homologação, mas não foi aplicada à base de dados. Esta página não cria permissões locais nem altera RLS automaticamente.</p></div>`);return;
+      }
+      throw x.error;
+    }
+    const users=pr.data||[],centres=cc.data||[],assignments=ar.data||[];
+    const byUser=Object.fromEntries(users.map(x=>[x.id,x])),byCentre=Object.fromEntries(centres.map(x=>[x.id,x]));
+    tablePage('Polos e acessos','Atribua a cada conta os polos autorizados. A seleção do polo predefinido no computador não concede permissões. O isolamento de cada módulo depende também das políticas RLS e das associações operacionais homologadas.',`
+      <div class="flex flex-wrap justify-end gap-2 mb-4"><button onclick="newPoloAccess()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Atribuir acesso a polo</button></div>
+      <div class="grid sm:grid-cols-3 gap-3 mb-4"><div class="card p-4"><div class="text-sm text-slate-500">Contas</div><div class="text-2xl font-black">${users.length}</div></div><div class="card p-4"><div class="text-sm text-slate-500">Polos ativos</div><div class="text-2xl font-black">${centres.length}</div></div><div class="card p-4"><div class="text-sm text-slate-500">Atribuições ativas</div><div class="text-2xl font-black">${assignments.filter(x=>x.ativo).length}</div></div></div>
+      <div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Utilizador</th><th>Perfil</th><th>Polo autorizado</th><th>Estado</th><th>Acção</th></tr></thead><tbody>${assignments.map(a=>'<tr class="border-b"><td class="p-3">'+esc(byUser[a.perfil_id]?.nome_completo||byUser[a.perfil_id]?.email||a.perfil_id)+'</td><td>'+esc(byUser[a.perfil_id]?.tipo||'—')+'</td><td>'+esc(byCentre[a.centro_custo_id]?.nome||a.centro_custo_id)+'</td><td>'+esc(a.ativo?'Ativo':'Revogado')+(a.principal?' · Predefinido':'')+'</td><td>'+(a.ativo?'<button class="border rounded px-2 py-1" onclick="setPoloAccessState(\''+a.id+'\',false)">Revogar</button>':'—')+'</td></tr>').join('')||'<tr><td colspan="5" class="p-4 text-slate-500">Ainda não existem atribuições por polo.</td></tr>'}</tbody></table></div>
+      <div class="rounded-xl border p-4 mt-4 text-sm"><b>Importante:</b> estas atribuições são a base para o controlo por polo, mas não substituem a auditoria e atualização das políticas RLS das tabelas operacionais. Não se deve declarar isolamento completo até testar acessos diretos a cada módulo.</div>
+    `);
+  }catch(e){sectionError('Polos e acessos',e)}
+}
+async function newPoloAccess(){
+  try{
+    if(String(profile?.tipo||'').trim().toLowerCase()!=='admin')throw new Error('Só o Administrador pode atribuir acessos por polo.');
+    const [pr,cc,ar]=await Promise.all([
+      sb.from('perfis').select('id,nome_completo,email,tipo,ativo').eq('ativo',true).order('nome_completo'),
+      sb.from('finance_centros_custo').select('id,codigo,nome').eq('ativo',true).order('nome'),
+      sb.from('ciadi_centros_acesso').select('perfil_id,centro_custo_id,ativo')
+    ]);
+    for(const x of [pr,cc,ar])if(x.error)throw x.error;
+    const existing=new Set((ar.data||[]).filter(x=>x.ativo).map(x=>x.perfil_id+'|'+x.centro_custo_id));
+    const options=[];
+    for(const u of pr.data||[])for(const c of cc.data||[])if(!existing.has(u.id+'|'+c.id))options.push({value:u.id+'|'+c.id,label:(u.nome_completo||u.email||u.id)+' ['+u.tipo+'] — '+c.nome});
+    if(!options.length)throw new Error('Todos os pares utilizador/polo disponíveis já têm uma atribuição ativa.');
+    await modal('Atribuir acesso a polo',`<div class="grid gap-4">${selectField('par','Utilizador e polo',options,'',true)}</div><p class="text-xs text-amber-800 mt-3">Esta ação regista a atribuição no servidor. Não altera automaticamente permissões das tabelas operacionais; a segurança de cada módulo continua dependente de RLS.</p>`,async fd=>{
+      const [perfil_id,centro_custo_id]=String(fd.get('par')||'').split('|');
+      if(!perfil_id||!centro_custo_id)throw new Error('Selecione um utilizador e um polo.');
+      const {data,error}=await sb.from('ciadi_centros_acesso').insert({perfil_id,centro_custo_id,ativo:true,principal:false,criado_por:me.id}).select('id').single();
+      if(error)throw error;
+      await audit('ATRIBUIR_ACESSO_POLO','ciadi_centros_acesso',data.id,{perfil_id,centro_custo_id});
+      toast('Atribuição registada.');closeModal();ciadiPoloAccess();
+    });
+  }catch(e){toast(e?.message||'Não foi possível atribuir o acesso.')}
+}
+async function setPoloAccessState(id,active){
+  try{
+    if(String(profile?.tipo||'').trim().toLowerCase()!=='admin')throw new Error('Só o Administrador pode alterar acessos por polo.');
+    const {error}=await sb.from('ciadi_centros_acesso').update({ativo:active,updated_at:new Date().toISOString()}).eq('id',id);
+    if(error)throw error;
+    await audit(active?'REACTIVAR_ACESSO_POLO':'REVOGAR_ACESSO_POLO','ciadi_centros_acesso',id,{ativo:active});
+    toast(active?'Acesso reactivado.':'Acesso revogado.');ciadiPoloAccess();
+  }catch(e){toast(e?.message||'Não foi possível alterar o acesso.')}
+}
 async function ciadiPayroll(){
   if(!canManageHR()){document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b> A folha salarial contém dados remuneratórios confidenciais.</div>';return;}
   try{
