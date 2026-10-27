@@ -172,7 +172,7 @@ jobs:
               "service declaration action is present": "generateHRDocument(\'servico\'" in dashboard,
               "salary declaration does not claim to be a payslip": "não substitui recibo de vencimento" in dashboard.lower(),
               "RH document generation requires manager permission": "if(!canManageHR())throw new Error('Apenas Admin/Gestor de RH autorizado pode emitir documentos.')" in dashboard,
-              "expense workflow schema is probed before writes": "async function detectExpenseWorkflowSchema()" in dashboard and "if(await detectExpenseWorkflowSchema())" in dashboard,
+              "expense workflow schema is probed before writes": "async function detectExpenseWorkflowSchema()" in dashboard and "const workflowReady=await detectExpenseWorkflowSchema()" in dashboard and "if(workflowReady)" in dashboard,
               "missing workflow schema is not treated as approved": "Migração pendente" in dashboard and "não serão simuladas" in dashboard,
               "station polo is not confused with access rights": "NÃO concede permissões de acesso" in Path("ciadi-windows/main.cjs").read_text(encoding="utf-8"),
               "both polo choices exist": "CIADI Polo Talatona" in Path("ciadi-windows/main.cjs").read_text(encoding="utf-8") and "CIADI Polo Jardim de Rosas" in Path("ciadi-windows/main.cjs").read_text(encoding="utf-8"),
