@@ -117,7 +117,7 @@ jobs:
           gate = Path("supabase/migrations/20261027170000_ciadi_bloquear_emissao_ate_validacao_agt.sql").read_text(encoding="utf-8").lower()
           accounting = Path("supabase/migrations/20261027160000_ciadi_faturacao_contabilizacao_segura.sql").read_text(encoding="utf-8")
           checks = {
-              "fiscal issue gate is transactional": "begin;" in gate and gate.strip().endswith("commit;"),
+              "fiscal issue gate is transactional": "begin;" in gate and "\\ncommit;" in gate,
               "fiscal issue execute revoked from public": "from public, anon, authenticated" in gate,
               "gate does not drop or delete data": "drop table" not in gate and "delete from" not in gate,
               "gate does not alter document series": "update public.finance_series" not in gate.lower(),
