@@ -65,6 +65,10 @@ jobs:
           Path("/tmp/ciadi-inline.js").write_text("".join(parser.parts), encoding="utf-8")
           PY
           node --check /tmp/ciadi-inline.js
+      - name: Check Windows host and preload JavaScript syntax
+        run: |
+          node --check ciadi-windows/main.cjs
+          node --check ciadi-windows/preload.cjs
       - name: Verify purchase/accounting migration safety contract
         run: |
           python - <<'PY'
@@ -169,6 +173,7 @@ jobs:
           dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
           checks = {
               "RH document emission is implemented": "async function generateHRDocument(kind,staffId)" in dashboard,
+              "payroll module is reachable": "async function ciadiPayroll()" in dashboard and "if(id==='rh_folha')return ciadiPayroll()" in dashboard,
               "service declaration action is present": "generateHRDocument(\'servico\'" in dashboard,
               "salary declaration does not claim to be a payslip": "não substitui recibo de vencimento" in dashboard.lower(),
               "RH document generation requires manager permission": "if(!canManageHR())throw new Error('Apenas Admin/Gestor de RH autorizado pode emitir documentos.')" in dashboard,
@@ -178,6 +183,8 @@ jobs:
               "both polo choices exist": "CIADI Polo Talatona" in Path("ciadi-windows/main.cjs").read_text(encoding="utf-8") and "CIADI Polo Jardim de Rosas" in Path("ciadi-windows/main.cjs").read_text(encoding="utf-8"),
               "station configuration API is isolated through preload": "getStationConfig" in Path("ciadi-windows/preload.cjs").read_text(encoding="utf-8") and "configureStationPolo" in Path("ciadi-windows/preload.cjs").read_text(encoding="utf-8"),
               "setup build is not automatic on the correction branch": "inputs.build_setup == true" in Path(".github/workflows/ciadi-windows-setup.yml").read_text(encoding="utf-8") and "default: false" in Path(".github/workflows/ciadi-windows-setup.yml").read_text(encoding="utf-8"),
+              "payroll migration has RLS and polo assignment checks": "enable row level security" in Path("supabase/migrations/20261027193000_ciadi_rh_folha_salarial.sql").read_text(encoding="utf-8").lower() and "ciadi_centros_acesso" in Path("supabase/migrations/20261027193000_ciadi_rh_folha_salarial.sql").read_text(encoding="utf-8") and "revoke all on function public.ciadi_rh_emitir_recibo(uuid) from public, anon" in Path("supabase/migrations/20261027193000_ciadi_rh_folha_salarial.sql").read_text(encoding="utf-8"),
+              "payroll totals are constrained and receipts gated by approval": "check (round(total_bruto - total_descontos, 2) = total_liquido)" in Path("supabase/migrations/20261027193000_ciadi_rh_folha_salarial.sql").read_text(encoding="utf-8") and "O recibo só pode ser emitido depois da aprovação da folha" in Path("supabase/migrations/20261027193000_ciadi_rh_folha_salarial.sql").read_text(encoding="utf-8"),
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
