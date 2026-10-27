@@ -91,6 +91,12 @@ jobs:
           checks = {
               "SOS receiver": "async function sosAlerts()" in dashboard and "ciadi_sos_alertas" in dashboard,
               "site intake receiver": "async function siteTriageRequests()" in dashboard and "ciadi_triagens" in dashboard,
+              "supplier id is persisted": "fornecedor_id:selected?.id||null" in dashboard,
+              "expense approval RPC": "finance_aprovar_despesa" in dashboard and "approveExpense" in dashboard,
+              "expense accounting RPC": "finance_postar_despesa" in dashboard and "postExpense" in dashboard,
+              "purchase order creation RPC": "finance_compras_criar_ordem" in dashboard and "newPurchaseOrder" in dashboard,
+              "purchase order approval RPC": "finance_compras_aprovar_ordem" in dashboard and "decidePurchaseOrder" in dashboard,
+              "purchase order list": "finance_compras_ordens" in dashboard,
               "navigation routes": "id==='sos'" in dashboard and "id==='pedidos_site'" in dashboard,
               "shared Supabase project": "https://egpkkttbcaukqnnxyhjv.supabase.co" in dashboard,
               "no service-role credential marker": "SUPABASE_SERVICE_ROLE_KEY" not in dashboard and "service_role" not in dashboard.lower(),
