@@ -38,3 +38,9 @@ As políticas RLS atuais consultadas para clientes, despesas e documentos autori
 - Nenhum registo financeiro foi reatribuído.
 - Nenhuma política existente foi removida ou enfraquecida.
 - O seletor de centro ainda não deve ser ativado na aplicação; sem a fase de isolamento das tabelas operacionais, criaria uma falsa sensação de segurança.
+
+
+## Mapa técnico de módulos comerciais e contabilidade (2026-10-27)
+Foi criada a auditoria complementar `docs/CIADI-MAPA-SEPARACAO-POLOS-COMERCIAL-CONTABILIDADE.md`, baseada numa leitura das colunas e policies do Supabase e do `index.html`. O mapa detalha documentos/linhas, clientes e serviços, despesas, compras, pagamentos, caixas/turnos/movimentos, lançamentos, séries e SAF-T. Identifica também que o `index.html` usa `finance_clientes` como cadastro comercial comum e `finance_servicos` como catálogo de serviços, e que o isolamento não pode ser ativado apenas com um seletor.
+
+O novo documento reforça: nenhum dado histórico deve ser classificado por suposição; as policies permissivas existentes precisam ser revistas tabela a tabela; qualquer implementação e testes continuam na branch de desenvolvimento. A migração preparatória permanece sem aplicação em produção.
