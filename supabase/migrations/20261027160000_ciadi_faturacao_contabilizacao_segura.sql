@@ -19,6 +19,7 @@ declare
   imposto numeric(18,2);
   total numeric(18,2);
   result jsonb;
+  v_estado text;
   linhas_count integer;
 begin
   if not public.ciadi_finance_is_staff() then
@@ -58,7 +59,7 @@ begin
 
   -- Idempotência segura: um lançamento já contabilizado é reutilizado;
   -- um rascunho anterior exige reconciliação, não é silenciosamente aceite.
-  select id, estado into lid, result
+  select id, estado into lid, v_estado
   from public.finance_lancamentos
   where empresa_id = d.empresa_id
     and origem_tipo = 'DOCUMENTO'
@@ -68,7 +69,7 @@ begin
   for update;
 
   if lid is not null then
-    if result::text = '"contabilizado"' then
+    if v_estado = 'contabilizado' then
       return jsonb_build_object('ok',true,'idempotente',true,'lancamento_id',lid,'estado','contabilizado');
     end if;
     return jsonb_build_object(
