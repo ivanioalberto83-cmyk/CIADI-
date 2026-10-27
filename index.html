@@ -19,6 +19,7 @@
 const SUPABASE_URL='https://egpkkttbcaukqnnxyhjv.supabase.co';
 const SUPABASE_KEY='sb_publishable_SSA6B6gfnaUxKhOzReE6HQ_utqQRebz';
 let sb=null, me=null, profile=null, current='overview', sosChannel=null;
+let commercialRegistryFilter='todos'; // Filtro inicial do cadastro comercial.
 function initSupabase(){
   if(sb) return sb;
   if(!window.supabase || typeof window.supabase.createClient!=='function') throw new Error('A biblioteca do Supabase não foi carregada. Verifique a ligação à Internet.');
