@@ -692,6 +692,13 @@ async function commercialRegistries(){
       <div class="mt-4 rounded-xl bg-amber-50 text-amber-900 p-4 text-sm"><b>Nota de integração:</b> a tabela existente suporta o cadastro base. A ligação automática destes novos registos ao seletor de adquirente da fatura e ao módulo de despesas/fornecedores será validada numa etapa própria antes de produção.</div>`);
   }catch(e){sectionError('Clientes, Entidades e Fornecedores',e)}
 }
+function normalizeCommercialNif(value){return String(value||'').replace(/[\\s.\\/-]/g,'').trim();}
+function validateCommercialNifFormat(value){
+  const nif=normalizeCommercialNif(value);
+  if(!nif)return {ok:true,nif:'',message:'NIF não indicado.'};
+  if(!/^\\d{9,14}$/.test(nif))return {ok:false,nif,message:'Formato local inválido: use apenas dígitos (9 a 14), sem letras. Isto não confirma a validade oficial na AGT.'};
+  return {ok:true,nif,message:'Formato plausível. A validade e a titularidade ainda não foram confirmadas pela AGT.'};
+}
 async function editCommercialRegistry(r=null){
   const x=r||{};
   await modal(r?'Editar cadastro comercial':'Novo cadastro comercial',`
@@ -714,11 +721,21 @@ async function editCommercialRegistry(r=null){
       ${inputField('endereco_prestacao','Morada de prestação/entrega',x.endereco_prestacao||'')}
       ${textareaField('observacoes','Observações',x.observacoes||'')}
     </div>
+    <div class="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs mt-3"><b>Validação local do NIF:</b> ao guardar, o CIADI normaliza espaços/pontos/barras, verifica um formato numérico plausível e procura duplicados no cadastro. Isto <b>não</b> confirma se o NIF está activo, se pertence à entidade indicada ou se é válido na AGT. A consulta oficial fica pendente de autorização/acesso da AGT.</div>
     <p class="text-xs text-slate-500 mt-3">Não introduza dados clínicos neste cadastro. Guarde apenas dados comerciais necessários.</p>`,
     async fd=>{
       const nome=(fd.get('nome')||'').trim();
       if(!nome)throw new Error('O nome/denominação é obrigatório.');
-      const row={nome,nome_comercial:(fd.get('nome_comercial')||'').trim()||null,nif:(fd.get('nif')||'').trim()||null,
+      const nifCheck=validateCommercialNifFormat(fd.get('nif'));
+      if(!nifCheck.ok)throw new Error(nifCheck.message);
+      const nif=nifCheck.nif||null;
+      if(nif){
+        const dup=await sb.from('finance_clientes').select('id,nome,nome_comercial,nif').eq('nif',nif).limit(20);
+        if(dup.error)throw dup.error;
+        const conflict=(dup.data||[]).find(item=>item.id!==x.id);
+        if(conflict)throw new Error('Este NIF já consta no cadastro comercial ('+(conflict.nome_comercial||conflict.nome||'registo existente')+'). Verifique o registo antes de continuar.');
+      }
+      const row={nome,nome_comercial:(fd.get('nome_comercial')||'').trim()||null,nif,
         tipo_adquirente:fd.get('tipo_adquirente')||'cliente',contacto_principal:(fd.get('contacto_principal')||'').trim()||null,
         telefone:(fd.get('telefone')||'').trim()||null,whatsapp:(fd.get('whatsapp')||'').trim()||null,email:(fd.get('email')||'').trim()||null,
         endereco:(fd.get('endereco')||'').trim()||null,bairro:(fd.get('bairro')||'').trim()||null,
