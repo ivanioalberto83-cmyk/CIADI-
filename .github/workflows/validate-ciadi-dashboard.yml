@@ -150,7 +150,9 @@ jobs:
               "no service-role credential marker": "SUPABASE_SERVICE_ROLE_KEY" not in dashboard and "service_role" not in dashboard.lower(),
               "invoice UI saves a draft only": "Guardar rascunho de homologação" in dashboard and "ciadi_faturacao_criar_documento" in dashboard,
               "invoice UI does not call official issue RPC": "sb.rpc('ciadi_faturacao_emitir_documento'" not in dashboard and 'sb.rpc("ciadi_faturacao_emitir_documento"' not in dashboard,
-              "draft clearly has no AGT fiscal validity": "Não tem validade fiscal AGT." in dashboard,
+              "draft clearly has no AGT fiscal validity": "Não tem validade fiscal AGT" in dashboard,
+              "series are explicitly marked as not AGT-validated": "Série de referência (não validada AGT)" in dashboard,
+              "draft flow warns fiscal authorization and transmission are pending": "autorização e transmissão AGT ainda carecem de validação" in dashboard,
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
