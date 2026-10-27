@@ -98,8 +98,16 @@ create policy ciadi_folhas_salariais_draft_insert
 drop policy if exists ciadi_folhas_salariais_draft_update on public.ciadi_folhas_salariais;
 create policy ciadi_folhas_salariais_draft_update
   on public.ciadi_folhas_salariais for update to authenticated
-  using (public.ciadi_finance_is_staff() and estado = 'rascunho')
-  with check (public.ciadi_finance_is_staff() and estado = 'rascunho');
+  using (
+    public.ciadi_finance_is_staff() and estado = 'rascunho'
+    and exists (select 1 from public.ciadi_centros_acesso a
+      where a.perfil_id=(select auth.uid()) and a.centro_custo_id=ciadi_folhas_salariais.centro_custo_id and a.ativo=true)
+  )
+  with check (
+    public.ciadi_finance_is_staff() and estado = 'rascunho'
+    and exists (select 1 from public.ciadi_centros_acesso a
+      where a.perfil_id=(select auth.uid()) and a.centro_custo_id=ciadi_folhas_salariais.centro_custo_id and a.ativo=true)
+  );
 
 drop policy if exists ciadi_folha_salarial_linhas_assigned_read on public.ciadi_folha_salarial_linhas;
 create policy ciadi_folha_salarial_linhas_assigned_read
@@ -133,12 +141,16 @@ create policy ciadi_folha_salarial_linhas_draft_update
   using (
     public.ciadi_finance_is_staff()
     and exists (select 1 from public.ciadi_folhas_salariais f
-      where f.id = ciadi_folha_salarial_linhas.folha_id and f.estado = 'rascunho')
+      join public.ciadi_centros_acesso a on a.centro_custo_id=f.centro_custo_id
+      where f.id=ciadi_folha_salarial_linhas.folha_id and f.estado='rascunho'
+        and a.perfil_id=(select auth.uid()) and a.ativo=true)
   )
   with check (
     public.ciadi_finance_is_staff()
     and exists (select 1 from public.ciadi_folhas_salariais f
-      where f.id = ciadi_folha_salarial_linhas.folha_id and f.estado = 'rascunho')
+      join public.ciadi_centros_acesso a on a.centro_custo_id=f.centro_custo_id
+      where f.id=ciadi_folha_salarial_linhas.folha_id and f.estado='rascunho'
+        and a.perfil_id=(select auth.uid()) and a.ativo=true)
   );
 
 drop policy if exists ciadi_folha_salarial_linhas_draft_delete on public.ciadi_folha_salarial_linhas;
