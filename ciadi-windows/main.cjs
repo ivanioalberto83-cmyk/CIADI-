@@ -5,6 +5,13 @@ const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let biometricWindow;
+const MODULE_IDS = new Set(['adm', 'suporte', 'rh', 'recepcao']);
+function getRequestedModule() {
+  const arg = process.argv.find(value => value.startsWith('--ciadi-module='));
+  const requested = arg ? arg.slice('--ciadi-module='.length).toLowerCase() : 'adm';
+  return MODULE_IDS.has(requested) ? requested : 'adm';
+}
+let activeModule = getRequestedModule();
 const STATION_POLOS = [
   { id: 'talatona', label: 'CIADI Polo Talatona' },
   { id: 'jardim-de-rosas', label: 'CIADI Polo Jardim de Rosas' }
@@ -59,7 +66,7 @@ function createWindow() {
       contextIsolation: true, nodeIntegration: false, sandbox: true
     }
   });
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, 'index.html'), { query: { ciadiModule: activeModule } });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://') || url.startsWith('http://')) {
       dialog.showMessageBox(mainWindow, {
