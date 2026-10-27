@@ -20,6 +20,7 @@ const SUPABASE_URL='https://egpkkttbcaukqnnxyhjv.supabase.co';
 const SUPABASE_KEY='sb_publishable_SSA6B6gfnaUxKhOzReE6HQ_utqQRebz';
 let sb=null, me=null, profile=null, current='overview', sosChannel=null;
 window.commercialRegistryFilter=window.commercialRegistryFilter||'todos'; // Estado global compatível com os handlers inline.
+function canManageHR(){return ['admin','gestor'].includes(String(profile?.tipo||'').trim().toLowerCase());}
 function initSupabase(){
   if(sb) return sb;
   if(!window.supabase || typeof window.supabase.createClient!=='function') throw new Error('A biblioteca do Supabase não foi carregada. Verifique a ligação à Internet.');
@@ -63,7 +64,7 @@ async function biometricHub(){
 
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
-  const isManager=['admin','gestor'].includes(profile?.tipo);
+  const isManager=canManageHR();
   const [patRes, prRes, atRes] = await Promise.all([
     sb.from('pacientes').select('id,nome_completo,data_nascimento').order('nome_completo'),
     sb.from('profissionais').select('id,nome_completo,registro_profissional,especialidade_id,eh_at,ativo,perfil_id').eq('ativo',true).order('nome_completo'),
@@ -789,7 +790,7 @@ async function ciadiHR(){
 }
 async function newHRStaff(){
   try{
-    if(!['admin','gestor'].includes(profile?.tipo))throw new Error('Apenas admin/gestor pode cadastrar colaboradores.');
+    if(!canManageHR())throw new Error('Apenas Admin/Gestor pode cadastrar ou associar colaboradores.');
     const [fr,pr]=await Promise.all([sb.from('ciadi_funcionarios').select('profissional_id'),sb.from('profissionais').select('id,nome_completo,ativo').eq('ativo',true).order('nome_completo')]);
     if(fr.error)throw fr.error;if(pr.error)throw pr.error;
     const linked=new Set((fr.data||[]).map(x=>x.profissional_id));
@@ -817,7 +818,7 @@ async function newHRStaff(){
 }
 async function newHRContract(){
   try{
-    if(!['admin','gestor'].includes(profile?.tipo))throw new Error('Apenas admin/gestor pode registar contratos.');
+    if(!canManageHR())throw new Error('Apenas Admin/Gestor pode registar contratos.');
     const {data,error}=await sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissional_id,profissionais(nome_completo)').order('codigo_funcionario');
     if(error)throw error;if(!(data||[]).length)throw new Error('Cadastre primeiro um colaborador.');
     const options=data.map(x=>({value:x.id,label:(x.profissionais?.nome_completo||x.codigo_funcionario||'Colaborador')+' · '+(x.codigo_funcionario||'sem código')}));
@@ -833,7 +834,7 @@ async function newHRContract(){
 }
 async function newHRAttendance(){
   try{
-    if(!['admin','gestor'].includes(profile?.tipo))throw new Error('Apenas admin/gestor pode registar assiduidade manual.');
+    if(!canManageHR())throw new Error('Apenas Admin/Gestor pode registar assiduidade manual.');
     const {data,error}=await sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissionais(nome_completo)').order('codigo_funcionario');
     if(error)throw error;if(!(data||[]).length)throw new Error('Cadastre primeiro um colaborador.');
     const opts=data.map(x=>({value:x.id,label:(x.profissionais?.nome_completo||'Colaborador')+' · '+(x.codigo_funcionario||'sem código')}));
