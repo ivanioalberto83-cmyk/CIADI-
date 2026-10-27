@@ -109,7 +109,7 @@ create table if not exists public.ciadi_aprov_cotacoes (
 create table if not exists public.ciadi_aprov_rececoes (
   id uuid primary key default gen_random_uuid(),
   numero text not null unique,
-  ordem_compra_id uuid references public.finance_compras_ordens(id) on delete restrict,
+  ordem_compra_id uuid, -- associacao com finance_compras_ordens validada quando a estrutura estiver disponivel
   pedido_id uuid references public.ciadi_aprov_pedidos(id) on delete restrict,
   centro_custo_id uuid not null references public.finance_centros_custo(id) on delete restrict,
   data_rececao date not null default current_date,
