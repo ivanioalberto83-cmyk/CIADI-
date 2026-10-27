@@ -692,11 +692,11 @@ async function commercialRegistries(){
       <div class="mt-4 rounded-xl bg-amber-50 text-amber-900 p-4 text-sm"><b>Nota de integração:</b> a tabela existente suporta o cadastro base. A ligação automática destes novos registos ao seletor de adquirente da fatura e ao módulo de despesas/fornecedores será validada numa etapa própria antes de produção.</div>`);
   }catch(e){sectionError('Clientes, Entidades e Fornecedores',e)}
 }
-function normalizeCommercialNif(value){return String(value||'').replace(/[\\s.\\/-]/g,'').trim();}
+function normalizeCommercialNif(value){return String(value||'').replace(/[\s.\\/-]/g,'').trim();}
 function validateCommercialNifFormat(value){
   const nif=normalizeCommercialNif(value);
   if(!nif)return {ok:true,nif:'',message:'NIF não indicado.'};
-  if(!/^\\d{9,14}$/.test(nif))return {ok:false,nif,message:'Formato local inválido: use apenas dígitos (9 a 14), sem letras. Isto não confirma a validade oficial na AGT.'};
+  if(!/^\d{9,14}$/.test(nif))return {ok:false,nif,message:'Formato local inválido: use apenas dígitos (9 a 14), sem letras. Isto não confirma a validade oficial na AGT.'};
   return {ok:true,nif,message:'Formato plausível. A validade e a titularidade ainda não foram confirmadas pela AGT.'};
 }
 async function editCommercialRegistry(r=null){
