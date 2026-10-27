@@ -1,6 +1,6 @@
 {
   "name": "ciadi-dashboard-windows",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Aplicação Windows CIADI com atalhos por módulo e seleção de polo",
   "main": "main.cjs",
   "author": "CIADI",
