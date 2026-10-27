@@ -9,6 +9,8 @@ on:
       - 'supabase/migrations/**'
       - 'docs/PLANO-MIGRACAO-COMPRAS-CONTABILIDADE-PRODUCAO.md'
       - 'docs/AUDITORIA-COMERCIAL-CONTABIL-CIADI-2026-10-27.md'
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-windows-setup.yml'
   push:
     branches:
       - main
@@ -153,6 +155,29 @@ jobs:
               "draft clearly has no AGT fiscal validity": "Não tem validade fiscal AGT" in dashboard,
               "series are explicitly marked as not AGT-validated": "Série de referência (não validada AGT)" in dashboard,
               "draft flow warns fiscal authorization and transmission are pending": "autorização e transmissão AGT ainda carecem de validação" in dashboard,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
+
+      - name: Verify RH document flow and safe schema fallback
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
+          checks = {
+              "RH document emission is implemented": "async function generateHRDocument(kind,staffId)" in dashboard,
+              "service declaration action is present": "generateHRDocument(\\'servico\\'" in dashboard,
+              "salary declaration does not claim to be a payslip": "não substitui recibo de vencimento" in dashboard.lower(),
+              "RH document generation requires manager permission": "if(!canManageHR())throw new Error('Apenas Admin/Gestor de RH autorizado pode emitir documentos.')" in dashboard,
+              "expense workflow schema is probed before writes": "async function detectExpenseWorkflowSchema()" in dashboard and "if(await detectExpenseWorkflowSchema())" in dashboard,
+              "missing workflow schema is not treated as approved": "Migração pendente" in dashboard and "não serão simuladas" in dashboard,
+              "station polo is not confused with access rights": "NÃO concede permissões de acesso" in Path("ciadi-windows/main.cjs").read_text(encoding="utf-8"),
+              "both polo choices exist": "CIADI Polo Talatona" in Path("ciadi-windows/main.cjs").read_text(encoding="utf-8") and "CIADI Polo Jardim de Rosas" in Path("ciadi-windows/main.cjs").read_text(encoding="utf-8"),
+              "station configuration API is isolated through preload": "getStationConfig" in Path("ciadi-windows/preload.cjs").read_text(encoding="utf-8") and "configureStationPolo" in Path("ciadi-windows/preload.cjs").read_text(encoding="utf-8"),
+              "setup build is not automatic on the correction branch": "inputs.build_setup == true" in Path(".github/workflows/ciadi-windows-setup.yml").read_text(encoding="utf-8") and "default: false" in Path(".github/workflows/ciadi-windows-setup.yml").read_text(encoding="utf-8"),
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
