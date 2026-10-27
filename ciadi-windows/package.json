@@ -1,14 +1,15 @@
 {
   "name": "ciadi-dashboard-windows",
   "version": "1.0.0",
-  "description": "Aplicação Windows do Dashboard CIADI com módulo isolado de homologação de assiduidade biométrica",
+  "description": "Aplicação Windows CIADI com atalhos por módulo e seleção de polo",
   "main": "main.cjs",
   "author": "CIADI",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist:win": "electron-builder --win nsis"
+    "dist:win": "electron-builder --win nsis",
+    "test": "node --test"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
@@ -30,7 +31,8 @@
       "preload.cjs",
       "package.json",
       "node_modules/electron-updater/**/*",
-      "biometric-k20pro.html"
+      "biometric-k20pro.html",
+      "build/installer.nsh"
     ],
     "publish": [
       {
@@ -57,10 +59,12 @@
       "installerHeaderIcon": "ciadi.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
       "shortcutName": "CIADI Dashboard",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh",
+      "runAfterFinish": false
     }
   }
 }
