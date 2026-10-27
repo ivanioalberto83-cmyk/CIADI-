@@ -6,6 +6,10 @@ Var CIADIModuleADM
 Var CIADIModuleSupport
 Var CIADIModuleHR
 Var CIADIModuleReception
+Var CIADISelectedADM
+Var CIADISelectedSupport
+Var CIADISelectedHR
+Var CIADISelectedReception
 
 !macro customPageAfterChangeDir
   Page custom CIADIModulePageCreate CIADIModulePageLeave
@@ -51,13 +55,13 @@ Function CIADIModulePageCreate
 FunctionEnd
 
 Function CIADIModulePageLeave
-  ${NSD_GetState} $CIADIModuleADM $0
-  ${NSD_GetState} $CIADIModuleSupport $1
-  ${NSD_GetState} $CIADIModuleHR $2
-  ${NSD_GetState} $CIADIModuleReception $3
-  IntOp $4 $0 + $1
-  IntOp $4 $4 + $2
-  IntOp $4 $4 + $3
+  ${NSD_GetState} $CIADIModuleADM $CIADISelectedADM
+  ${NSD_GetState} $CIADIModuleSupport $CIADISelectedSupport
+  ${NSD_GetState} $CIADIModuleHR $CIADISelectedHR
+  ${NSD_GetState} $CIADIModuleReception $CIADISelectedReception
+  IntOp $4 $CIADISelectedADM + $CIADISelectedSupport
+  IntOp $4 $4 + $CIADISelectedHR
+  IntOp $4 $4 + $CIADISelectedReception
   ${If} $4 == 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "Selecione pelo menos um módulo CIADI para continuar."
     Abort
@@ -78,30 +82,25 @@ FunctionEnd
   Delete "$SMPROGRAMS\CIADI\CIADI Recursos Humanos.lnk"
   Delete "$SMPROGRAMS\CIADI\CIADI Receção.lnk"
 
-  ${NSD_GetState} $CIADIModuleADM $0
-  ${NSD_GetState} $CIADIModuleSupport $1
-  ${NSD_GetState} $CIADIModuleHR $2
-  ${NSD_GetState} $CIADIModuleReception $3
-
   WriteRegStr HKCU "Software\CIADI\ModuleSelection" "initialized" "1"
-  WriteRegDWORD HKCU "Software\CIADI\ModuleSelection" "adm" $0
-  WriteRegDWORD HKCU "Software\CIADI\ModuleSelection" "suporte" $1
-  WriteRegDWORD HKCU "Software\CIADI\ModuleSelection" "rh" $2
-  WriteRegDWORD HKCU "Software\CIADI\ModuleSelection" "recepcao" $3
+  WriteRegDWORD HKCU "Software\CIADI\ModuleSelection" "adm" $CIADISelectedADM
+  WriteRegDWORD HKCU "Software\CIADI\ModuleSelection" "suporte" $CIADISelectedSupport
+  WriteRegDWORD HKCU "Software\CIADI\ModuleSelection" "rh" $CIADISelectedHR
+  WriteRegDWORD HKCU "Software\CIADI\ModuleSelection" "recepcao" $CIADISelectedReception
 
-  ${If} $0 == ${BST_CHECKED}
+  ${If} $CIADISelectedADM == ${BST_CHECKED}
     CreateShortCut "$DESKTOP\CIADI ADM.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--ciadi-module=adm"
     CreateShortCut "$SMPROGRAMS\CIADI\CIADI ADM.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--ciadi-module=adm"
   ${EndIf}
-  ${If} $1 == ${BST_CHECKED}
+  ${If} $CIADISelectedSupport == ${BST_CHECKED}
     CreateShortCut "$DESKTOP\CIADI Suporte Informático.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--ciadi-module=suporte"
     CreateShortCut "$SMPROGRAMS\CIADI\CIADI Suporte Informático.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--ciadi-module=suporte"
   ${EndIf}
-  ${If} $2 == ${BST_CHECKED}
+  ${If} $CIADISelectedHR == ${BST_CHECKED}
     CreateShortCut "$DESKTOP\CIADI Recursos Humanos.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--ciadi-module=rh"
     CreateShortCut "$SMPROGRAMS\CIADI\CIADI Recursos Humanos.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--ciadi-module=rh"
   ${EndIf}
-  ${If} $3 == ${BST_CHECKED}
+  ${If} $CIADISelectedReception == ${BST_CHECKED}
     CreateShortCut "$DESKTOP\CIADI Receção.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--ciadi-module=recepcao"
     CreateShortCut "$SMPROGRAMS\CIADI\CIADI Receção.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--ciadi-module=recepcao"
   ${EndIf}
