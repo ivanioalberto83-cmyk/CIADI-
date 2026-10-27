@@ -1,7 +1,7 @@
 {
   "name": "ciadi-dashboard-windows",
   "version": "1.0.0",
-  "description": "Aplicação Windows do dashboard financeiro CIADI",
+  "description": "Aplicação Windows do Dashboard CIADI com módulo isolado de homologação de assiduidade biométrica",
   "main": "main.cjs",
   "author": "CIADI",
   "license": "UNLICENSED",
@@ -21,18 +21,34 @@
     "appId": "ao.ciadi.dashboard",
     "productName": "CIADI Dashboard",
     "asar": true,
-    "directories": { "output": "release" },
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "index.html",
       "main.cjs",
       "preload.cjs",
       "package.json",
-      "node_modules/electron-updater/**/*"
+      "node_modules/electron-updater/**/*",
+      "biometric-k20pro.html"
     ],
-    "publish": [{ "provider": "github", "owner": "ivanioalberto83-cmyk", "repo": "CIADI-" }],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ivanioalberto83-cmyk",
+        "repo": "CIADI-"
+      }
+    ],
     "win": {
       "icon": "ciadi.ico",
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "artifactName": "CIADI-Setup-${version}.${ext}"
     },
     "nsis": {
