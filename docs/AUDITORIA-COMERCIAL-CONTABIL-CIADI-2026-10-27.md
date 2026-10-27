@@ -50,7 +50,7 @@ Não há clientes nem documentos nas tabelas consultadas. Não foi possível com
 - `ciadi_faturacao_criar_documento` cria documentos em edição com número temporário `EM-EDICAO-...` e sequencial 0; isso é apropriado para rascunho, mas exige um fluxo de emissão coerente.
 - A regra de faturação clínica está ausente; o vínculo entre serviço clínico, preço, imposto, conta de receita e eventual centro de custo tem de ser definido e testado.
 - A configuração SAF-T indica ambiente `producao`, mas a presença desse valor não comprova certificação, validação nem adesão AGT.
-- O estado RLS ativo nas tabelas não prova a correção das políticas; faltam testes por perfil e análise completa dos privilégios de cada RPC.
+- A função `finance_saft_validar_exportacao` devolve explicitamente `xsd_validado=false` e indica que a validação XSD deve ocorrer depois da geração do XML. Logo, o registo de exportação em estado `gerado` não é evidência de um SAF-T validado.\n- O estado RLS ativo nas tabelas não prova a correção das políticas; faltam testes por perfil e análise completa dos privilégios de cada RPC.
 
 ## Plano recomendado
 1. Manter produção intacta e emissão fiscal oficial bloqueada.
