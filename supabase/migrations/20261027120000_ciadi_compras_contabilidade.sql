@@ -60,6 +60,7 @@ create table if not exists public.finance_compras_ordens (
   numero text not null,
   empresa_id uuid not null references public.finance_empresas(id) on delete restrict,
   fornecedor_id uuid not null references public.finance_clientes(id) on delete restrict,
+  despesa_id uuid null references public.finance_despesas(id) on delete set null,
   requisicao_referencia text null,
   data_ordem date not null default current_date,
   data_prevista date null,
@@ -93,6 +94,8 @@ create index if not exists idx_finance_compras_ordens_empresa_data
   on public.finance_compras_ordens(empresa_id, data_ordem desc);
 create index if not exists idx_finance_compras_ordens_fornecedor
   on public.finance_compras_ordens(fornecedor_id);
+create unique index if not exists uq_finance_compras_ordens_despesa
+  on public.finance_compras_ordens(despesa_id) where despesa_id is not null;
 create index if not exists idx_finance_compras_ordens_estado
   on public.finance_compras_ordens(estado);
 create index if not exists idx_finance_compras_linhas_ordem
@@ -296,6 +299,36 @@ begin
 end
 $function$;
 
+create or replace function public.finance_compras_vincular_despesa(p_ordem_id uuid, p_despesa_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare o public.finance_compras_ordens%rowtype; d public.finance_despesas%rowtype;
+begin
+  if not public.ciadi_finance_is_staff() then raise exception 'Acesso não autorizado'; end if;
+  select * into o from public.finance_compras_ordens where id=p_ordem_id for update;
+  if not found then raise exception 'Ordem de compra não encontrada'; end if;
+  select * into d from public.finance_despesas where id=p_despesa_id for update;
+  if not found then raise exception 'Despesa não encontrada'; end if;
+  if o.estado not in ('aprovada','enviada','parcialmente_recebida','recebida') then
+    raise exception 'A ordem precisa de estar aprovada antes de ser ligada à despesa';
+  end if;
+  if d.fornecedor_id is null or d.fornecedor_id <> o.fornecedor_id then
+    raise exception 'A despesa deve ter o mesmo fornecedor associado à ordem';
+  end if;
+  if d.empresa_id is distinct from o.empresa_id then
+    raise exception 'A empresa da despesa deve coincidir com a ordem';
+  end if;
+  if exists(select 1 from public.finance_compras_ordens where despesa_id=p_despesa_id and id<>p_ordem_id) then
+    raise exception 'A despesa já está ligada a outra ordem de compra';
+  end if;
+  update public.finance_compras_ordens set despesa_id=p_despesa_id,updated_at=now() where id=p_ordem_id;
+  return jsonb_build_object('ok',true,'ordem_id',p_ordem_id,'despesa_id',p_despesa_id);
+end
+$function$;
+
 create or replace function public.finance_compras_aprovar_ordem(p_ordem_id uuid, p_aprovar boolean)
 returns jsonb
 language plpgsql
@@ -321,5 +354,6 @@ grant execute on function public.finance_aprovar_despesa(uuid, boolean) to authe
 grant execute on function public.finance_postar_despesa(uuid) to authenticated;
 grant execute on function public.finance_compras_criar_ordem(text, uuid, uuid, date, date, text, jsonb) to authenticated;
 grant execute on function public.finance_compras_aprovar_ordem(uuid, boolean) to authenticated;
+grant execute on function public.finance_compras_vincular_despesa(uuid, uuid) to authenticated;
 
 commit;
