@@ -223,7 +223,7 @@ begin
   end if;
   insert into public.finance_lancamento_linhas
     (lancamento_id, conta_id, centro_custo_id, descricao, debito, credito, ordem)
-  values (lanc, regra.conta_credito_id, regra.centro_custo_id, 'Fornecedor / contas a pagar', d.total, d.total, 3);
+  values (lanc, regra.conta_credito_id, regra.centro_custo_id, 'Fornecedor / contas a pagar', 0, d.total, 3);
 
   perform public.finance_validar_lancamento(lanc);
   update public.finance_despesas
