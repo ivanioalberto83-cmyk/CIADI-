@@ -233,7 +233,93 @@ begin
 end
 $function$;
 
+create or replace function public.finance_compras_criar_ordem(
+  p_numero text,
+  p_empresa_id uuid,
+  p_fornecedor_id uuid,
+  p_data_ordem date,
+  p_data_prevista date,
+  p_observacoes text,
+  p_linhas jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare
+  fornecedor public.finance_clientes%rowtype;
+  ordem uuid;
+  linha jsonb;
+  qtd numeric(18,3);
+  preco numeric(18,2);
+  total_linha numeric(18,2);
+  total_ordem numeric(18,2) := 0;
+  n_linhas integer := 0;
+begin
+  if not public.ciadi_finance_is_staff() then raise exception 'Acesso não autorizado'; end if;
+  if nullif(trim(p_numero),'') is null then raise exception 'Número da ordem é obrigatório'; end if;
+  if p_empresa_id is null then raise exception 'Empresa é obrigatória'; end if;
+  if p_linhas is null or jsonb_typeof(p_linhas) <> 'array' or jsonb_array_length(p_linhas)=0 then
+    raise exception 'A ordem precisa de pelo menos uma linha';
+  end if;
+  select * into fornecedor from public.finance_clientes
+   where id=p_fornecedor_id and ativo=true
+     and lower(coalesce(nullif(tipo_adquirente,''),tipo,''))='fornecedor';
+  if not found then raise exception 'Selecione um fornecedor ativo do cadastro comercial'; end if;
+
+  insert into public.finance_compras_ordens
+    (numero,empresa_id,fornecedor_id,requisicao_referencia,data_ordem,data_prevista,estado,
+     subtotal,imposto,total,observacoes,criado_por)
+  values
+    (trim(p_numero),p_empresa_id,p_fornecedor_id,null,coalesce(p_data_ordem,current_date),
+     p_data_prevista,'submetida',0,0,0,p_observacoes,auth.uid())
+  returning id into ordem;
+
+  for linha in select value from jsonb_array_elements(p_linhas) loop
+    if nullif(trim(linha->>'descricao'),'') is null then raise exception 'Descrição da linha é obrigatória'; end if;
+    qtd := (linha->>'quantidade')::numeric;
+    preco := (linha->>'preco_unitario')::numeric;
+    if qtd <= 0 or preco < 0 then raise exception 'Quantidade deve ser positiva e preço não negativo'; end if;
+    total_linha := round(qtd * preco,2);
+    insert into public.finance_compras_ordem_linhas
+      (ordem_id,descricao,quantidade,quantidade_recebida,preco_unitario,total_linha)
+    values (ordem,trim(linha->>'descricao'),qtd,0,preco,total_linha);
+    total_ordem := total_ordem + total_linha;
+    n_linhas := n_linhas + 1;
+  end loop;
+  if n_linhas=0 then raise exception 'A ordem precisa de pelo menos uma linha'; end if;
+  update public.finance_compras_ordens
+    set subtotal=round(total_ordem,2),total=round(total_ordem,2),updated_at=now()
+    where id=ordem;
+  return ordem;
+end
+$function$;
+
+create or replace function public.finance_compras_aprovar_ordem(p_ordem_id uuid, p_aprovar boolean)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare o public.finance_compras_ordens%rowtype;
+begin
+  if not public.ciadi_finance_is_staff() then raise exception 'Acesso não autorizado'; end if;
+  select * into o from public.finance_compras_ordens where id=p_ordem_id for update;
+  if not found then raise exception 'Ordem de compra não encontrada'; end if;
+  if o.estado <> 'submetida' then raise exception 'Só é possível decidir ordens submetidas'; end if;
+  update public.finance_compras_ordens
+    set estado=case when p_aprovar then 'aprovada' else 'rejeitada' end,
+        aprovado_por=auth.uid(),aprovado_em=now(),updated_at=now()
+    where id=p_ordem_id;
+  return jsonb_build_object('ok',true,'id',p_ordem_id,
+    'estado',case when p_aprovar then 'aprovada' else 'rejeitada' end);
+end
+$function$;
+
 grant execute on function public.finance_aprovar_despesa(uuid, boolean) to authenticated;
 grant execute on function public.finance_postar_despesa(uuid) to authenticated;
+grant execute on function public.finance_compras_criar_ordem(text, uuid, uuid, date, date, text, jsonb) to authenticated;
+grant execute on function public.finance_compras_aprovar_ordem(uuid, boolean) to authenticated;
 
 commit;
