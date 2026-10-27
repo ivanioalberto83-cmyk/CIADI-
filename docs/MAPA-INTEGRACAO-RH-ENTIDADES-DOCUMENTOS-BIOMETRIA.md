@@ -35,3 +35,12 @@ A migração `supabase/migrations/20261027120000_ciadi_compras_contabilidade.sql
 7. Compilar o Setup Windows e executar teste funcional real antes de disponibilizar instalador.
 
 **Bloqueios:** não executar DDL/DML, não mudar RLS/chaves, não importar registos de biometria, não publicar release e não declarar conformidade AGT/APD até aprovação e evidência de testes.
+## Correções de homologação — faturação e cadastro comercial (2026-10-27)
+
+- Corrigido o carregamento do gerador A4: a lista de consultas tinha um número de resultados diferente do número de variáveis, causando falha ao abrir o formulário.
+- O adquirente pode ser o responsável legal/financeiro associado ao assistido, usando vínculos familiares ativos ou os campos de responsável existentes no registo do assistido. O assistido fica apenas como referência clínica opcional; a fatura não usa o nome do paciente como adquirente por defeito.
+- O documento A4 mostra um código interno estável do cliente (CLI- + 8 caracteres derivados do UUID). É um identificador interno de cadastro, não uma numeração fiscal nem um novo campo de base de dados.
+- A janela de impressão é aberta diretamente pelo clique antes das consultas assíncronas para reduzir bloqueios de pop-up; o CSS A4 é incluído na janela de impressão para suportar “Imprimir / Guardar como PDF”.
+- O cadastro comercial apresenta ações separadas para **Novo cliente**, **Nova entidade** e **Novo fornecedor** e grava a categoria nos campos já existentes tipo e tipo_adquirente. Não foi alterado o esquema remoto.
+- A conta teste.at@ciadi.ao existe e está ativa, mas o perfil atual é profissional. A função de acesso financeiro do Supabase só autoriza admin e gestor. Não foi promovido o perfil em produção porque o restauro de backup ainda não foi homologado. Para testes integrais, atribuir admin apenas num projeto/cópia de homologação com dados fictícios, ou validar e aprovar primeiro o procedimento de backup/restauro e a elevação temporária.
+- Estas alterações de interface não substituem os testes funcionais autenticados: emissão de documento, sequência fiscal, PDF no Windows instalado, permissões RLS e criação de fornecedor devem ser testados com a conta de homologação antes de publicar o instalador.
