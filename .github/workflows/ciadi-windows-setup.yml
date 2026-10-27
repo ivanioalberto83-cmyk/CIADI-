@@ -24,14 +24,22 @@ jobs:
         run: |
           $source = "CIADI_DASHBOARD_FINANCEIRO(1).html"
           if (!(Test-Path $source)) {
-            throw "Falta o ficheiro '$source' na raiz do repositório. Carregue o dashboard financeiro CIADI para o GitHub e volte a executar."
+            $source = "CIADI_DASHBOARD_FINANCEIRO.html"
+            if (Test-Path $source) {
+              Write-Warning "O ficheiro com sufixo (1) não está no repositório; será usada a fonte CIADI_DASHBOARD_FINANCEIRO.html existente e sincronizada."
+            } else {
+              throw "Não foi encontrado CIADI_DASHBOARD_FINANCEIRO(1).html nem CIADI_DASHBOARD_FINANCEIRO.html na raiz."
+            }
           }
           Copy-Item $source "ciadi-windows/index.html" -Force
 
       - name: Criar ícone Windows a partir do logótipo CIADI
         shell: pwsh
         run: |
-          $html = Get-Content "CIADI_DASHBOARD_FINANCEIRO(1).html" -Raw
+          $source = "CIADI_DASHBOARD_FINANCEIRO(1).html"
+          if (!(Test-Path $source)) { $source = "CIADI_DASHBOARD_FINANCEIRO.html" }
+          if (!(Test-Path $source)) { throw "Não foi encontrada uma fonte HTML do dashboard CIADI." }
+          $html = Get-Content $source -Raw
           $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
           if (!$match.Success) {
             throw "Não foi encontrado um logótipo PNG incorporado no dashboard CIADI."
