@@ -759,26 +759,96 @@ async function ciadiHR(){
   try{
     const [fr,pr,cr,ar]=await Promise.all([
       sb.from('ciadi_funcionarios').select('id,profissional_id,codigo_funcionario,estado,tipo_vinculo,cargo,departamento,unidade_local,data_admissao,data_fim_vinculo,centro_custo').order('codigo_funcionario'),
-      sb.from('profissionais').select('id,nome_completo'),
-      sb.from('ciadi_funcionario_contratos').select('id,funcionario_id,tipo_contrato,numero_contrato,data_inicio,data_fim,estado'),
-      sb.from('ciadi_funcionario_assiduidade').select('id,funcionario_id,data,entrada,saida,horas_trabalhadas,estado,origem').order('data',{ascending:false}).limit(500)
+      sb.from('profissionais').select('id,nome_completo,ativo').order('nome_completo'),
+      sb.from('ciadi_funcionario_contratos').select('id,funcionario_id,tipo_contrato,numero_contrato,data_inicio,data_fim,estado,salario_referencia,moeda').order('data_inicio',{ascending:false}),
+      sb.from('ciadi_funcionario_assiduidade').select('id,funcionario_id,data,entrada,saida,horas_trabalhadas,estado,origem,observacoes').order('data',{ascending:false}).limit(500)
     ]);
     for(const x of [fr,pr,cr,ar])if(x.error)throw x.error;
     const pros=Object.fromEntries((pr.data||[]).map(x=>[x.id,x]));
     const contracts=cr.data||[], attendance=ar.data||[], staff=fr.data||[];
-    tablePage('Recursos Humanos','Consulta interna de colaboradores, contratos e assiduidade. Esta vista é de leitura; alterações de RH continuam sujeitas a validação de permissões e procedimentos próprios.',`
+    const isManager=['admin','gestor'].includes(profile?.tipo);
+    const linked=new Set(staff.map(x=>x.profissional_id));
+    const availablePros=(pr.data||[]).filter(x=>x.ativo!==false&&!linked.has(x.id));
+    tablePage('Recursos Humanos','Cadastro e consulta interna de colaboradores, contratos e assiduidade. Os registos ficam no Supabase e respeitam as permissões/RLS já existentes.',`
+      <div class="flex flex-wrap gap-2 justify-end mb-4">
+        ${isManager?'<button onclick="newHRStaff()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Cadastrar colaborador</button><button onclick="newHRContract()" class="border rounded-xl px-4 py-2">+ Contrato</button><button onclick="newHRAttendance()" class="border rounded-xl px-4 py-2">+ Assiduidade manual</button>':''}
+        <button onclick="go('biometria')" class="border border-orange text-orange rounded-xl px-4 py-2 font-bold">Abrir Assiduidade Biométrica</button>
+      </div>
       <div class="grid sm:grid-cols-3 gap-3 mb-4">
         <div class="card p-4"><div class="text-sm text-slate-500">Colaboradores</div><div class="text-2xl font-black">${staff.length}</div></div>
         <div class="card p-4"><div class="text-sm text-slate-500">Contratos</div><div class="text-2xl font-black">${contracts.length}</div></div>
-        <div class="card p-4"><div class="text-sm text-slate-500">Registos de assiduidade (últimos 500)</div><div class="text-2xl font-black">${attendance.length}</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Assiduidade (últimos 500)</div><div class="text-2xl font-black">${attendance.length}</div></div>
       </div>
       <div class="card overflow-auto mb-4"><h3 class="font-black p-4">Cadastro de colaboradores</h3><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Código</th><th>Colaborador</th><th>Cargo / Departamento</th><th>Vínculo</th><th>Admissão</th><th>Estado</th><th>Centro de custo</th></tr></thead><tbody>${staff.map(x=>{const p=pros[x.profissional_id]||{};return '<tr class="border-b"><td class="p-3">'+esc(x.codigo_funcionario||'—')+'</td><td>'+esc(p.nome_completo||'Profissional não associado')+'</td><td>'+esc(x.cargo||'—')+' / '+esc(x.departamento||'—')+'</td><td>'+esc(x.tipo_vinculo||'—')+'</td><td>'+esc(x.data_admissao||'—')+'</td><td>'+esc(x.estado||'—')+'</td><td>'+esc(x.centro_custo||'—')+'</td></tr>'}).join('')||'<tr><td colspan="7" class="p-4 text-slate-500">Nenhum colaborador encontrado.</td></tr>'}</tbody></table></div>
       <div class="grid lg:grid-cols-2 gap-4">
         <div class="card overflow-auto"><h3 class="font-black p-4">Contratos</h3><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Colaborador</th><th>Tipo / Número</th><th>Período</th><th>Estado</th></tr></thead><tbody>${contracts.map(x=>'<tr class="border-b"><td class="p-3">'+esc(pros[staff.find(y=>y.id===x.funcionario_id)?.profissional_id]?.nome_completo||staff.find(y=>y.id===x.funcionario_id)?.codigo_funcionario||'—')+'</td><td>'+esc(x.tipo_contrato||'—')+' / '+esc(x.numero_contrato||'—')+'</td><td>'+esc(x.data_inicio||'—')+' → '+esc(x.data_fim||'—')+'</td><td>'+esc(x.estado||'—')+'</td></tr>').join('')||'<tr><td colspan="4" class="p-4 text-slate-500">Sem contratos.</td></tr>'}</tbody></table></div>
-        <div class="card overflow-auto"><h3 class="font-black p-4">Assiduidade recente</h3><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Data</th><th>Colaborador</th><th>Entrada</th><th>Saída</th><th>Horas</th><th>Origem</th></tr></thead><tbody>${attendance.slice(0,100).map(x=>'<tr class="border-b"><td class="p-3">'+esc(x.data||'—')+'</td><td>'+esc(pros[staff.find(y=>y.id===x.funcionario_id)?.profissional_id]?.nome_completo||'—')+'</td><td>'+esc(x.entrada||'—')+'</td><td>'+esc(x.saida||'—')+'</td><td>'+esc(x.horas_trabalhadas??'—')+'</td><td>'+esc(x.origem||'—')+'</td></tr>').join('')||'<tr><td colspan="6" class="p-4 text-slate-500">Sem registos de assiduidade.</td></tr>'}</tbody></table></div>
+        <div class="card overflow-auto"><div class="p-4 flex items-center justify-between gap-2"><h3 class="font-black">Assiduidade recente</h3><button onclick="go('biometria')" class="text-orange font-bold">Biometria →</button></div><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Data</th><th>Colaborador</th><th>Entrada</th><th>Saída</th><th>Horas</th><th>Origem</th></tr></thead><tbody>${attendance.slice(0,100).map(x=>'<tr class="border-b"><td class="p-3">'+esc(x.data||'—')+'</td><td>'+esc(pros[staff.find(y=>y.id===x.funcionario_id)?.profissional_id]?.nome_completo||'—')+'</td><td>'+esc(x.entrada?new Date(x.entrada).toLocaleTimeString('pt-AO',{hour:'2-digit',minute:'2-digit'}):'—')+'</td><td>'+esc(x.saida?new Date(x.saida).toLocaleTimeString('pt-AO',{hour:'2-digit',minute:'2-digit'}):'—')+'</td><td>'+esc(x.horas_trabalhadas??'—')+'</td><td>'+esc(x.origem||'—')+'</td></tr>').join('')||'<tr><td colspan="6" class="p-4 text-slate-500">Sem registos de assiduidade.</td></tr>'}</tbody></table></div>
       </div>
-      <div class="mt-4 rounded-xl bg-amber-50 text-amber-900 p-4 text-sm">Integração atual: consulta de dados existentes em Supabase. Não foram criados registos nem alteradas permissões. Folha salarial, processamento de salários, INSS/IRT e lançamentos contabilísticos de RH ainda não foram validados neste módulo.</div>`);
+      <div class="mt-4 rounded-xl bg-amber-50 text-amber-900 p-4 text-sm"><b>Ligação biométrica:</b> o RH já encaminha para o módulo de assiduidade e mostra os registos gravados no Supabase. A ferramenta ZKTeco K20 Pro ainda importa CSV localmente; a gravação automática desses eventos no Supabase não está ativa nem foi homologada. Para novos colaboradores, selecione primeiro um registo em Profissionais, porque a estrutura atual exige essa associação. Folha salarial, INSS/IRT e lançamentos contabilísticos de RH continuam por validar.</div>`);
   }catch(e){sectionError('Recursos Humanos',e)}
+}
+async function newHRStaff(){
+  try{
+    if(!['admin','gestor'].includes(profile?.tipo))throw new Error('Apenas admin/gestor pode cadastrar colaboradores.');
+    const [fr,pr]=await Promise.all([sb.from('ciadi_funcionarios').select('profissional_id'),sb.from('profissionais').select('id,nome_completo,ativo').eq('ativo',true).order('nome_completo')]);
+    if(fr.error)throw fr.error;if(pr.error)throw pr.error;
+    const linked=new Set((fr.data||[]).map(x=>x.profissional_id));
+    const options=(pr.data||[]).filter(x=>!linked.has(x.id)).map(x=>({value:x.id,label:x.nome_completo}));
+    if(!options.length)throw new Error('Não há profissionais disponíveis para associar. Crie primeiro o registo-base em Profissionais; a estrutura atual do RH exige profissional_id.');
+    const code='COL-'+new Date().getFullYear()+'-'+String(Date.now()).slice(-5);
+    await modal('Cadastrar colaborador',`<div class="grid md:grid-cols-2 gap-4">
+      ${selectField('profissional_id','Pessoa / registo-base em Profissionais',options,'',true)}
+      ${inputField('codigo_funcionario','Código do colaborador',code,'text',true)}
+      ${selectField('tipo_vinculo','Tipo de vínculo',[{value:'efetivo',label:'Efetivo'},{value:'contrato',label:'Contrato'},{value:'prestador',label:'Prestador'},{value:'estagio',label:'Estágio'},{value:'voluntario',label:'Voluntário'},{value:'temporario',label:'Temporário'},{value:'outro',label:'Outro'}],'contrato',true)}
+      ${selectField('estado','Estado',[{value:'admissao',label:'Em admissão'},{value:'ativo',label:'Ativo'},{value:'candidato',label:'Candidato'}],'admissao',true)}
+      ${inputField('cargo','Cargo','')}
+      ${inputField('departamento','Departamento','')}
+      ${inputField('unidade_local','Polo / unidade','')}
+      ${inputField('data_admissao','Data de admissão',new Date().toISOString().slice(0,10),'date')}
+      ${inputField('centro_custo','Centro de custo','')}
+    </div><p class="text-xs text-slate-500 mt-3">Este formulário cria o vínculo RH em ciadi_funcionarios; não cria contas de acesso nem altera permissões. Acesso sujeito às políticas RLS existentes.</p>`,async fd=>{
+      const row={profissional_id:fd.get('profissional_id'),codigo_funcionario:String(fd.get('codigo_funcionario')||'').trim(),tipo_vinculo:fd.get('tipo_vinculo'),estado:fd.get('estado'),cargo:String(fd.get('cargo')||'').trim()||null,departamento:String(fd.get('departamento')||'').trim()||null,unidade_local:String(fd.get('unidade_local')||'').trim()||null,data_admissao:fd.get('data_admissao')||null,centro_custo:String(fd.get('centro_custo')||'').trim()||null,updated_at:new Date().toISOString()};
+      if(!row.codigo_funcionario)throw new Error('O código do colaborador é obrigatório.');
+      const q=await sb.from('ciadi_funcionarios').insert(row).select('id,codigo_funcionario').single();if(q.error)throw q.error;
+      await audit('CRIAR_COLABORADOR','ciadi_funcionarios',q.data.id,{codigo_funcionario:row.codigo_funcionario,profissional_id:row.profissional_id});
+      toast('Colaborador cadastrado no RH.');closeModal();ciadiHR();
+    });
+  }catch(e){toast(e?.message||'Não foi possível cadastrar o colaborador.')}
+}
+async function newHRContract(){
+  try{
+    if(!['admin','gestor'].includes(profile?.tipo))throw new Error('Apenas admin/gestor pode registar contratos.');
+    const {data,error}=await sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissional_id,profissionais(nome_completo)').order('codigo_funcionario');
+    if(error)throw error;if(!(data||[]).length)throw new Error('Cadastre primeiro um colaborador.');
+    const options=data.map(x=>({value:x.id,label:(x.profissionais?.nome_completo||x.codigo_funcionario||'Colaborador')+' · '+(x.codigo_funcionario||'sem código')}));
+    await modal('Registar contrato',`<div class="grid md:grid-cols-2 gap-4">${selectField('funcionario_id','Colaborador',options,'',true)}${selectField('tipo_contrato','Tipo de contrato',[{value:'contrato_trabalho',label:'Contrato de trabalho'},{value:'prestacao_servicos',label:'Prestação de serviços'},{value:'estagio',label:'Estágio'},{value:'termo_certo',label:'Termo certo'},{value:'outro',label:'Outro'}],'contrato_trabalho',true)}${inputField('numero_contrato','Número do contrato','','text',true)}${inputField('data_inicio','Data de início',new Date().toISOString().slice(0,10),'date',true)}${inputField('data_fim','Data de fim (se aplicável)','','date')}${inputField('salario_referencia','Salário de referência (AOA)','','number',false,'min="0" step="0.01"')}${selectField('estado','Estado',[{value:'rascunho',label:'Rascunho'},{value:'ativo',label:'Ativo'}],'rascunho',true)}${textareaField('observacoes','Observações','',true)}</div><p class="text-xs text-amber-800 mt-3">O salário aqui é apenas referência contratual; não processa folha salarial, INSS nem IRT.</p>`,async fd=>{
+      const row={funcionario_id:fd.get('funcionario_id'),tipo_contrato:fd.get('tipo_contrato'),numero_contrato:String(fd.get('numero_contrato')||'').trim(),data_inicio:fd.get('data_inicio'),data_fim:fd.get('data_fim')||null,salario_referencia:fd.get('salario_referencia')?Number(fd.get('salario_referencia')):null,moeda:'AOA',estado:fd.get('estado'),observacoes:String(fd.get('observacoes')||'').trim()||null,updated_at:new Date().toISOString()};
+      if(!row.numero_contrato)throw new Error('O número do contrato é obrigatório.');
+      if(row.salario_referencia!==null&&(!Number.isFinite(row.salario_referencia)||row.salario_referencia<0))throw new Error('Salário de referência inválido.');
+      const q=await sb.from('ciadi_funcionario_contratos').insert(row).select('id').single();if(q.error)throw q.error;
+      await audit('CRIAR_CONTRATO_RH','ciadi_funcionario_contratos',q.data.id,{funcionario_id:row.funcionario_id,tipo_contrato:row.tipo_contrato});
+      toast('Contrato registado.');closeModal();ciadiHR();
+    });
+  }catch(e){toast(e?.message||'Não foi possível registar o contrato.')}
+}
+async function newHRAttendance(){
+  try{
+    if(!['admin','gestor'].includes(profile?.tipo))throw new Error('Apenas admin/gestor pode registar assiduidade manual.');
+    const {data,error}=await sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissionais(nome_completo)').order('codigo_funcionario');
+    if(error)throw error;if(!(data||[]).length)throw new Error('Cadastre primeiro um colaborador.');
+    const opts=data.map(x=>({value:x.id,label:(x.profissionais?.nome_completo||'Colaborador')+' · '+(x.codigo_funcionario||'sem código')}));
+    const today=new Date().toISOString().slice(0,10);
+    await modal('Registar assiduidade manual',`<div class="grid md:grid-cols-2 gap-4">${selectField('funcionario_id','Colaborador',opts,'',true)}${inputField('data','Data',today,'date',true)}${inputField('entrada','Hora de entrada','','time')}${inputField('saida','Hora de saída','','time')}${selectField('estado','Estado',[{value:'presente',label:'Presente'},{value:'falta',label:'Falta'},{value:'atraso',label:'Atraso'},{value:'dispensa',label:'Dispensa'},{value:'ferias',label:'Férias'},{value:'licenca',label:'Licença'},{value:'folga',label:'Folga'}],'presente',true)}${textareaField('observacoes','Observações','',true)}</div><p class="text-xs text-slate-500 mt-3">Este é um lançamento manual (origem=manual), não um evento biométrico.</p>`,async fd=>{
+      const d=fd.get('data');const timeToIso=t=>t?new Date(d+'T'+t+':00').toISOString():null;
+      const entrada=timeToIso(fd.get('entrada')),saida=timeToIso(fd.get('saida'));
+      const hours=entrada&&saida?Math.max(0,(new Date(saida)-new Date(entrada))/3600000):null;
+      const row={funcionario_id:fd.get('funcionario_id'),data:d,entrada,saida,horas_trabalhadas:hours===null?null:Math.round(hours*100)/100,estado:fd.get('estado'),origem:'manual',observacoes:String(fd.get('observacoes')||'').trim()||null,updated_at:new Date().toISOString()};
+      if(entrada&&saida&&new Date(saida)<new Date(entrada))throw new Error('A saída não pode ser anterior à entrada.');
+      const q=await sb.from('ciadi_funcionario_assiduidade').insert(row).select('id').single();if(q.error)throw q.error;
+      await audit('REGISTAR_ASSIDUIDADE_MANUAL','ciadi_funcionario_assiduidade',q.data.id,{funcionario_id:row.funcionario_id,data:row.data,origem:'manual'});
+      toast('Assiduidade registada.');closeModal();ciadiHR();
+    });
+  }catch(e){toast(e?.message||'Não foi possível registar assiduidade.')}
 }
 async function newPurchaseOrder(){
   try{
@@ -847,7 +917,7 @@ async function commercialRegistries(){
     const {data,error}=await sb.from('finance_clientes').select('id,nome,nome_comercial,nif,email,telefone,whatsapp,endereco,cidade,provincia,pais,tipo,tipo_adquirente,contacto_principal,municipio,bairro,codigo_postal,endereco_faturacao,endereco_prestacao,observacoes,ativo,paciente_id,created_at').order('nome');
     if(error)throw error;
     const rows=data||[];
-    const filtered=window.commercialRegistryFilter==='todos'?rows:rows.filter(r=>(r.tipo_adquirente||r.tipo||'cliente').toLowerCase()===commercialRegistryFilter);
+    const filter=window.commercialRegistryFilter||'todos'; const filtered=filter==='todos'?rows:rows.filter(r=>(r.tipo_adquirente||r.tipo||'cliente').toLowerCase()===filter);
     const types=[['todos','Todos'],['cliente','Clientes'],['entidade','Entidades'],['fornecedor','Fornecedores']];
     tablePage('Clientes, Entidades e Fornecedores','Cadastro comercial central para faturação, contratos e aprovisionamento. Os registos são guardados em finance_clientes, já existente; não são criadas tabelas nem alteradas políticas.',`
       <div class="flex flex-wrap gap-2 justify-between mb-4">
