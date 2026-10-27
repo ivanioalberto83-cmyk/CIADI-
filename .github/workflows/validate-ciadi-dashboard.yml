@@ -76,6 +76,7 @@ jobs:
               "configured expense rule required": "operacao = 'DESPESA'" in sql,
               "balanced accounting validation": "perform public.finance_validar_lancamento(lanc)" in sql,
               "orders are approved explicitly": "finance_compras_aprovar_ordem" in sql and "'submetida'" in sql and "'rejeitada'" in sql,
+              "order can link to its expense": "finance_compras_vincular_despesa" in sql and "finance_compras_ordens_despesa_id_fkey" in sql or "references public.finance_despesas(id)" in sql,
               "no production credentials in migration": "service_role" not in sql.lower() and "supabase_service_role_key" not in sql.lower(),
           }
           for label, ok in checks.items():
@@ -96,6 +97,7 @@ jobs:
               "expense accounting RPC": "finance_postar_despesa" in dashboard and "postExpense" in dashboard,
               "purchase order creation RPC": "finance_compras_criar_ordem" in dashboard and "newPurchaseOrder" in dashboard,
               "purchase order approval RPC": "finance_compras_aprovar_ordem" in dashboard and "decidePurchaseOrder" in dashboard,
+              "order-to-expense linkage RPC": "finance_compras_vincular_despesa" in dashboard and "linkPurchaseExpense" in dashboard,
               "purchase order list": "finance_compras_ordens" in dashboard,
               "navigation routes": "id==='sos'" in dashboard and "id==='pedidos_site'" in dashboard,
               "shared Supabase project": "https://egpkkttbcaukqnnxyhjv.supabase.co" in dashboard,
