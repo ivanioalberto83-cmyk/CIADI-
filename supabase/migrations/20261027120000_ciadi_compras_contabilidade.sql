@@ -167,6 +167,9 @@ begin
   if d.aprovacao_estado <> 'aprovada' then raise exception 'A despesa precisa de aprovação antes da contabilização'; end if;
   if d.empresa_id is null then raise exception 'Despesa sem empresa associada'; end if;
   if d.fornecedor_id is null then raise exception 'Associe a despesa a um fornecedor do cadastro antes de contabilizar'; end if;
+  if not exists (select 1 from public.finance_clientes c where c.id=d.fornecedor_id and c.ativo=true and lower(coalesce(nullif(c.tipo_adquirente,''),c.tipo,''))='fornecedor') then
+    raise exception 'O fornecedor associado tem de estar ativo e classificado como fornecedor';
+  end if;
   if round(coalesce(d.valor,0) + coalesce(d.imposto,0),2) <> round(coalesce(d.total,0),2) then
     raise exception 'Valores inconsistentes: valor + imposto deve ser igual ao total';
   end if;
@@ -201,6 +204,13 @@ begin
   end if;
   if coalesce(d.imposto,0) > 0 and regra.conta_imposto_id is null then
     raise exception 'A despesa tem imposto; configure a conta contabilística do imposto';
+  end if;
+  if not exists (select 1 from public.finance_contas c where c.id=regra.conta_debito_id and c.ativa=true and c.aceita_lancamentos=true)
+     or not exists (select 1 from public.finance_contas c where c.id=regra.conta_credito_id and c.ativa=true and c.aceita_lancamentos=true) then
+    raise exception 'As contas de débito/crédito da regra DESPESA devem estar ativas e aceitar lançamentos';
+  end if;
+  if coalesce(d.imposto,0) > 0 and not exists (select 1 from public.finance_contas c where c.id=regra.conta_imposto_id and c.ativa=true and c.aceita_lancamentos=true) then
+    raise exception 'A conta de imposto deve estar ativa e aceitar lançamentos';
   end if;
 
   total_debito := coalesce(d.valor,0) + coalesce(d.imposto,0);
