@@ -9,6 +9,7 @@
 - Foi acrescentada a área Folha Salarial. Quando a estrutura ainda não existe, a interface informa que o módulo está pendente e não simula folhas.
 - O fluxo de compras deteta se os campos de aprovação/contabilização estão presentes. Se faltarem, continua a permitir consultar e registar despesas apenas com campos existentes, e bloqueia os controlos que exigem migração/RPC.
 - O Setup Windows solicita o polo predefinido da estação no primeiro arranque e permite alterá-lo no menu. O texto deixa explícito que a seleção local não concede permissões.
+- Foi acrescentada uma página de administração para atribuir/revogar acessos aos polos, reservada ao perfil `admin`; a migração proposta também restringe a gestão dessas atribuições a administradores ativos.
 - O workflow Windows deixou de compilar artefactos automaticamente nesta branch; a compilação manual exige uma opção explícita, desligada por omissão.
 - O HTML de entrada e a fonte canónica foram sincronizados.
 
@@ -20,7 +21,7 @@ A migração `20261027193000_ciadi_rh_folha_salarial.sql` cria folhas, linhas sa
 O sistema soma valores introduzidos e validados. Não calcula IRT/INSS com taxas presumidas. A automatização fiscal só poderá ser ativada depois de confirmar regras vigentes com a Contabilidade e validar testes de cálculo.
 
 ## Pendências antes de gerar qualquer Setup distribuível
-1. Confirmar que a validação CI executa todos os testes estáticos, incluindo sintaxe do Dashboard, main/preload Windows, RH, folha salarial, compras e contabilidade.
+1. Confirmar que a validação CI executa todos os testes estáticos, incluindo sintaxe do Dashboard, main/preload Windows, RH, folha salarial, gestão de polos, compras e contabilidade. A execução atual da validação CI terminou com sucesso.
 2. Homologar o fluxo de cadastro RH e emissão dos documentos com dados fictícios.
 3. Aplicar as migrações apenas após backup recuperável, revisão de RLS e autorização explícita; confirmar as dependências e o plano de reversão.
 4. Criar/validar as atribuições de utilizadores a polos e testar dois perfis em dois computadores, incluindo chamadas diretas ao Supabase.
