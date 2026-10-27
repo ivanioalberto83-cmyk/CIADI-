@@ -52,6 +52,11 @@ Não há clientes nem documentos nas tabelas consultadas. Não foi possível com
 - A configuração SAF-T indica ambiente `producao`, mas a presença desse valor não comprova certificação, validação nem adesão AGT.
 - A função `finance_saft_validar_exportacao` devolve explicitamente `xsd_validado=false` e indica que a validação XSD deve ocorrer depois da geração do XML. Logo, o registo de exportação em estado `gerado` não é evidência de um SAF-T validado.\n- O estado RLS ativo nas tabelas não prova a correção das políticas; faltam testes por perfil e análise completa dos privilégios de cada RPC.
 
+## Ações adicionais preparadas em desenvolvimento
+- Foi adicionada a migração proposta `20261027170000_ciadi_bloquear_emissao_ate_validacao_agt.sql`, que revoga EXECUTE da RPC de emissão fiscal para `PUBLIC`, `anon` e `authenticated`. Isto ainda não foi aplicado à produção; a permissão de `service_role` permanece fora desta restrição e requer análise separada de qualquer backend privilegiado.
+- Foi acrescentado o teste unitário `tests/test_ciadi_accounting_math.py` para a aritmética esperada de desconto, imposto, arredondamento, retenção e equilíbrio do lançamento. É um teste unitário de lógica, não um teste de integração SQL.
+- O workflow CI foi atualizado para executar os testes unitários e verificar estaticamente a migração de bloqueio. O resultado do workflow mais recente deve ser consultado antes de declarar os controlos aprovados.
+
 ## Plano recomendado
 1. Manter produção intacta e emissão fiscal oficial bloqueada.
 2. Rever privilégios EXECUTE e as funções/vistas sinalizadas pelo Security Advisor, sem revogações em massa.
