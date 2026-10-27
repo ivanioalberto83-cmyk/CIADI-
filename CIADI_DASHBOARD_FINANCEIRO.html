@@ -26,14 +26,14 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
+const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['cadastros_comerciais','👥 Clientes, Entidades e Fornecedores'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
 function visibleMenu(){ return menu.filter(([id])=> id!=='acompanhantes_at' || canAccessAT()); }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='cadastros_comerciais')return commercialRegistries(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
   const isManager=['admin','gestor'].includes(profile?.tipo);
@@ -667,6 +667,80 @@ async function newKnowledge(){await modal('Novo conhecimento Janeth',`<div class
 async function editKnowledge(r){await modal('Editar conhecimento Janeth',`<div class="grid md:grid-cols-2 gap-4">${inputField('area','Área',r.area||'','text',true)}${inputField('titulo','Título',r.titulo||'','text',true)}${inputField('nivel','Nível',r.nivel||'normal')}${textareaField('conteudo','Conteúdo',r.conteudo||'',true)}${inputField('palavras_chave','Palavras-chave (separadas por vírgula)',Array.isArray(r.palavras_chave)?r.palavras_chave.join(', '):r.palavras_chave||'')}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={area:fd.get('area'),titulo:fd.get('titulo'),conteudo:fd.get('conteudo'),nivel:fd.get('nivel')||'normal',palavras_chave:(fd.get('palavras_chave')||'').split(',').map(x=>x.trim()).filter(Boolean),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('ciadi_conhecimentos').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','ciadi_conhecimentos',r.id,patch);toast('Conhecimento actualizado.');janeth()})}
 async function users(){try{const {data,error}=await sb.from('perfis').select('*').order('created_at',{ascending:false});if(error)throw error;tablePage('Utilizadores','Perfis de acesso existentes no CIADI.',`<div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Nome</th><th>Email</th><th>Tipo</th><th>Telefone</th><th>Estado</th><th>Acções</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4">${esc(r.nome_exibicao||r.nome_completo)}</td><td>${esc(r.email)}</td><td>${esc(r.tipo)}</td><td>${esc(r.telefone)}</td><td>${r.ativo?'Activo':'Inactivo'}</td><td><button class="border rounded-lg px-2 py-1" onclick='editUser(${JSON.stringify(r).replace(/'/g,'&#39;')})'>Editar</button></td></tr>`).join('')}</tbody></table></div>`)}catch(e){sectionError('Utilizadores',e)}}
 async function editUser(r){await modal('Editar utilizador',`<div class="grid md:grid-cols-2 gap-4">${inputField('nome_completo','Nome completo',r.nome_completo||'','text',true)}${inputField('nome_exibicao','Nome de exibição',r.nome_exibicao||'')}${inputField('email','Email',r.email||'','email')}${inputField('telefone','Telefone',r.telefone||'')}${selectField('tipo','Tipo',['admin','gestor','profissional','paciente','responsavel'].map(x=>({value:x,label:x})),r.tipo,true)}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={nome_completo:fd.get('nome_completo'),nome_exibicao:fd.get('nome_exibicao')||null,email:fd.get('email')||null,telefone:fd.get('telefone')||null,tipo:fd.get('tipo'),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('perfis').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','perfis',r.id,patch);toast('Utilizador actualizado.');users()})}
+
+/* Cadastro comercial unificado: usa a tabela existente finance_clientes.
+   Não cria nem altera tabelas, políticas ou dados automaticamente. */
+let commercialRegistryFilter='todos';
+async function commercialRegistries(){
+  try{
+    const {data,error}=await sb.from('finance_clientes').select('id,nome,nome_comercial,nif,email,telefone,whatsapp,endereco,cidade,provincia,pais,tipo,tipo_adquirente,contacto_principal,municipio,bairro,codigo_postal,endereco_faturacao,endereco_prestacao,observacoes,ativo,paciente_id,created_at').order('nome');
+    if(error)throw error;
+    const rows=data||[];
+    const filtered=commercialRegistryFilter==='todos'?rows:rows.filter(r=>(r.tipo_adquirente||r.tipo||'cliente').toLowerCase()===commercialRegistryFilter);
+    const types=[['todos','Todos'],['cliente','Clientes'],['entidade','Entidades'],['fornecedor','Fornecedores']];
+    tablePage('Clientes, Entidades e Fornecedores','Cadastro comercial central para faturação, contratos e aprovisionamento. Os registos são guardados em finance_clientes, já existente; não são criadas tabelas nem alteradas políticas.',`
+      <div class="flex flex-wrap gap-2 justify-between mb-4">
+        <div class="flex flex-wrap gap-2">${types.map(([v,l])=>`<button onclick="commercialRegistryFilter='${v}';commercialRegistries()" class="${commercialRegistryFilter===v?'bg-orange text-white':'border'} rounded-xl px-3 py-2">${l}</button>`).join('')}</div>
+        <button onclick="editCommercialRegistry()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Novo registo</button>
+      </div>
+      <div class="grid sm:grid-cols-3 gap-3 mb-4">
+        ${[['Clientes',rows.filter(r=>(r.tipo_adquirente||r.tipo||'cliente').toLowerCase()==='cliente').length],['Entidades',rows.filter(r=>(r.tipo_adquirente||r.tipo||'').toLowerCase()==='entidade').length],['Fornecedores',rows.filter(r=>(r.tipo_adquirente||r.tipo||'').toLowerCase()==='fornecedor').length]].map(x=>`<div class="card p-4"><div class="text-sm text-slate-500">${x[0]}</div><div class="text-2xl font-black">${x[1]}</div></div>`).join('')}
+      </div>
+      <div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Nome / Denominação</th><th>Tipo</th><th>NIF</th><th>Contacto</th><th>E-mail</th><th>Estado</th><th>Ações</th></tr></thead><tbody>
+      ${filtered.map(r=>`<tr class="border-b"><td class="p-3 font-semibold">${esc(r.nome_comercial||r.nome||'—')}<div class="text-xs text-slate-500">${esc(r.nome_comercial&&r.nome_comercial!==r.nome?r.nome||'':'' )}</div></td><td>${esc((r.tipo_adquirente||r.tipo||'cliente').replace(/_/g,' '))}</td><td>${esc(r.nif||'—')}</td><td>${esc(r.telefone||r.whatsapp||'—')}</td><td>${esc(r.email||'—')}</td><td>${r.ativo===false?'Inativo':'Ativo'}</td><td class="p-3 whitespace-nowrap"><button onclick='editCommercialRegistry(${JSON.stringify(r).replace(/'/g,'&#39;')})' class="text-orange font-bold mr-2">Editar</button><button onclick="toggleCommercialRegistry('${r.id}',${r.ativo===false?'true':'false'})" class="font-bold">${r.ativo===false?'Activar':'Desactivar'}</button></td></tr>`).join('')||'<tr><td class="p-4 text-slate-500" colspan="7">Sem registos nesta categoria.</td></tr>'}
+      </tbody></table></div>
+      <div class="mt-4 rounded-xl bg-amber-50 text-amber-900 p-4 text-sm"><b>Nota de integração:</b> a tabela existente suporta o cadastro base. A ligação automática destes novos registos ao seletor de adquirente da fatura e ao módulo de despesas/fornecedores será validada numa etapa própria antes de produção.</div>`);
+  }catch(e){sectionError('Clientes, Entidades e Fornecedores',e)}
+}
+async function editCommercialRegistry(r=null){
+  const x=r||{};
+  await modal(r?'Editar cadastro comercial':'Novo cadastro comercial',`
+    <div class="grid md:grid-cols-2 gap-4">
+      ${selectField('tipo_adquirente','Categoria',[{value:'cliente',label:'Cliente'},{value:'entidade',label:'Entidade / Empresa'},{value:'fornecedor',label:'Fornecedor'}],x.tipo_adquirente||x.tipo||'cliente',true)}
+      ${inputField('nome','Nome / denominação',x.nome||'','text',true)}
+      ${inputField('nome_comercial','Nome comercial',x.nome_comercial||'')}
+      ${inputField('nif','NIF',x.nif||'')}
+      ${inputField('contacto_principal','Pessoa de contacto',x.contacto_principal||'')}
+      ${inputField('telefone','Telefone',x.telefone||'')}
+      ${inputField('whatsapp','WhatsApp',x.whatsapp||'')}
+      ${inputField('email','E-mail',x.email||'','email')}
+      ${inputField('endereco','Morada',x.endereco||'')}
+      ${inputField('bairro','Bairro',x.bairro||'')}
+      ${inputField('municipio','Município',x.municipio||x.cidade||'')}
+      ${inputField('provincia','Província',x.provincia||'')}
+      ${inputField('codigo_postal','Código postal',x.codigo_postal||'')}
+      ${inputField('pais','País',x.pais||'Angola')}
+      ${inputField('endereco_faturacao','Morada de faturação',x.endereco_faturacao||'')}
+      ${inputField('endereco_prestacao','Morada de prestação/entrega',x.endereco_prestacao||'')}
+      ${textareaField('observacoes','Observações',x.observacoes||'')}
+    </div>
+    <p class="text-xs text-slate-500 mt-3">Não introduza dados clínicos neste cadastro. Guarde apenas dados comerciais necessários.</p>`,
+    async fd=>{
+      const nome=(fd.get('nome')||'').trim();
+      if(!nome)throw new Error('O nome/denominação é obrigatório.');
+      const row={nome,nome_comercial:(fd.get('nome_comercial')||'').trim()||null,nif:(fd.get('nif')||'').trim()||null,
+        tipo_adquirente:fd.get('tipo_adquirente')||'cliente',contacto_principal:(fd.get('contacto_principal')||'').trim()||null,
+        telefone:(fd.get('telefone')||'').trim()||null,whatsapp:(fd.get('whatsapp')||'').trim()||null,email:(fd.get('email')||'').trim()||null,
+        endereco:(fd.get('endereco')||'').trim()||null,bairro:(fd.get('bairro')||'').trim()||null,
+        municipio:(fd.get('municipio')||'').trim()||null,cidade:(fd.get('municipio')||'').trim()||null,
+        provincia:(fd.get('provincia')||'').trim()||null,codigo_postal:(fd.get('codigo_postal')||'').trim()||null,
+        pais:(fd.get('pais')||'Angola').trim(),endereco_faturacao:(fd.get('endereco_faturacao')||'').trim()||null,
+        endereco_prestacao:(fd.get('endereco_prestacao')||'').trim()||null,observacoes:(fd.get('observacoes')||'').trim()||null,
+        ativo:x.ativo===false?false:true,updated_at:new Date().toISOString()};
+      const q=x.id?await sb.from('finance_clientes').update(row).eq('id',x.id).select().single():
+        await sb.from('finance_clientes').insert({...row,criado_por:me.id}).select().single();
+      if(q.error)throw q.error;
+      await audit(x.id?'UPDATE':'INSERT','finance_clientes',q.data.id,{categoria:row.tipo_adquirente,nome:row.nome,nif:row.nif});
+      toast(x.id?'Cadastro atualizado.':'Cadastro criado.');
+      closeModal();commercialRegistries();
+    });
+}
+async function toggleCommercialRegistry(id,active){
+  try{const {error}=await sb.from('finance_clientes').update({ativo:active==='true',updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error;
+    await audit('ALTERAR_ESTADO','finance_clientes',id,{ativo:active==='true'});toast('Estado do cadastro actualizado.');commercialRegistries();
+  }catch(e){toast(e.message||'Não foi possível alterar o estado.')}
+}
+
 async function financeCompanies(){
   try{
     const {data,error}=await sb.from('finance_empresas').select('*').order('empresa_principal',{ascending:false}).order('razao_social');
