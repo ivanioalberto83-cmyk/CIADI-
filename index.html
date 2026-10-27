@@ -759,8 +759,8 @@ async function ciadiHR(){
   try{
     const [fr,pr,cr,ar]=await Promise.all([
       sb.from('ciadi_funcionarios').select('id,profissional_id,codigo_funcionario,estado,tipo_vinculo,cargo,departamento,unidade_local,data_admissao,data_fim_vinculo,centro_custo').order('codigo_funcionario'),
-      sb.from('profissionais').select('id,nome_completo,registro_profissional'),
-      sb.from('ciadi_funcionario_contratos').select('id,funcionario_id,tipo_contrato,numero_contrato,data_inicio,data_fim,estado,salario_referencia,moeda'),
+      sb.from('profissionais').select('id,nome_completo'),
+      sb.from('ciadi_funcionario_contratos').select('id,funcionario_id,tipo_contrato,numero_contrato,data_inicio,data_fim,estado'),
       sb.from('ciadi_funcionario_assiduidade').select('id,funcionario_id,data,entrada,saida,horas_trabalhadas,estado,origem').order('data',{ascending:false}).limit(500)
     ]);
     for(const x of [fr,pr,cr,ar])if(x.error)throw x.error;
