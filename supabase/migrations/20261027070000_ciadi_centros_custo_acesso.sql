@@ -51,6 +51,7 @@ create index if not exists ciadi_centros_acesso_centro_ativo_idx
   on public.ciadi_centros_acesso (centro_custo_id, ativo);
 
 alter table public.ciadi_centros_acesso enable row level security;
+grant select, insert, update, delete on public.ciadi_centros_acesso to authenticated;
 
 -- Cada utilizador pode consultar apenas as próprias atribuições.
 drop policy if exists ciadi_centros_acesso_self_read on public.ciadi_centros_acesso;
