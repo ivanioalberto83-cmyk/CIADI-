@@ -8,6 +8,9 @@ on:
         required: true
         type: boolean
         default: false
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
