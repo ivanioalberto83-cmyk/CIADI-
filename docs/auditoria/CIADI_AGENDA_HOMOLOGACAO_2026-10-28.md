@@ -65,3 +65,14 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - O acesso da Receção aos pedidos de triagem do site foi incluído no controlo da interface. A autorização final continua dependente de RLS/RPCs; o constraint `perfis.tipo` ainda não permite o perfil `rececao`, pelo que o perfil novo não está pronto para utilização real.
 - Validação GitHub Actions para o commit `27682717470305b2298d0a14957a658856a5fe4c`: execução `40701402669`, workflow `Validate CIADI dashboard integration`; a verificação de sincronização HTML, sintaxe JavaScript e segurança da chave pública concluiu com sucesso nos passos de teste. A execução foi consultada enquanto a tarefa de finalização do job ainda estava em curso.
 - O PR #18 permanece Draft. Não foram executadas gravações na base de dados, alterações RLS, uploads ou publicação. A biblioteca ainda necessita de validação das políticas de Storage e de fluxos seguros de upload, revisão e aprovação.
+
+
+## Centro de Suporte Informático — primeira implementação — 28-10-2026
+- Adicionado ao Dashboard o menu **Centro de Suporte Técnico** e painel read-only de indicadores para nove fontes existentes: agendamentos, pacientes, profissionais, clientes, RH, alertas SOS, fila de email, biblioteca institucional e auditoria.
+- O painel mostra contagens com consulta autorizada, até oito eventos de auditoria (apenas ação/tabela/data), hora da consulta e opção de imprimir/guardar em PDF pelo navegador. Não expõe detalhes de auditoria potencialmente sensíveis.
+- Falhas/negações de acesso são apresentadas como “Sem confirmação de acesso”, não como zero. O painel não contorna RLS e não executa gravações, reparações ou comandos do agente.
+- Criado o relatório `docs/auditoria/CIADI_DIAGNOSTICO_CENTRO_SUPORTE_2026-10-28.md` com fontes verificadas, bloqueios, limites e critérios de aceitação.
+- Consulta read-only confirmou que `perfis.tipo` ainda não permite `suporte_informatica`, `rh` nem `rececao`. Confirmou também RLS sem políticas em `ciadi_automation_token_hashes` e `ciadi_email_notificacoes_fila`; estas não devem ser alteradas até se compreenderem os fluxos de serviço.
+- O Security Advisor reporta funções `SECURITY DEFINER` com EXECUTE acessível a papéis de API; requer revisão função a função, sem revogações em lote.
+- **Pendente:** workflow após estes commits, comparação byte-a-byte dos dois HTML, teste autenticado por perfil, monitorização programada, qualidade relacional de dados, backups/restauro e executor seguro do agente.
+- Sem alterações à base de dados, dados, RLS, Setup Windows ou produção. PR #18 continua em Draft e não foi integrado.
