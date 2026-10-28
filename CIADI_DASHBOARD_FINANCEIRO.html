@@ -358,7 +358,7 @@ async function marketing(){
         ${[['👥','Contactos',c.count||0,'marketingContacts'],['📣','Campanhas',cam.count||0,'marketingCampaigns'],['🧩','Modelos',t.count||0,'marketingTemplates'],['✉️','Envios',s.count||0,'marketingSends']].map(x=>`<button onclick="${x[3]}()" class="card p-5 text-left hover:-translate-y-1 transition"><div class="text-2xl">${x[0]}</div><div class="text-sm text-slate-500 mt-3">${x[1]}</div><div class="text-3xl font-black">${x[2]}</div><div class="text-xs text-orange font-bold mt-2">ABRIR →</div></button>`).join('')}
       </div>
       <div class="grid lg:grid-cols-2 gap-5">
-        <div class="card p-6"><h3 class="font-black text-lg">Plano de Marketing CIADI</h3><p class="text-sm text-slate-500 mt-2">Plano estratégico de 90 dias, calendário editorial, indicadores e responsabilidades. Gestão operacional pelo Suporte Informático, com aprovação institucional da Direção.</p><div class="flex flex-wrap gap-2 mt-4"><button onclick="marketingPlan()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Abrir plano de gestão</button><button onclick="marketingContacts()" class="border rounded-xl px-4 py-2 font-bold">Contactos</button><button onclick="marketingCampaigns()" class="border rounded-xl px-4 py-2 font-bold">Campanhas</button></div></div>
+        <div class="card p-6"><h3 class="font-black text-lg">Plano de Marketing CIADI</h3><p class="text-sm text-slate-500 mt-2">Plano estratégico de 90 dias, calendário editorial, indicadores e responsabilidades. Gestão operacional pelo Suporte Informático, com aprovação institucional da Direção.</p><div class="flex flex-wrap gap-2 mt-4"><button onclick="marketingPlan()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Abrir plano de gestão</button><button onclick="marketingPerformance()" class="border rounded-xl px-4 py-2 font-bold">Desempenho em tempo real</button><button onclick="marketingContacts()" class="border rounded-xl px-4 py-2 font-bold">Contactos</button><button onclick="marketingCampaigns()" class="border rounded-xl px-4 py-2 font-bold">Campanhas</button></div></div>
         <div class="card p-6"><h3 class="font-black text-lg">Resend</h3><p class="text-sm text-slate-500 mt-2">A área está preparada para a integração segura com o Resend. A chave permanece no backend/Supabase e nunca no HTML.</p><div class="mt-4 rounded-xl bg-orange-50 p-4 text-sm"><b>Próxima etapa:</b> envio, agendamento, métricas e descadastro.</div></div>
       </div>`);
   }catch(e){sectionError('Marketing Digital',e)}
@@ -394,7 +394,7 @@ async function marketingPlan(){
   ];
   const card=(title,desc)=>`<div class="border rounded-2xl p-4 bg-white"><div class="font-black">${esc(title)}</div><p class="text-sm text-slate-600 mt-2">${esc(desc)}</p></div>`;
   document.getElementById('content').innerHTML=`<div class="space-y-5">
-    <div class="card p-6"><div class="flex flex-wrap justify-between gap-3 items-start"><div><p class="text-xs font-black uppercase tracking-widest text-orange-600">Marketing · Plano operacional</p><h2 class="text-2xl font-black mt-1">Plano de Gestão de Marketing CIADI</h2><p class="text-slate-600 mt-2">Ciclo inicial de 90 dias · Novembro 2026–Janeiro 2027</p><p class="text-sm mt-2"><b>Responsável operacional:</b> Suporte Informático · <b>Aprovação:</b> Direção CIADI · <b>Validação clínica:</b> profissional designado, quando aplicável.</p></div><div class="flex gap-2"><button onclick="marketing()" class="border rounded-xl px-4 py-2">Voltar</button><button onclick="window.print()" class="bg-slate-900 text-white rounded-xl px-4 py-2">Imprimir / PDF</button></div></div><div class="rounded-xl bg-amber-50 p-4 mt-5 text-sm text-amber-900"><b>Regra de controlo:</b> este plano orienta o trabalho. Não autoriza despesas, publicidade paga, publicação de conteúdo clínico, utilização de imagens/testemunhos ou envio de campanhas sem as aprovações necessárias.</div></div>
+    <div class="card p-6"><div class="flex flex-wrap justify-between gap-3 items-start"><div><p class="text-xs font-black uppercase tracking-widest text-orange-600">Marketing · Plano operacional</p><h2 class="text-2xl font-black mt-1">Plano de Gestão de Marketing CIADI</h2><p class="text-slate-600 mt-2">Ciclo inicial de 90 dias · Novembro 2026–Janeiro 2027</p><p class="text-sm mt-2"><b>Responsável operacional:</b> Suporte Informático · <b>Aprovação:</b> Direção CIADI · <b>Validação clínica:</b> profissional designado, quando aplicável.</p></div><div class="flex flex-wrap gap-2"><button onclick="marketing()" class="border rounded-xl px-4 py-2">Voltar</button><button onclick="marketingPerformance()" class="border rounded-xl px-4 py-2">Ver desempenho real</button><button onclick="window.print()" class="bg-slate-900 text-white rounded-xl px-4 py-2">Imprimir / PDF</button></div></div><div class="rounded-xl bg-amber-50 p-4 mt-5 text-sm text-amber-900"><b>Regra de controlo:</b> este plano orienta o trabalho. Não autoriza despesas, publicidade paga, publicação de conteúdo clínico, utilização de imagens/testemunhos ou envio de campanhas sem as aprovações necessárias.</div></div>
     <div class="card p-6"><h3 class="text-lg font-black mb-3">1. Objectivos estratégicos</h3><div class="grid md:grid-cols-2 gap-3">${[
       ['Reforçar confiança','Comunicação coerente, exacta e humana sobre o CIADI e os seus serviços.'],
       ['Aumentar visibilidade útil','Melhorar a descoberta do site e dos canais oficiais, com medição por origem.'],
@@ -416,6 +416,65 @@ async function marketingPlan(){
     <div class="card p-6"><h3 class="text-lg font-black mb-3">7. Segurança, ética e privacidade</h3><ul class="list-disc pl-5 space-y-2 text-sm text-slate-700"><li>Não usar listas de pacientes, diagnósticos, relatórios ou contactos clínicos para marketing por defeito.</li><li>Registar consentimento/base legal e respeitar descadastro antes de comunicações promocionais.</li><li>Não publicar rostos, nomes, histórias ou testemunhos de crianças/famílias sem autorização específica, válida e documentada; preferir exemplos anonimizados.</li><li>Não prometer cura, resultados garantidos ou substituir avaliação profissional.</li><li>Aplicar revisão clínica, aprovação institucional e verificação de links/dados antes de publicar.</li><li>Usar credenciais com acesso mínimo; nunca colocar chaves privadas em HTML ou mensagens públicas.</li><li>Registar incidentes de privacidade e suspender campanha quando houver dúvida sobre consentimento ou exactidão.</li></ul></div>
     <div class="card p-6"><h3 class="text-lg font-black mb-3">8. Orçamento e reporte</h3><p class="text-sm text-slate-600">O orçamento não é fixado nesta versão porque não foram fornecidos custos actuais nem um limite aprovado. O Suporte Informático deve preparar uma proposta separada com custos de produção, anúncios, ferramentas, SMS/email, rádio/TV e eventos, indicando fornecedor, objectivo, duração, limite máximo e indicador de retorno. Nenhuma despesa será assumida sem aprovação da Direção.</p><p class="text-sm mt-3"><b>Relatório mensal obrigatório:</b> actividades planeadas/realizadas, métricas e fontes, contactos por canal, campanhas, custos aprovados vs. realizados, incidentes, lições e plano do mês seguinte.</p></div>
   </div>`;
+}
+
+async function marketingPerformance(){
+  const root=document.getElementById('content');
+  root.innerHTML='<div class="card p-6">A consultar campanhas e eventos reais...</div>';
+  let campaigns=[],sends=[],events=[],errors=[];
+  const load=async(table,columns,order='created_at')=>{
+    const r=await sb.from(table).select(columns).order(order,{ascending:false}).limit(500);
+    if(r.error){errors.push(table+': '+r.error.message);return [];}
+    return r.data||[];
+  };
+  [campaigns,sends,events]=await Promise.all([
+    load('ciadi_campanhas_marketing','id,nome,estado,agendada_em,enviada_em,total_destinatarios,total_enviados,total_falhas,created_at,updated_at','created_at'),
+    load('ciadi_envios_marketing','id,campanha_id,estado,enviado_em,entregue_em,aberto_em,clicado_em,bounce_em','created_at'),
+    load('ciadi_eventos_marketing','id,campanha_id,evento,ocorrido_em','ocorrido_em')
+  ]);
+  const count=(fn)=>sends.filter(fn).length;
+  const totalSent=campaigns.reduce((n,r)=>n+Number(r.total_enviados||0),0);
+  const totalFailed=campaigns.reduce((n,r)=>n+Number(r.total_falhas||0),0);
+  const delivered=count(x=>!!x.entregue_em);
+  const opened=count(x=>!!x.aberto_em);
+  const clicked=count(x=>!!x.clicado_em);
+  const bounces=count(x=>!!x.bounce_em);
+  const fmt=n=>Number(n||0).toLocaleString('pt-AO');
+  const pct=(n,d)=>d?Math.round(n/d*100)+'%':'—';
+  const cards=[
+    ['Campanhas registadas',campaigns.length,'Dados Supabase'],
+    ['Envios registados',sends.length,'Histórico de envios'],
+    ['Enviados (total das campanhas)',totalSent,'Contador registado'],
+    ['Falhas registadas',totalFailed,'Contador registado'],
+    ['Entrega confirmada',fmt(delivered),'Taxa: '+pct(delivered,sends.length)],
+    ['Aberturas registadas',fmt(opened),'Taxa: '+pct(opened,sends.length)],
+    ['Cliques registados',fmt(clicked),'Taxa: '+pct(clicked,sends.length)],
+    ['Bounces registados',fmt(bounces),'Taxa: '+pct(bounces,sends.length)]
+  ];
+  const rows=campaigns.map(r=>{
+    const cs=sends.filter(x=>x.campanha_id===r.id);
+    const ce=events.filter(x=>x.campanha_id===r.id);
+    return `<tr class="border-b"><td class="p-3"><b>${esc(r.nome)}</b><div class="text-xs text-slate-500">${esc(r.id)}</div></td><td class="p-3">${esc(r.estado)}</td><td class="p-3">${fmt(r.total_destinatarios)}</td><td class="p-3">${fmt(r.total_enviados)}</td><td class="p-3">${fmt(r.total_falhas)}</td><td class="p-3">${fmt(cs.filter(x=>x.entregue_em).length)}</td><td class="p-3">${fmt(cs.filter(x=>x.aberto_em).length)}</td><td class="p-3">${fmt(cs.filter(x=>x.clicado_em).length)}</td><td class="p-3">${fmt(ce.length)}</td><td class="p-3">${r.enviada_em?esc(new Date(r.enviada_em).toLocaleString('pt-AO')):'—'}</td></tr>`;
+  }).join('');
+  root.innerHTML=`<div class="space-y-5">
+    <div class="card p-6"><div class="flex flex-wrap justify-between gap-3"><div><p class="text-xs uppercase tracking-widest font-black text-orange-600">Marketing · Dados reais</p><h2 class="text-2xl font-black mt-1">Desempenho de campanhas</h2><p class="text-sm text-slate-600 mt-2">Origem: tabelas existentes do Supabase. A página actualiza quando há alterações nas tabelas subscritas, se o Realtime estiver activado e as políticas permitirem a leitura.</p><p class="text-xs text-slate-500 mt-1">Última consulta: ${esc(new Date().toLocaleString('pt-AO'))}</p></div><div class="flex flex-wrap gap-2"><button onclick="marketingPlan()" class="border rounded-xl px-4 py-2">Plano</button><button onclick="marketingPerformance()" class="border rounded-xl px-4 py-2">Actualizar</button><button onclick="window.print()" class="bg-slate-900 text-white rounded-xl px-4 py-2">Imprimir / PDF</button></div></div></div>
+    ${errors.length?`<div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><b>Dados parcialmente indisponíveis.</b><ul class="list-disc pl-5 mt-2">${errors.map(e=>'<li>'+esc(e)+'</li>').join('')}</ul>Não interpretar ausência de acesso como zero campanhas.</div>`:''}
+    <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">${cards.map(x=>`<div class="card p-4"><div class="text-sm text-slate-500">${esc(x[0])}</div><div class="text-2xl font-black mt-2">${esc(x[1])}</div><div class="text-xs text-slate-500 mt-1">${esc(x[2])}</div></div>`).join('')}</div>
+    <div class="card p-6"><h3 class="text-lg font-black">Campanhas reais e execução</h3><p class="text-sm text-slate-500 mt-1">A tabela usa os registos existentes. A taxa de abertura/clique só será fiável se os eventos forem recebidos e associados correctamente pelo fornecedor.</p><div class="overflow-x-auto mt-4"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Campanha</th><th class="p-3">Estado</th><th class="p-3">Destinatários</th><th class="p-3">Enviados</th><th class="p-3">Falhas</th><th class="p-3">Entregues</th><th class="p-3">Aberturas</th><th class="p-3">Cliques</th><th class="p-3">Eventos</th><th class="p-3">Enviada em</th></tr></thead><tbody>${rows||'<tr><td colspan="10" class="p-4 text-slate-500">Nenhuma campanha visível para esta sessão. Confirmar permissões e filtros antes de concluir que não existem campanhas.</td></tr>'}</tbody></table></div></div>
+    <div class="grid lg:grid-cols-2 gap-4">
+      <div class="card p-6"><h3 class="font-black text-lg">Custos e retorno</h3><p class="text-sm text-slate-600 mt-2">O esquema actual não tem livro de despesas por campanha, nem registo de orçamento aprovado. Por isso, o custo real e o custo por resultado ainda não podem ser calculados com rigor.</p><div class="rounded-xl bg-amber-50 p-4 text-sm text-amber-900 mt-3"><b>Pendente:</b> criar registo de orçamento aprovado, fornecedor/plataforma, moeda, valor planeado, valor realizado, comprovativo, aprovação e associação à campanha. Nenhum valor estimado será apresentado como despesa real.</div></div>
+      <div class="card p-6"><h3 class="font-black text-lg">Redes sociais e anúncios</h3><p class="text-sm text-slate-600 mt-2">Ainda não existe evidência de conectores OAuth activos para Meta/Facebook/Instagram, TikTok, LinkedIn ou YouTube Analytics. Os dados destas plataformas não serão inventados nem simulados.</p><div class="space-y-2 mt-3">${[['Facebook / Instagram','Meta Graph API + permissões de conta profissional'],['TikTok','TikTok Business/API e permissões aprovadas'],['LinkedIn','LinkedIn Marketing API e organização autorizada'],['YouTube','YouTube Analytics API e canal autorizado']].map(x=>`<div class="border rounded-xl p-3"><div class="font-semibold">${esc(x[0])}</div><div class="text-xs text-slate-500 mt-1">${esc(x[1])}</div><span class="inline-block mt-2 text-xs rounded-full bg-amber-100 text-amber-900 px-2 py-1">Não ligado / por configurar</span></div>`).join('')}</div></div>
+    </div>
+    <div class="card p-6"><h3 class="text-lg font-black">Integração em tempo real</h3><ol class="list-decimal pl-5 space-y-2 text-sm text-slate-700 mt-2"><li>O painel subscreve alterações às campanhas, envios e eventos de email no Supabase Realtime.</li><li>O backend recebe webhooks assinados do fornecedor de email e grava eventos com deduplicação.</li><li>Para redes sociais, cada conta precisa de autorização OAuth, tokens guardados apenas no backend e permissões de leitura de métricas.</li><li>O sistema sincroniza métricas por webhook quando disponível ou por tarefas agendadas com marca temporal e estado de sincronização.</li><li>Os custos e resultados são ligados à campanha, com fonte, período, moeda e data de última sincronização.</li></ol><p class="text-xs text-slate-500 mt-3">A subscrição Realtime desta página não activa por si só a publicação de tabelas no Supabase nem cria credenciais de plataformas externas. A configuração e os testes de conectores continuam pendentes.</p></div>
+  </div>`;
+  try{
+    if(window.ciadiMarketingRealtimeChannel) sb.removeChannel(window.ciadiMarketingRealtimeChannel);
+    window.ciadiMarketingRealtimeChannel=sb.channel('ciadi-marketing-live')
+      .on('postgres_changes',{event:'*',schema:'public',table:'ciadi_campanhas_marketing'},()=>marketingPerformance())
+      .on('postgres_changes',{event:'*',schema:'public',table:'ciadi_envios_marketing'},()=>marketingPerformance())
+      .on('postgres_changes',{event:'*',schema:'public',table:'ciadi_eventos_marketing'},()=>marketingPerformance())
+      .subscribe();
+  }catch(e){console.warn('Marketing Realtime não disponível',e);}
 }
 
 async function marketingContacts(){
