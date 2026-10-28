@@ -10,7 +10,8 @@ Var CIADIProfileChoice
 Var CIADIProfileLabel
 Var CIADIProfileExisting
 
-!macro customWelcomePage
+!macro customHeader
+  ; Inserir a página personalizada antes das páginas padrão do instalador.
   Page custom CIADIProfilePage CIADIProfilePageLeave
 !macroend
 
