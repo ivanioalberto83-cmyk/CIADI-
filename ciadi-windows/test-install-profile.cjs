@@ -35,6 +35,8 @@ assert.ok(dashboard.includes("function isGlobalAdmin(){ return ['admin','suporte
 assert.ok(dashboard.includes("'Gestão Clínica'") && dashboard.includes("'Gestão Administrativa'"), 'A navegação deve separar gestão clínica e administrativa.');
 assert.ok(dashboard.includes("async function financeClients()"), 'O cadastro de clientes deve estar disponível.');
 assert.ok(dashboard.includes("async function hrPayrolls()"), 'A folha salarial deve estar dentro do módulo RH.');
+assert.ok(dashboard.includes("sb.from('finance_clientes').select('id,nome,nif,ativo')"), 'O gerador fiscal deve permitir seleccionar clientes financeiros directamente.');
+assert.ok(dashboard.includes('async function hrPrintContract(id)'), 'O RH deve conseguir gerar uma minuta imprimível do contrato.');
 assert.ok(dashboard.includes("if(id==='agente'&&!canUseAgent())"), 'O agente deve permanecer exclusivo do Suporte Informática.');
 assert.ok(dashboard.includes("async function polesAccess()"), 'A página de polos deve explicitar que as associações ainda não foram aplicadas.');
 assert.ok(dashboard.includes('Resumo SOS indisponível') && dashboard.includes("go('sos')"), 'A visão geral deve voltar a mostrar a central de Alertas SOS.');
