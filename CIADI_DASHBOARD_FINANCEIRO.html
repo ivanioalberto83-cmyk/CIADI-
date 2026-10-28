@@ -358,10 +358,64 @@ async function marketing(){
         ${[['👥','Contactos',c.count||0,'marketingContacts'],['📣','Campanhas',cam.count||0,'marketingCampaigns'],['🧩','Modelos',t.count||0,'marketingTemplates'],['✉️','Envios',s.count||0,'marketingSends']].map(x=>`<button onclick="${x[3]}()" class="card p-5 text-left hover:-translate-y-1 transition"><div class="text-2xl">${x[0]}</div><div class="text-sm text-slate-500 mt-3">${x[1]}</div><div class="text-3xl font-black">${x[2]}</div><div class="text-xs text-orange font-bold mt-2">ABRIR →</div></button>`).join('')}
       </div>
       <div class="grid lg:grid-cols-2 gap-5">
-        <div class="card p-6"><h3 class="font-black text-lg">Estratégia CIADI</h3><p class="text-sm text-slate-500 mt-2">Crie campanhas institucionais, educativas e de relacionamento, mantendo os contactos organizados por segmento e com consentimento registado.</p><div class="flex flex-wrap gap-2 mt-4"><button onclick="marketingContacts()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Contactos</button><button onclick="marketingCampaigns()" class="border rounded-xl px-4 py-2 font-bold">Campanhas</button></div></div>
+        <div class="card p-6"><h3 class="font-black text-lg">Plano de Marketing CIADI</h3><p class="text-sm text-slate-500 mt-2">Plano estratégico de 90 dias, calendário editorial, indicadores e responsabilidades. Gestão operacional pelo Suporte Informático, com aprovação institucional da Direção.</p><div class="flex flex-wrap gap-2 mt-4"><button onclick="marketingPlan()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Abrir plano de gestão</button><button onclick="marketingContacts()" class="border rounded-xl px-4 py-2 font-bold">Contactos</button><button onclick="marketingCampaigns()" class="border rounded-xl px-4 py-2 font-bold">Campanhas</button></div></div>
         <div class="card p-6"><h3 class="font-black text-lg">Resend</h3><p class="text-sm text-slate-500 mt-2">A área está preparada para a integração segura com o Resend. A chave permanece no backend/Supabase e nunca no HTML.</p><div class="mt-4 rounded-xl bg-orange-50 p-4 text-sm"><b>Próxima etapa:</b> envio, agendamento, métricas e descadastro.</div></div>
       </div>`);
   }catch(e){sectionError('Marketing Digital',e)}
+}
+
+async function marketingPlan(){
+  const pillars=[
+    ['Institucional e confiança','Apresentar missão, equipa, serviços e processo de atendimento; usar apenas informação aprovada pela Direção.'],
+    ['Educação e sensibilização','Conteúdos claros sobre desenvolvimento infantil, inclusão, parentalidade e sinais para procurar avaliação, revistos por profissional clínico.'],
+    ['Serviços e orientação','Explicar como funciona o primeiro contacto, agendamento, preparação da consulta e canais oficiais, sem prometer resultados clínicos.'],
+    ['Comunidade e responsabilidade social','Parcerias com escolas, famílias e organizações; acções comunitárias com autorização e salvaguarda da privacidade.'],
+    ['Relacionamento e reputação','Responder a perguntas gerais, acompanhar feedback e publicar testemunhos apenas com consentimento informado e autorização documentada.']
+  ];
+  const phases=[
+    ['Dias 1–15 · Preparar','Validar identidade visual, mensagens, serviços, contactos oficiais, público-alvo e permissões de publicação. Auditar site e redes sociais; criar calendário e linha de aprovação.','Plano aprovado, canais inventariados, 10 temas revistos.'],
+    ['Dias 16–45 · Lançar','Publicar conteúdo educativo consistente, apresentar serviços e equipa com autorização, criar FAQ e testar campanhas pequenas com consentimento/base legal.','Regularidade editorial, consultas ao site, pedidos qualificados e tempo de resposta.'],
+    ['Dias 46–90 · Optimizar','Comparar resultados por canal, rever conteúdos de melhor desempenho, reforçar parcerias e preparar relatório executivo com custos e aprendizagens.','Relatório mensal, custo por contacto qualificado quando mensurável, conversão e recomendações.']
+  ];
+  const calendar=[
+    ['Segunda-feira','Educação e desenvolvimento infantil','Post/carrossel revisto clinicamente'],
+    ['Quarta-feira','Serviços, equipa ou FAQ institucional','Publicação de serviço ou resposta a dúvida frequente'],
+    ['Sexta-feira','Inclusão, família ou responsabilidade social','Conteúdo comunitário/educativo'],
+    ['Mensal','Resultados, parcerias e perguntas frequentes','Relatório de desempenho e planeamento do mês seguinte']
+  ];
+  const kpis=[
+    ['Consistência','Publicações realizadas ÷ publicações planeadas','Mensal','Meta inicial: ≥ 80%'],
+    ['Alcance','Alcance por canal e evolução mensal','Mensal','Estabelecer linha de base no primeiro mês'],
+    ['Interacção','Interacções ÷ alcance, por canal','Mensal','Comparar com a própria linha de base'],
+    ['Tráfego','Visitas ao site por origem/campanha','Mensal','Configurar medição antes de definir meta'],
+    ['Contactos qualificados','Pedidos legítimos atribuídos a canal/campanha','Mensal','Registar origem sem recolher dados clínicos desnecessários'],
+    ['Resposta','Tempo até à primeira resposta a pedido institucional','Semanal','Definir SLA com a Direção'],
+    ['Investimento','Despesa aprovada e custo por resultado mensurável','Mensal','Sem despesas ou anúncios sem aprovação prévia']
+  ];
+  const card=(title,desc)=>`<div class="border rounded-2xl p-4 bg-white"><div class="font-black">${esc(title)}</div><p class="text-sm text-slate-600 mt-2">${esc(desc)}</p></div>`;
+  document.getElementById('content').innerHTML=`<div class="space-y-5">
+    <div class="card p-6"><div class="flex flex-wrap justify-between gap-3 items-start"><div><p class="text-xs font-black uppercase tracking-widest text-orange-600">Marketing · Plano operacional</p><h2 class="text-2xl font-black mt-1">Plano de Gestão de Marketing CIADI</h2><p class="text-slate-600 mt-2">Ciclo inicial de 90 dias · Novembro 2026–Janeiro 2027</p><p class="text-sm mt-2"><b>Responsável operacional:</b> Suporte Informático · <b>Aprovação:</b> Direção CIADI · <b>Validação clínica:</b> profissional designado, quando aplicável.</p></div><div class="flex gap-2"><button onclick="marketing()" class="border rounded-xl px-4 py-2">Voltar</button><button onclick="window.print()" class="bg-slate-900 text-white rounded-xl px-4 py-2">Imprimir / PDF</button></div></div><div class="rounded-xl bg-amber-50 p-4 mt-5 text-sm text-amber-900"><b>Regra de controlo:</b> este plano orienta o trabalho. Não autoriza despesas, publicidade paga, publicação de conteúdo clínico, utilização de imagens/testemunhos ou envio de campanhas sem as aprovações necessárias.</div></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">1. Objectivos estratégicos</h3><div class="grid md:grid-cols-2 gap-3">${[
+      ['Reforçar confiança','Comunicação coerente, exacta e humana sobre o CIADI e os seus serviços.'],
+      ['Aumentar visibilidade útil','Melhorar a descoberta do site e dos canais oficiais, com medição por origem.'],
+      ['Gerar contactos qualificados','Facilitar pedidos de informação e agendamentos, sem confundir alcance com resultados clínicos.'],
+      ['Educar e incluir','Publicar informação acessível, validada e respeitosa sobre desenvolvimento infantil e inclusão.'],
+      ['Fortalecer parcerias','Criar comunicação institucional para escolas, profissionais e comunidade.'],
+      ['Prestar contas','Relatórios mensais de resultados, riscos, custos e próximas decisões.']
+    ].map(x=>card(x[0],x[1])).join('')}</div></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">2. Pilares de conteúdo</h3><div class="grid md:grid-cols-2 gap-3">${pillars.map(x=>card(x[0],x[1])).join('')}</div></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">3. Plano de execução de 90 dias</h3><div class="grid lg:grid-cols-3 gap-3">${phases.map(x=>`<div class="border rounded-2xl p-4"><h4 class="font-black">${esc(x[0])}</h4><p class="text-sm text-slate-600 mt-2">${esc(x[1])}</p><p class="text-sm mt-3"><b>Evidência:</b> ${esc(x[2])}</p></div>`).join('')}</div></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">4. Calendário editorial de referência</h3><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Periodicidade</th><th class="p-3">Tema</th><th class="p-3">Formato/resultado</th></tr></thead><tbody>${calendar.map(x=>`<tr class="border-b"><td class="p-3 font-semibold">${esc(x[0])}</td><td class="p-3">${esc(x[1])}</td><td class="p-3">${esc(x[2])}</td></tr>`).join('')}</tbody></table></div><p class="text-xs text-slate-500 mt-3">Calendário sugerido; ajustar à capacidade da equipa e aos canais activos. Não representa publicações já agendadas.</p></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">5. Indicadores (KPIs) e metas</h3><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Indicador</th><th class="p-3">Cálculo</th><th class="p-3">Frequência</th><th class="p-3">Meta inicial</th></tr></thead><tbody>${kpis.map(x=>`<tr class="border-b"><td class="p-3 font-semibold">${esc(x[0])}</td><td class="p-3">${esc(x[1])}</td><td class="p-3">${esc(x[2])}</td><td class="p-3">${esc(x[3])}</td></tr>`).join('')}</tbody></table></div><p class="text-xs text-slate-500 mt-3">As metas quantitativas serão definidas após recolher a linha de base real. Não inventar métricas nem apresentar números sem fonte.</p></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">6. Governação e responsabilidades</h3><div class="grid md:grid-cols-2 gap-3">${[
+      ['Suporte Informático','Administrar o módulo e acessos; manter site/canais e integrações; configurar medição; organizar calendário, relatórios e evidências; diagnosticar falhas; registar alterações. Não aprova sozinho conteúdo clínico nem despesas.'],
+      ['Direção CIADI','Aprovar estratégia, mensagens institucionais, orçamento, parcerias, campanhas pagas e relatórios executivos.'],
+      ['Responsável clínico designado','Rever informação de saúde/desenvolvimento, alegações, materiais educativos e riscos de interpretação clínica.'],
+      ['Equipa de atendimento','Responder a pedidos pelos canais autorizados, registar origem de contacto de forma mínima e encaminhar questões clínicas para profissionais.']
+    ].map(x=>card(x[0],x[1])).join('')}</div></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">7. Segurança, ética e privacidade</h3><ul class="list-disc pl-5 space-y-2 text-sm text-slate-700"><li>Não usar listas de pacientes, diagnósticos, relatórios ou contactos clínicos para marketing por defeito.</li><li>Registar consentimento/base legal e respeitar descadastro antes de comunicações promocionais.</li><li>Não publicar rostos, nomes, histórias ou testemunhos de crianças/famílias sem autorização específica, válida e documentada; preferir exemplos anonimizados.</li><li>Não prometer cura, resultados garantidos ou substituir avaliação profissional.</li><li>Aplicar revisão clínica, aprovação institucional e verificação de links/dados antes de publicar.</li><li>Usar credenciais com acesso mínimo; nunca colocar chaves privadas em HTML ou mensagens públicas.</li><li>Registar incidentes de privacidade e suspender campanha quando houver dúvida sobre consentimento ou exactidão.</li></ul></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">8. Orçamento e reporte</h3><p class="text-sm text-slate-600">O orçamento não é fixado nesta versão porque não foram fornecidos custos actuais nem um limite aprovado. O Suporte Informático deve preparar uma proposta separada com custos de produção, anúncios, ferramentas, SMS/email, rádio/TV e eventos, indicando fornecedor, objectivo, duração, limite máximo e indicador de retorno. Nenhuma despesa será assumida sem aprovação da Direção.</p><p class="text-sm mt-3"><b>Relatório mensal obrigatório:</b> actividades planeadas/realizadas, métricas e fontes, contactos por canal, campanhas, custos aprovados vs. realizados, incidentes, lições e plano do mês seguinte.</p></div>
+  </div>`;
 }
 
 async function marketingContacts(){
