@@ -104,3 +104,21 @@ O Centro de Suporte só será considerado homologado quando os indicadores forem
 7. Auditar os ficheiros APK/ZIP públicos e o site CIADI para conteúdo/links externos suspeitos.
 8. Só depois preparar migrations propostas, revisão independente e autorização explícita para produção.
 
+
+
+## Correcções aplicadas no ramo de homologação — 28-10-2026
+- Corrigida a função de interface `isGlobalAdmin()`: apenas `admin` é administrador global; Suporte Informático deixou de receber menus globais por essa regra.
+- O agente de suporte fica visível apenas quando o perfil autenticado é `suporte_informatica` e o Dashboard corre na aplicação Electron/Windows (`ciadiDesktop.isDesktop`). O preload expõe apenas o sinal booleano de execução desktop, mantendo o isolamento de contexto.
+- O acesso de Suporte Informático à central SOS foi removido da lista de perfis de interface autorizados, para reduzir exposição de dados sensíveis.
+- A página Fornecedores deixou de consultar a tabela inexistente `finance_fornecedores`. Agora apresenta uma consulta de leitura derivada de `finance_despesas` e explica que o cadastro mestre ainda depende de migração/políticas RLS revistas; não cria nem altera fornecedores.
+- Sincronizados `index.html` e `CIADI_DASHBOARD_FINANCEIRO.html`.
+- Setup Windows: versão do pacote actualizada para 1.0.1; versões directas de dependências fixadas; workflow preparado para criar lockfile no build, instalar via `npm ci`, executar verificações estáticas e gerar um artefacto de homologação no ramo `agent/ciadi-dashboard-20261028`.
+- Adicionados testes de regressão para impedir que Suporte volte a ser administrador global e para validar a fonte de consulta de fornecedores.
+- Preparada migration `supabase/migrations/20261028150000_expand_ciadi_profile_types.sql` para permitir os tipos `suporte_informatica`, `rh` e `rececao`. **Não aplicada a produção**; requer revisão de RLS, RPCs e permissões por polo antes de qualquer execução.
+
+### Limitações que continuam abertas
+- A migration de perfis não foi aplicada; logo, o constraint de produção ainda impede criar esses tipos até aprovação e execução controlada.
+- O agente de suporte continua a ser uma página de diagnóstico/entrada; não executa comandos privilegiados nem substitui um backend de execução seguro.
+- O cadastro mestre de fornecedores ainda não existe. A página só consulta fornecedores registados em despesas.
+- Nenhuma migração RLS, política, função SQL ou dado de produção foi alterado.
+- O Setup.exe 1.0.1 só será considerado disponível após a conclusão bem-sucedida do workflow Windows e a confirmação do artefacto. A compilação não equivale a homologação funcional no computador do utilizador.
