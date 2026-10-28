@@ -62,9 +62,9 @@ const menu=[
 ];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
-function isGlobalAdmin(){ return ['admin','suporte_informatica'].includes(profile?.tipo); }
+function isGlobalAdmin(){ return profile?.tipo==='admin'; }
 function canAccessAT(){ return isGlobalAdmin() || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && !!me?.id); }
-function canUseAgent(){ return profile?.tipo==='suporte_informatica' && window.ciadiDesktop?.installProfile==='suporte_informatica'; }
+function canUseAgent(){ return profile?.tipo==='suporte_informatica' && window.ciadiDesktop?.isDesktop===true; }
 function visibleMenu(){
   return menu.filter(([id])=>{
     if(id==='agente') return canUseAgent();
@@ -290,7 +290,7 @@ async function siteTriageRequests(){
   await refresh();
 }
 async function sosAlerts(){
-  if(!['admin','gestor','operador','suporte_informatica'].includes(profile?.tipo)){
+  if(!['admin','gestor','operador'].includes(profile?.tipo)){
     document.getElementById('content').innerHTML='<div class="card p-6"><h2 class="text-xl font-black">Alertas SOS</h2><p class="mt-2 text-red-700">Acesso reservado à gestão autorizada.</p></div>';
     return;
   }
@@ -989,14 +989,17 @@ async function financeClientModal(r){
 async function financeSuppliers(){
   const c=document.getElementById('content');
   try{
-    const {data,error}=await sb.from('finance_fornecedores').select('*').order('nome');
+    const {data,error}=await sb.from('finance_despesas').select('fornecedor_nome,fornecedor_nif,categoria,documento_referencia,data_documento,total,estado').not('fornecedor_nome','is',null).order('fornecedor_nome');
     if(error)throw error;
-    tablePage('Fornecedores','Cadastro de fornecedores CIADI.',`<div class="flex justify-end mb-4"><button onclick="financeSupplierModal(null)" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Cadastrar fornecedor</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Fornecedor</th><th>NIF</th><th>Contacto</th><th>Email</th><th>Estado</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4">${esc(r.nome)}</td><td>${esc(r.nif||'—')}</td><td>${esc(r.telefone||'—')}</td><td>${esc(r.email||'—')}</td><td>${r.ativo?'Activo':'Inactivo'}</td></tr>`).join('')}</tbody></table></div>`);
+    const bySupplier=new Map();
+    (data||[]).forEach(row=>{const key=String(row.fornecedor_nome||'').trim().toLocaleLowerCase();if(!key)return;const current=bySupplier.get(key)||{nome:String(row.fornecedor_nome).trim(),nif:row.fornecedor_nif||'',despesas:0,total:0,ultimaData:null,estados:new Set()};current.despesas++;current.total+=Number(row.total||0);if(row.data_documento&&(!current.ultimaData||row.data_documento>current.ultimaData))current.ultimaData=row.data_documento;if(row.estado)current.estados.add(row.estado);if(!current.nif&&row.fornecedor_nif)current.nif=row.fornecedor_nif;bySupplier.set(key,current);});
+    const rows=[...bySupplier.values()].sort((a,b)=>a.nome.localeCompare(b.nome,'pt'));
+    tablePage('Fornecedores','Consulta derivada das despesas registadas. Ainda não existe cadastro mestre de fornecedores; esta vista não cria nem altera fornecedores.',`<div class="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 p-3 mb-4 text-sm">Vista de consulta: os fornecedores abaixo são extraídos de despesas existentes. O cadastro autónomo exige uma migração e políticas RLS revistas; não serão gravados dados numa tabela inexistente.</div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Fornecedor</th><th>NIF</th><th>Despesas</th><th>Total registado</th><th>Último documento</th><th>Estado(s)</th></tr></thead><tbody>${rows.map(r=>`<tr class="border-b"><td class="p-4">${esc(r.nome)}</td><td>${esc(r.nif||'—')}</td><td>${r.despesas}</td><td>${r.total.toLocaleString('pt-AO',{minimumFractionDigits:2,maximumFractionDigits:2})} Kz</td><td>${esc(r.ultimaData||'—')}</td><td>${esc([...r.estados].join(', ')||'—')}</td></tr>`).join('')||'<tr><td colspan="6" class="p-4 text-slate-500">Não existem fornecedores registados em despesas.</td></tr>'}</tbody></table></div>`);
   }catch(e){
-    c.innerHTML=`<div class="card p-6 space-y-3"><h2 class="text-2xl font-black">Fornecedores</h2><p class="text-red-700 font-semibold">O esquema consultado ainda não contém a tabela finance_fornecedores. Por segurança, não vou gravar fornecedores como despesas nem criar uma estrutura de produção sem migração revista.</p><p class="text-sm text-slate-600">A estrutura própria e as políticas RLS têm de ser preparadas e validadas no ramo de homologação antes de activar este cadastro.</p><div class="text-xs text-slate-500">${esc(e?.message||'Tabela indisponível')}</div></div>`;
+    c.innerHTML=`<div class="card p-6 space-y-3"><h2 class="text-2xl font-black">Fornecedores</h2><p class="text-red-700 font-semibold">Não foi possível consultar fornecedores a partir das despesas.</p><p class="text-sm text-slate-600">Confirme o acesso de leitura à tabela finance_despesas e as respectivas políticas RLS. O cadastro mestre continua pendente de migração revista.</p><div class="text-xs text-slate-500">${esc(e?.message||'Consulta indisponível')}</div></div>`;
   }
 }
-async function financeSupplierModal(){toast('Cadastro de fornecedores aguarda a tabela e as políticas RLS de homologação.');}
+async function financeSupplierModal(){toast('Cadastro mestre de fornecedores ainda não está disponível; esta vista é apenas de consulta.');}
 async function polesAccess(){
   const root=document.getElementById('content');
   root.innerHTML='<div class="card p-6">A consultar perfis e estado das permissões...</div>';
@@ -1319,7 +1322,7 @@ async function enter(u){
     if(!profile){ await sb.auth.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
     if(profile.ativo!==true){ await sb.auth.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
     if(!['admin','gestor','profissional','suporte_informatica','rh','rececao'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso administrativo.'); }
-    if(profile.tipo==='suporte_informatica' && window.ciadiDesktop?.installProfile!=='suporte_informatica'){ await sb.auth.signOut(); throw new Error('O perfil Suporte Informática só pode entrar pela instalação autorizada para Suporte Informática.'); }
+    if(profile.tipo==='suporte_informatica' && window.ciadiDesktop?.isDesktop!==true){ await sb.auth.signOut(); throw new Error('O perfil Suporte Informática só pode entrar pela aplicação Windows autorizada.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
