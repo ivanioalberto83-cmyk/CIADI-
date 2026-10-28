@@ -55,8 +55,8 @@ test('supports explicit allowance tax/contribution flags and unpaid absences', (
   assert.equal(result.inssBase, 210000);
   assert.equal(result.inssEmployee, 6300);
   assert.equal(result.inssEmployer, 16800);
-  assert.equal(result.grossPay, 235000);
-  assert.equal(result.netPay, result.grossPay - result.inssEmployee - result.irt - 1000);
+  assert.equal(result.grossPay, 255000);
+  assert.equal(result.netPay, result.grossPay - result.absenceDeduction - result.inssEmployee - result.irt - 1000);
 });
 
 test('rejects invalid values and deductions that exceed gross pay', () => {
