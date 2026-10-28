@@ -76,3 +76,11 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - O Security Advisor reporta funções `SECURITY DEFINER` com EXECUTE acessível a papéis de API; requer revisão função a função, sem revogações em lote.
 - **Pendente:** workflow após estes commits, comparação byte-a-byte dos dois HTML, teste autenticado por perfil, monitorização programada, qualidade relacional de dados, backups/restauro e executor seguro do agente.
 - Sem alterações à base de dados, dados, RLS, Setup Windows ou produção. PR #18 continua em Draft e não foi integrado.
+
+
+## Plano de Gestão de Marketing CIADI — 28-10-2026
+- Criado o plano `docs/marketing/CIADI_PLANO_GESTAO_MARKETING_2026-2027.md`, com ciclo inicial de 90 dias (novembro 2026–janeiro 2027), públicos, pilares editoriais, calendário de referência, KPIs, governação, privacidade, orçamento e relatório mensal.
+- Adicionado ao módulo Marketing Digital o ecrã **Plano de Marketing CIADI**, com objectivos, fases de execução, calendário editorial, indicadores, responsabilidades e regras de privacidade. Inclui opção de imprimir/guardar como PDF pelo navegador.
+- A gestão operacional do módulo fica atribuída ao Suporte Informático; a Direção mantém a aprovação da estratégia, orçamento, campanhas pagas e mensagens institucionais. Conteúdo clínico exige revisão por responsável designado.
+- O plano não inventa orçamento nem métricas históricas; metas finais e custos dependem de dados reais e aprovação. O calendário é uma proposta, não uma declaração de campanhas agendadas.
+- A interface e o documento foram adicionados apenas à branch de homologação. Sem publicação de campanhas, envios de email, despesas, alterações de dados/RLS ou deploy.
