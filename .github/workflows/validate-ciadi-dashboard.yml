@@ -73,6 +73,8 @@ jobs:
               "supplier page uses existing expense source": "sb.from('finance_despesas').select('fornecedor_nome,fornecedor_nif,categoria,documento_referencia,data_documento,total,estado')" in dashboard,
               "RH salary lookup is conditional": dashboard.index("const salary=Number(fd.get('salario_referencia')||0)") < dashboard.index("const lookup=await sb.from('finance_empresas').select('id').eq('ativo',true).eq('empresa_principal',true).maybeSingle()"),
               "RH employee can be registered without salary company lookup": "if(salary>0){\n        const lookup=await sb.from('finance_empresas')" in dashboard,
+              "reception uses limited issuer RPC": "sb.rpc('ciadi_recepcao_empresas_ativas')" in dashboard,
+              "reception issuer lookup does not query full company table": "if(profile?.tipo==='rececao'){\n      const lookup=await sb.rpc('ciadi_recepcao_empresas_ativas')" in dashboard,
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
