@@ -973,8 +973,16 @@ async function financeClients(){
 }
 async function financeClientModal(r){
   try{
-    const {data:companies,error:companyError}=await sb.from('finance_empresas').select('id,razao_social').eq('ativo',true).order('razao_social');
-    if(companyError)throw companyError;
+    let companies=[];
+    if(profile?.tipo==='rececao'){
+      const lookup=await sb.rpc('ciadi_recepcao_empresas_ativas');
+      if(lookup.error)throw lookup.error;
+      companies=lookup.data||[];
+    }else{
+      const lookup=await sb.from('finance_empresas').select('id,razao_social').eq('ativo',true).order('razao_social');
+      if(lookup.error)throw lookup.error;
+      companies=lookup.data||[];
+    }
     const x=r||{};
     await modal(r?'Editar cliente':'Cadastrar cliente',`<div class="grid md:grid-cols-2 gap-4">${inputField('nome','Nome / Razão social',x.nome||'','text',true)}${inputField('nome_comercial','Nome comercial',x.nome_comercial||'')}${inputField('nif','NIF',x.nif||'')}${selectField('tipo','Tipo de cliente',[{value:'particular',label:'Particular'},{value:'empresa',label:'Empresa'},{value:'seguradora',label:'Seguradora'},{value:'outro',label:'Outro'}],x.tipo||'particular',true)}${inputField('email','Email',x.email||'','email')}${inputField('telefone','Telefone',x.telefone||'')}${inputField('whatsapp','WhatsApp',x.whatsapp||'')}${inputField('contacto_principal','Contacto principal',x.contacto_principal||'')}${inputField('endereco','Morada',x.endereco||'')}${inputField('bairro','Bairro',x.bairro||'')}${inputField('municipio','Município',x.municipio||x.cidade||'')}${inputField('provincia','Província',x.provincia||'')}${inputField('codigo_postal','Código postal',x.codigo_postal||'')}${inputField('pais','País',x.pais||'AO')}${selectField('empresa_id','Empresa CIADI',[{value:'',label:'Sem empresa associada'},...(companies||[]).map(c=>({value:c.id,label:c.razao_social}))],x.empresa_id||'')}${textareaField('observacoes','Observações',x.observacoes||'',true)}</div><label class="flex items-center gap-2 mt-4"><input type="checkbox" name="ativo" ${x.ativo===false?'':'checked'}> Cliente activo</label>`,async fd=>{
       const row={nome:String(fd.get('nome')||'').trim(),nome_comercial:fd.get('nome_comercial')||null,nif:fd.get('nif')||null,tipo:fd.get('tipo')||'particular',email:fd.get('email')||null,telefone:fd.get('telefone')||null,whatsapp:fd.get('whatsapp')||null,contacto_principal:fd.get('contacto_principal')||null,endereco:fd.get('endereco')||null,bairro:fd.get('bairro')||null,municipio:fd.get('municipio')||null,cidade:fd.get('municipio')||null,provincia:fd.get('provincia')||null,codigo_postal:fd.get('codigo_postal')||null,pais:fd.get('pais')||'AO',empresa_id:fd.get('empresa_id')||null,observacoes:fd.get('observacoes')||null,ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};
