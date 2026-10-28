@@ -3,6 +3,8 @@
 !include "WinMessages.nsh"
 
 Var CIADIProfile
+
+!ifndef BUILD_UNINSTALLER
 Var CIADIProfileDialog
 Var CIADIProfileRadioPolo001
 Var CIADIProfileRadioPolo002
@@ -66,6 +68,7 @@ Function CIADIProfilePageLeave
   MessageBox MB_ICONEXCLAMATION|MB_OK "Selecione um perfil para continuar."
   Abort
 FunctionEnd
+!endif
 
 !macro customInstall
   ${If} $CIADIProfile == ""
