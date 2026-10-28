@@ -52,6 +52,12 @@ As operações de caixa passam por `ciadi_finance_can()` e `finance_operadores`.
 ### 4.6 Agente técnico
 A página do agente declara expressamente que ainda não está ligada a um serviço de execução. Não activar execução de comandos no browser. A futura integração deve validar a identidade do utilizador no servidor, permitir apenas Suporte Informático, usar allowlist de operações, registar prompts/alterações e exigir aprovação para produção.
 
+
+### 4.7 Avisos do Security Advisor
+A consulta read-only ao Security Advisor em 28-10-2026 devolveu:
+- 2 tabelas com RLS activo e sem políticas (`ciadi_automation_token_hashes` e `ciadi_email_notificacoes_fila`). Isto pode ser intencional; confirmar o fluxo servidor antes de alterar.
+- 4 funções `SECURITY DEFINER` executáveis por `anon` e 79 executáveis por `authenticated` no relatório do advisor. O número não prova, por si só, que todas sejam vulneráveis; cada função exposta deve ser classificada como pública intencional ou restringida por privilégios/validação. Nenhuma permissão foi alterada nesta auditoria.
+
 ## 5. Plano de implementação seguro
 1. **Frontend (branch de homologação):** manter filtros de menu, validação de navegação directa e nomenclatura inequívoca de IDs de cliente/paciente.
 2. **Proposta de migração (a rever):** permitir os novos tipos de perfil, criar funções de autorização estreitas e rever as políticas RH, finanças, faturação, caixa e atribuições por polo. Não aplicar esta proposta à produção nesta fase.
