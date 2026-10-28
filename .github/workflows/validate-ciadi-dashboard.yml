@@ -71,6 +71,8 @@ jobs:
               "support is not global admin": "function isGlobalAdmin(){ return profile?.tipo==='admin'; }" in dashboard,
               "support agent restricted to desktop": "function canUseAgent(){ return profile?.tipo==='suporte_informatica' && window.ciadiDesktop?.isDesktop===true; }" in dashboard,
               "supplier page uses existing expense source": "sb.from('finance_despesas').select('fornecedor_nome,fornecedor_nif,categoria,documento_referencia,data_documento,total,estado')" in dashboard,
+              "RH salary lookup is conditional": dashboard.index("const salary=Number(fd.get('salario_referencia')||0)") < dashboard.index("const lookup=await sb.from('finance_empresas').select('id').eq('ativo',true).eq('empresa_principal',true).maybeSingle()"),
+              "RH employee can be registered without salary company lookup": "if(salary>0){\n        const lookup=await sb.from('finance_empresas')" in dashboard,
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
