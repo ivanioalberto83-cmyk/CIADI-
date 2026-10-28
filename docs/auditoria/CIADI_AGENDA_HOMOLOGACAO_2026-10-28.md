@@ -84,3 +84,13 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - A gestão operacional do módulo fica atribuída ao Suporte Informático; a Direção mantém a aprovação da estratégia, orçamento, campanhas pagas e mensagens institucionais. Conteúdo clínico exige revisão por responsável designado.
 - O plano não inventa orçamento nem métricas históricas; metas finais e custos dependem de dados reais e aprovação. O calendário é uma proposta, não uma declaração de campanhas agendadas.
 - A interface e o documento foram adicionados apenas à branch de homologação. Sem publicação de campanhas, envios de email, despesas, alterações de dados/RLS ou deploy.
+
+
+## Polos e Acessos — requisitos e primeira interface — 28-10-2026
+- A área `Polos e acessos` foi ampliada para mostrar metadados de perfis visíveis à sessão (nome, email, perfil, estado e último acesso), sem expor tokens, palavras-passe ou dados clínicos.
+- Foram acrescentados pontos de entrada para criar utilizador, conceder/alterar acesso, suspender/cancelar, enviar convite seguro, associar polos e consultar histórico.
+- As operações de escrita permanecem bloqueadas com indicação explícita do bloqueio; nenhum botão simula sucesso ou altera Auth/RLS/dados. A implementação real exige endpoints server-side autenticados, auditoria e testes por perfil.
+- Credenciais: usar convite ou ligação de definição/reposição de palavra-passe; nunca enviar palavras-passe em texto simples.
+- Bloqueios confirmados a resolver: constraint de `perfis.tipo` não aceita `suporte_informatica`, `rh`, `rececao`; atribuição explícita por polo e políticas server-side ainda não aplicadas.
+- Próximas tarefas: preparar proposta de migration sem aplicar em produção; desenhar tabela de associação utilizador-polo e regras de acesso; implementar funções seguras de convite, alteração de perfil/polo e suspensão/revogação de sessões; testar acesso permitido e negado com contas fictícias; rever logs e políticas antes de activar os botões.
+- A Direção/ADM mantém aprovação de alterações privilegiadas; o Suporte Informático executa operações autorizadas e auditadas. O ADM e o Suporte mantêm visão global dos polos, sem depender do polo seleccionado no instalador.
