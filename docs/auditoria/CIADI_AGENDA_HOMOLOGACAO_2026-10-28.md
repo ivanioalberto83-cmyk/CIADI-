@@ -174,3 +174,38 @@ O requisito só fica satisfeito quando o mesmo Setup instala uma aplicação em 
 - A agenda fica actualizada para corrigir a separação no mesmo instalador, e não para criar múltiplos instaladores.
 - A separação funcional completa, a matriz de permissões server-side e os testes em Windows continuam pendentes. Não declarar homologação.
 
+## Repriorização confirmada pelo utilizador — painéis existem, operações não funcionam — 28-10-2026
+
+### Clarificação do requisito
+O utilizador confirmou que as áreas **ADM, Suporte Informático, RH e Receção já estão separadas**. O problema reportado não é a falta de quatro painéis nem a necessidade de quatro instaladores: os painéis/módulos apresentados são, em parte, apenas de leitura e os fluxos de operação/gravação não funcionam como esperado.
+
+### Objectivo agora
+**Manter os quatro painéis e o mesmo Setup Windows. Corrigir as funções existentes até que os fluxos autorizados funcionem de ponta a ponta**, sem simular gravações, sem remover funcionalidades e sem atribuir permissões excessivas.
+
+### Plano funcional prioritário
+1. **Inventário dos botões e operações:** classificar cada botão como consulta, criação, edição, suspensão, emissão, exportação ou acção técnica; confirmar se tem handler real e qual tabela/RPC/serviço utiliza.
+2. **RH:** testar primeiro listagem, criar colaborador, editar, contrato, documentos e remunerações. Confirmar esquema, campos obrigatórios, RLS e armazenamento privado. Os catálogos informativos não contam como operações concluídas.
+3. **Receção:** testar criar/editar cliente, marcar e reagendar consulta, pré-atendimento, registo administrativo autorizado, emissão de factura e operações de caixa autorizadas. Confirmar erros de rede/permissão e que o registo persiste após recarregar.
+4. **ADM:** validar gestão global de polos e perfis, e que os botões de administração executam apenas acções apoiadas por endpoints/RPC seguros; distinguir os botões que estão deliberadamente bloqueados dos que falham inesperadamente.
+5. **Suporte Informático:** validar diagnóstico, alertas, logs e operações de manutenção autorizadas. Não activar comandos do agente nem executar alterações de produção até existir executor seguro, autorização explícita, registo de auditoria e possibilidade de reversão.
+6. **Integração e segurança:** cada gravação deve verificar a resposta do Supabase/servidor, mostrar erros compreensíveis, confirmar persistência após nova leitura e respeitar a matriz de acesso. Não resolver falhas alargando RLS indiscriminadamente.
+7. **Testes de regressão:** usar ambiente de teste e dados fictícios; testar permissões positivas e negativas por perfil, navegação directa, erros de validação, duplicados, actualização, reload e PDF/exportação quando aplicável.
+8. **Novo Setup:** só depois dos fluxos prioritários passarem, sincronizar os dois HTML, executar workflow, compilar e testar o Setup no Windows. Não reutilizar a versão 1.0.1 como prova de funcionamento completo.
+
+### Primeira sequência de homologação
+- [ ] RH — criar colaborador fictício, editar, recarregar a página e confirmar persistência.
+- [ ] Receção — criar cliente fictício e confirmar que aparece após recarregar.
+- [ ] Receção/Financeiro — emitir documento de teste apenas em ambiente autorizado, confirmar dados completos do cliente, PDF e ligação aos registos correctos.
+- [ ] RH — testar contratos/documentos com armazenamento privado e permissões correctas.
+- [ ] ADM — testar operações de gestão e visão global dos polos.
+- [ ] Suporte Informático — testar diagnóstico e registo de incidentes sem executar comandos privilegiados.
+
+### Evidência obrigatória por operação
+Para cada teste registar: perfil utilizado, módulo, acção, tabela/RPC/serviço chamado, resultado da gravação, resultado da leitura posterior, mensagem de erro (se houver) e verificação de acesso negado num perfil sem autorização. Não registar dados clínicos reais em relatórios de teste.
+
+### Estado honesto
+- A revisão estática identificou painéis com botões que chamam funções existentes, incluindo `hrDashboard()`, `receptionDashboard()` e fluxos de clientes financeiros. A existência de handlers no código não prova que a operação funcione com o esquema e as políticas do Supabase.
+- A auditoria anterior confirmou que `finance_clientes`, `finance_documentos` e `finance_lancamentos` estavam sem registos no momento da consulta; não há evidência suficiente de um ciclo de factura completo validado.
+- As áreas RH e Receção incluem também catálogos de referência/consulta que são explicitamente demonstrativos; não devem ser confundidos com gestão persistente de documentos.
+- Nenhuma alteração de produção, dados, esquema ou RLS é autorizada por esta actualização da agenda. A implementação funcional deverá ocorrer na branch de homologação, com revisão de cada fluxo antes de propor qualquer alteração ao backend.
+
