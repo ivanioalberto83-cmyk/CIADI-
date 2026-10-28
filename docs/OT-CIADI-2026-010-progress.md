@@ -46,3 +46,14 @@ Ambiente: desenvolvimento/homologação. Nenhuma alteração de esquema ou dados
 - Workflow GitHub `Validate CIADI dashboard integration` executado para a branch, run 135, conclusão `success`.
 - Esse resultado não comprova, por si só, um build Windows nem o funcionamento integrado contra a base de dados.
 - Nenhuma alteração foi aplicada à base de dados de produção e nenhuma versão foi publicada.
+
+
+## Auditoria complementar — 2026-10-28
+
+- Corrigida a expectativa do teste documental de compras: para Papel A4 (2 × 1.000 Kz, desconto de 100 Kz, taxa de teste de 14%), o imposto da linha é 266 Kz e o total com a segunda linha isenta é 2.766 Kz. O teste anterior esperava 126 Kz e fazia falhar a validação Windows.
+- Corrigida a estrutura proposta de folha salarial: a dedução por faltas não remuneradas é agora guardada em `deducao_faltas`, incluída no controlo de equilíbrio de descontos e apresentada na tabela e no recibo. Sem este campo, uma folha com faltas podia falhar a restrição SQL de `total_descontos`.
+- Os motores salarial e documental continuam a ser componentes de homologação. A folha depende da migração `20261027193000_ciadi_rh_folha_salarial.sql` e das RPCs; o motor documental de aprovisionamento ainda requer integração com o fluxo persistido de ordens/receções e validação das permissões.
+- Referências para parametrização fiscal: [Portal do Contribuinte — IRT](https://portaldocontribuinte.minfin.gov.ao/impostos-e-taxas/imposto-sobre-rendimentos-do-trabalho), [Lei n.º 14/25 / OGE 2026 — tabela IRT Grupo A](https://www.angolex.com/paginas/leis/lei-que-aprova-o-orcamento-geral-do-estado-para-o-exercicio-economico-de-2026a-14a-25a.html), [INSS — Decreto Presidencial n.º 227/18, artigo 12.º](https://portal.inss.gov.ao/wp-content/uploads/2021/10/227_18.pdf). As taxas e incidências devem continuar versionadas e confirmadas pela Contabilidade; regimes especiais e classificação dos subsídios não devem ser inferidos.
+- A auditoria da faturação/contabilidade mantém o estado **não apto para emissão fiscal oficial**: falta evidência de validação/adesão AGT, as séries não têm os códigos/quantidades autorizadas confirmados e o SAF-T registado não comprova validação XSD/aceitação.
+- A validação de integração do Dashboard e o teste Windows de seleção de módulos passaram após a correção do teste. O job de empacotamento Windows foi **ignorado** porque o fluxo está protegido por opção manual; não existe Setup.exe novo confirmado nesta execução.
+- Nenhuma migração foi aplicada ao Supabase, nenhum email foi enviado e nenhuma fatura real foi emitida.
