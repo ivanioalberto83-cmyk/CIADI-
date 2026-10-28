@@ -125,7 +125,7 @@ async function acompanhantesAT(){
   </div>`;
 }
 async function newATAssignment(){
-  if(!['admin','gestor'].includes(profile?.tipo)){toast('Apenas Admin/Gestor pode criar atribuições.');return;}
+  if(!['admin','gestor','rececao'].includes(profile?.tipo)){toast('Apenas Admin/Gestor pode criar atribuições.');return;}
   const [pRes,prRes]=await Promise.all([sb.from('pacientes').select('id,nome_completo').order('nome_completo'),sb.from('profissionais').select('id,nome_completo,registro_profissional,eh_at,ativo').eq('ativo',true).order('nome_completo')]);
   if(pRes.error||prRes.error) throw (pRes.error||prRes.error);
   const patients=pRes.data||[], pros=prRes.data||[];
@@ -172,7 +172,6 @@ async function saveATAssignment(){
 }
 async function count(t){const {count,error}=await sb.from(t).select('*',{count:'exact',head:true});return error?'—':count}
 async function receptionDashboard(){
-  if(profile?.tipo==='rececao' && !['rececao'].includes('rececao')){document.getElementById('content').innerHTML='<div class="card p-6">Acesso não autorizado.</div>';return;}
   const c=document.getElementById('content');
   c.innerHTML=`<div class="space-y-5">
     <div class="card p-6"><h2 class="text-2xl font-black">Receção — Operações</h2><p class="text-slate-600 mt-1">Área operacional para atendimento, agenda, triagem administrativa, registo de assistidos, documentação autorizada e operações de caixa/faturação. Não inclui folha salarial, contabilidade, administração global nem Agente de Suporte Informático.</p></div>
@@ -183,7 +182,7 @@ async function receptionDashboard(){
       <button onclick="patients()" class="border rounded-xl p-4 text-left"><b>👨‍👩‍👧 Assistidos e famílias</b><p class="text-sm text-slate-500 mt-1">Dados administrativos e contactos</p></button>
     </div></section>
     <section class="card p-5"><h3 class="text-lg font-black">Documentos e encaminhamentos</h3><div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
-      <button onclick="clinicalDocumentsHub()" class="border rounded-xl p-4 text-left"><b>📁 Central clínica</b><p class="text-sm text-slate-500 mt-1">Formulários, modelos e avaliações conforme permissão</p></button>
+      <button onclick="documents()" class="border rounded-xl p-4 text-left"><b>📁 Documentos clínicos</b><p class="text-sm text-slate-500 mt-1">Consulta conforme autorização e políticas clínicas</p></button>
       <button onclick="documents()" class="border rounded-xl p-4 text-left"><b>📄 Documentos clínicos</b><p class="text-sm text-slate-500 mt-1">Consultar/emissão conforme autorização clínica</p></button>
       <button onclick="professionals()" class="border rounded-xl p-4 text-left"><b>🩺 Profissionais</b><p class="text-sm text-slate-500 mt-1">Consulta para encaminhamento e agenda</p></button>
       <button onclick="receptionRecordsCatalog()" class="border rounded-xl p-4 text-left"><b>📚 Atas e registos</b><p class="text-sm text-slate-500 mt-1">Modelos e registos administrativos da Receção</p></button>
@@ -843,6 +842,7 @@ async function hrDashboard(){
         <button onclick="hrContracts()" class="border rounded-xl p-4 text-left"><b>📄 Contratos</b><p class="text-sm text-slate-500 mt-1">Contratos e adendas</p></button>
         <button onclick="hrDocuments()" class="border rounded-xl p-4 text-left"><b>🗂️ Documentos individuais</b><p class="text-sm text-slate-500 mt-1">Documentos e comprovativos</p></button>
         <button onclick="hrPayrolls()" class="border rounded-xl p-4 text-left"><b>💵 Remunerações</b><p class="text-sm text-slate-500 mt-1">Folha salarial e recibos</p></button>
+        <button onclick="hrInstitutionalDocs()" class="border rounded-xl p-4 text-left"><b>🏛️ Biblioteca institucional</b><p class="text-sm text-slate-500 mt-1">Consultar regulamentos e documentos registados</p></button>
       </div>
     </div>
     <div class="card p-6">
@@ -881,6 +881,13 @@ function hrOpenCatalog(key){
   };
   const item=catalogs[key]; if(!item){toast('Catálogo não encontrado.');return;}
   tablePage(item.title,item.description,`<div class="card p-5"><ol class="list-decimal pl-6 space-y-3">${item.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div><div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><b>Catálogo de referência:</b> esta lista não confirma que o documento existe, está aprovado ou foi guardado no sistema. O carregamento e a gestão de versões dependem da biblioteca institucional segura.</div><div class="mt-4"><button class="border rounded-xl px-4 py-2" onclick="hrDashboard()">← Voltar ao RH</button></div>`);
+}
+async function hrInstitutionalDocs(){
+  try{
+    const {data,error}=await sb.from('ciadi_documentos_institucionais').select('id,codigo,titulo,categoria,descricao,publico,versao,estado,obrigatorio,exige_conhecimento,storage_bucket,storage_path,mime_type,data_documento,data_publicacao,metadados,created_at,updated_at').order('categoria').order('titulo');
+    if(error)throw error;
+    tablePage('RH · Biblioteca institucional','Consulta dos registos existentes em ciadi_documentos_institucionais. A visualização de ficheiros depende de Storage privado e de permissões; esta página não cria, aprova nem publica documentos.',`<div class="mb-4"><button class="border rounded-xl px-4 py-2" onclick="hrDashboard()">← Voltar ao RH</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Código</th><th>Título</th><th>Categoria</th><th>Versão</th><th>Estado</th><th>Público</th><th>Ficheiro</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4 font-mono text-xs">${esc(r.codigo)}</td><td><b>${esc(r.titulo)}</b><div class="text-xs text-slate-500">${esc(r.descricao||'')}</div></td><td>${esc(r.categoria)}</td><td>${esc(r.versao)}</td><td>${esc(r.estado)}</td><td>${esc(r.publico)}</td><td>${r.storage_path?esc(r.storage_bucket||'bucket não indicado')+' / '+esc(r.storage_path):'Sem ficheiro associado'}</td></tr>`).join('')||'<tr><td colspan="7" class="p-5 text-slate-500">Nenhum registo disponível para este perfil.</td></tr>'}</tbody></table></div><div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><b>Nota de segurança:</b> não abrir ficheiros através de URL pública. A implementação de upload, assinatura/aprovação, versões e links temporários requer validação de RLS e Storage.</div>`);
+  }catch(e){sectionError('RH · Biblioteca institucional',e)}
 }
 async function hrEmployees(){
   try{
