@@ -75,6 +75,11 @@ jobs:
               "RH employee can be registered without salary company lookup": "if(salary>0){\n        const lookup=await sb.from('finance_empresas')" in dashboard,
               "reception uses limited issuer RPC": "sb.rpc('ciadi_recepcao_empresas_ativas')" in dashboard,
               "reception issuer lookup does not query full company table": "if(profile?.tipo==='rececao'){\n      const lookup=await sb.rpc('ciadi_recepcao_empresas_ativas')" in dashboard,
+              "RH payroll options use scoped RPC": "sb.rpc('ciadi_rh_opcoes_folha')" in dashboard,
+              "RH payroll totals use scoped RPC": "sb.rpc('ciadi_rh_finalizar_folha_rascunho'" in dashboard,
+              "RH cannot directly update payroll totals": "sb.from('ciadi_folhas_salariais').update({total_bruto:totals.bruto" not in dashboard,
+              "payroll approval UI restricted to ADM and management": "['admin','gestor'].includes(profile?.tipo)&&r.estado==='rascunho'" in dashboard,
+              "payroll payment UI restricted to ADM and management": "['admin','gestor'].includes(profile?.tipo)&&r.estado==='aprovada'" in dashboard,
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
