@@ -2,7 +2,7 @@
 
 Data da última atualização: 2026-10-28
 Branch: `feat/ciadi-payroll-engine-20261028`
-Ambiente: desenvolvimento/homologação. Nenhuma alteração de esquema ou dados foi executada na base de dados de produção.
+Ambiente: alterações aditivas de esquema e agendamento aplicadas no Supabase de produção em 2026-10-28; não foram inseridos dados fictícios nem alterados salários existentes. A homologação funcional completa continua pendente.
 
 ## Fase 1 — Motor salarial e RH
 - [x] Motor JavaScript de cálculo com IRT Grupo A 2026, INSS padrão parametrizado, subsídios com incidências configuráveis, horas extraordinárias, faltas e descontos.
