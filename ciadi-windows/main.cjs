@@ -1,9 +1,22 @@
 const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let biometricWindow;
+
+const VALID_INSTALL_PROFILES = new Set(['polo001', 'polo002', 'adm', 'suporte_informatica']);
+
+function readInstallProfile() {
+  try {
+    const profilePath = path.join(path.dirname(app.getPath('exe')), 'ciadi-install-profile.txt');
+    const selected = fs.readFileSync(profilePath, 'utf8').trim();
+    return VALID_INSTALL_PROFILES.has(selected) ? selected : 'web';
+  } catch {
+    return 'web';
+  }
+}
 function openBiometricWindow() {
   if (biometricWindow && !biometricWindow.isDestroyed()) { biometricWindow.focus(); return; }
   biometricWindow = new BrowserWindow({ width: 1120, height: 820, minWidth: 760, minHeight: 600, title: 'CIADI — Assiduidade Biométrica (K20 Pro)', backgroundColor: '#fbfdff', webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
@@ -21,6 +34,7 @@ function createWindow() {
     title: 'CIADI Dashboard', backgroundColor: '#fbfdff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
+      additionalArguments: ['--ciadi-install-profile=' + readInstallProfile()],
       contextIsolation: true, nodeIntegration: false, sandbox: true
     }
   });
