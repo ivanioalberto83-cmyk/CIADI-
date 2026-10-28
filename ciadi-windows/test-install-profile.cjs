@@ -30,6 +30,15 @@ assert.ok(preload.includes('suporte_informatica'), 'O preload deve validar o per
 assert.ok(dashboard.includes("profile?.tipo==='suporte_informatica' && window.ciadiDesktop?.installProfile==='suporte_informatica'"), 'O agente deve exigir perfil autenticado e perfil de instalação Suporte Informática.');
 assert.ok(dashboard.includes("profile.tipo==='suporte_informatica' && window.ciadiDesktop?.installProfile!=='suporte_informatica'"), 'O perfil de suporte não deve entrar por outro perfil de instalação.');
 assert.ok(dashboard.includes('Execução ainda não ligada.'), 'O Dashboard deve informar que a execução real ainda não está configurada.');
+
+assert.ok(dashboard.includes("function isGlobalAdmin(){ return ['admin','suporte_informatica'].includes(profile?.tipo); }"), 'ADM e Suporte Informática devem ter acesso global aos módulos.');
+assert.ok(dashboard.includes("'Gestão Clínica'") && dashboard.includes("'Gestão Administrativa'"), 'A navegação deve separar gestão clínica e administrativa.');
+assert.ok(dashboard.includes("async function financeClients()"), 'O cadastro de clientes deve estar disponível.');
+assert.ok(dashboard.includes("async function hrPayrolls()"), 'A folha salarial deve estar dentro do módulo RH.');
+assert.ok(dashboard.includes("if(id==='agente'&&!canUseAgent())"), 'O agente deve permanecer exclusivo do Suporte Informática.');
+assert.ok(dashboard.includes("async function polesAccess()"), 'A página de polos deve explicitar que as associações ainda não foram aplicadas.');
+assert.ok(dashboard.includes("O esquema consultado ainda não contém a tabela finance_fornecedores"), 'O Dashboard não deve fingir que fornecedores estão gravados sem tabela.');
+
 assert.equal(index, dashboard, 'index.html deve corresponder ao Dashboard de origem.');
 
 for (const file of ['main.cjs', 'preload.cjs']) {
