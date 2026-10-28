@@ -128,3 +128,13 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - A validação automática do HTML passou, mas é limitada a sincronização, sintaxe JS e verificações estáticas; não comprova testes de ponta a ponta.
 - Ver relatório completo: `docs/auditoria/CIADI_DIAGNOSTICO_CENTRO_SUPORTE_2026-10-28.md`.
 - Nenhuma alteração de produção executada. Próxima fase deve corrigir primeiro a autorização do Suporte, os endpoints privilegiados e a tabela de fornecedores, depois configurar Realtime e executar testes do instalador em ambiente Windows.
+
+
+## Correcções de homologação em curso — 28-10-2026
+- Corrigido o escopo de Suporte Informático na interface: não é administrador global e não vê a central SOS.
+- O agente fica restrito a contas de suporte no runtime desktop Electron.
+- A área Fornecedores consulta a tabela existente de despesas em modo leitura, em vez de chamar a tabela inexistente; o cadastro mestre continua bloqueado até migration/RLS revista.
+- Setup Windows actualizado para versão 1.0.1, dependências directas fixadas e workflow com `npm ci` e artefacto de homologação no ramo de trabalho.
+- Novos testes de regressão para escopo de suporte e consulta de fornecedores.
+- Migration de perfis preparada em `supabase/migrations/20261028150000_expand_ciadi_profile_types.sql`, mas não aplicada a produção.
+- O Setup.exe só deve ser entregue depois do workflow Windows concluir com sucesso e o artefacto actual ser confirmado.
