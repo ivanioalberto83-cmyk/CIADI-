@@ -109,3 +109,12 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - Define o modelo proposto para custos, integrações, publicações, métricas e logs de sincronização, além das regras de acesso e plano de homologação.
 - Trata-se de proposta documental; não foi aplicada migração SQL, não foram criadas tabelas e não foram configuradas credenciais externas.
 - Próxima execução: inspeccionar novamente o esquema existente, validar o modelo contra as tabelas actuais, preparar SQL para revisão, implementar funções server-side e testar com dados fictícios antes de pedir autorização para qualquer alteração de produção.
+
+
+## Pesquisa de redes sociais institucionais — 28-10-2026
+- LinkedIn institucional encontrado: https://www.linkedin.com/company/ciadi-luanda (confirmado por resultados públicos que identificam o CIADI - Centro Integrado de Apoio e Desenvolvimento Individual).
+- Facebook: referência candidata https://www.facebook.com/105203032611427 identificada através de listagem pública que replica conteúdos do CIADI; a propriedade/controlo institucional da página ainda precisa de confirmação pela Direcção.
+- Instagram, TikTok e YouTube: não foi possível confirmar URLs oficiais com evidência suficiente; não foram inventados endereços.
+- O painel de marketing foi actualizado para mostrar os links e o respectivo grau de confirmação. Isto não liga APIs nem autoriza acesso às contas.
+- Nota importante para o rastreio seguinte: a página inicial do site público apresentou muitos links externos não relacionados com o CIADI no conteúdo indexado. É necessário auditar a integridade do site, links injectados, CMS/plugins e registos de acesso antes de qualquer publicação/actualização do site.
+- Próximo passo: rastreio de homologação por módulos, corrigir erros priorizados, confirmar o setup.exe actual e só depois preparar novo instalador. Nenhum setup foi gerado nesta etapa.
