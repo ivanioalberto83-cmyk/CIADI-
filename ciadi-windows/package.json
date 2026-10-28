@@ -8,7 +8,8 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist:win": "electron-builder --win nsis"
+    "dist:win": "electron-builder --win nsis",
+    "test": "node test-install-profile.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
