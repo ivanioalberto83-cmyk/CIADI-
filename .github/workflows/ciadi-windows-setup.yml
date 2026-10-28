@@ -76,6 +76,10 @@ jobs:
         working-directory: ciadi-windows
         run: npm install --no-audit
 
+      - name: Validar os quatro perfis e a restrição do agente
+        working-directory: ciadi-windows
+        run: npm test
+
       - name: Compilar Setup.exe
         working-directory: ciadi-windows
         run: npm run dist:win
