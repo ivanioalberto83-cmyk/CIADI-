@@ -1193,7 +1193,6 @@ async function hrNewPayroll(){
       const lines=active.map(({e,salary})=>{const irt=Math.round(salary*irtRate*100)/100,inss=Math.round(salary*inssRate*100)/100,entity=Math.round(salary*entityRate*100)/100,gross=salary,deductions=irt+inss,net=gross-deductions;return {folha_id:sheet.id,funcionario_id:e.id,salario_base:salary,subsidios:{},total_subsidios:0,horas_extra:0,valor_horas_extra:0,irt,inss,inss_entidade:entity,outros_descontos:0,deducao_faltas:0,descontos:{irt,inss},total_bruto:gross,total_descontos:deductions,total_liquido:net,numero_recibo:'CIADI-'+year+String(month).padStart(2,'0')+'-'+String(e.codigo_funcionario||e.id.slice(0,8)),breakdown_calculo:{irt_percent:irtRate*100,inss_percent:inssRate*100,inss_entidade_percent:entityRate*100}}});
       const {error:linesErr}=await sb.from('ciadi_folha_salarial_linhas').insert(lines);
       if(linesErr){await sb.from('ciadi_folha_salarial_linhas').delete().eq('folha_id',sheet.id);await sb.from('ciadi_folhas_salariais').delete().eq('id',sheet.id);throw linesErr;}
-      const totals=lines.reduce((a,l)=>({bruto:a.bruto+l.total_bruto,descontos:a.descontos+l.total_descontos,liquido:a.liquido+l.total_liquido}),{bruto:0,descontos:0,liquido:0});
       const {error:updateErr}=await sb.rpc('ciadi_rh_finalizar_folha_rascunho',{p_folha_id:sheet.id});
       if(updateErr){
         await sb.from('ciadi_folha_salarial_linhas').delete().eq('folha_id',sheet.id);
