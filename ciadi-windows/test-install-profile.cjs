@@ -37,6 +37,7 @@ assert.ok(dashboard.includes("async function financeClients()"), 'O cadastro de 
 assert.ok(dashboard.includes("async function hrPayrolls()"), 'A folha salarial deve estar dentro do módulo RH.');
 assert.ok(dashboard.includes("if(id==='agente'&&!canUseAgent())"), 'O agente deve permanecer exclusivo do Suporte Informática.');
 assert.ok(dashboard.includes("async function polesAccess()"), 'A página de polos deve explicitar que as associações ainda não foram aplicadas.');
+assert.ok(dashboard.includes('Resumo SOS indisponível') && dashboard.includes("go('sos')"), 'A visão geral deve voltar a mostrar a central de Alertas SOS.');
 assert.ok(dashboard.includes("O esquema consultado ainda não contém a tabela finance_fornecedores"), 'O Dashboard não deve fingir que fornecedores estão gravados sem tabela.');
 
 assert.equal(index, dashboard, 'index.html deve corresponder ao Dashboard de origem.');
