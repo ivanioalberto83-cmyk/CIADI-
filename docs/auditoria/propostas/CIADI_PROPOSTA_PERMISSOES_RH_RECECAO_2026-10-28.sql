@@ -198,7 +198,7 @@ RETURNS TABLE(id uuid, razao_social text)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO ''
 AS $function$
   SELECT e.id, e.razao_social
   FROM public.finance_empresas e
@@ -252,7 +252,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO ''
 AS $function$
 BEGIN
   IF NOT EXISTS (
@@ -287,7 +287,7 @@ CREATE OR REPLACE FUNCTION public.ciadi_rh_finalizar_folha_rascunho(p_folha_id u
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO ''
 AS $function$
 DECLARE
   v_user uuid := auth.uid();
