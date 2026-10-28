@@ -33,3 +33,15 @@
 
 ## Estado honesto
 Esta branch é uma proposta de homologação. A navegação e o fluxo de seleção de clientes foram alterados no código, mas ainda não estão comprovados no Dashboard real. Os novos perfis não ficam funcionais até resolver o constraint e as regras server-side. Nenhuma alteração à base de dados ou às políticas RLS foi aplicada. Não se declara homologação, certificação AGT/APD nem prontidão para produção.
+
+## Complemento da auditoria de permissões — 28-10-2026
+Foi criada a matriz detalhada em `docs/auditoria/CIADI_MATRIZ_PERMISSOES_E_BLOQUEIOS_2026-10-28.md`.
+
+Novos bloqueios confirmados em leitura do esquema e das funções:
+- `is_staff()` é usado pelas políticas das tabelas RH e inclui profissionais A.T. activos; deve ser substituído, nas tabelas laborais, por autorização RH específica, para evitar acesso laboral transversal.
+- `ciadi_finance_staff()` e `ciadi_finance_is_staff()` autorizam apenas `admin`/`gestor`; menus da Receção não concedem acesso real.
+- As RPCs de criação/emissão fiscal verificam `is_staff()`. Não alargar essa função a Receção, pois é usada noutros módulos. A faturação necessita de uma autorização RPC própria e estreita.
+- O formulário de cliente consulta `finance_empresas`; o fluxo de Receção precisa de atribuição segura da empresa emitente.
+- Caixa depende de `ciadi_finance_can()` e de um operador activo com permissões específicas.
+- O gerador A4 passou a usar o nome de campo `cliente_id` para o selector de `finance_clientes`; a mensagem de validação foi corrigida. A associação clínica continua opcional.
+- Nenhuma alteração de esquema, RLS, dados ou produção foi aplicada.
