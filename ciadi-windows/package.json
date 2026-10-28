@@ -64,7 +64,8 @@
       "shortcutName": "CIADI Dashboard",
       "deleteAppDataOnUninstall": false,
       "include": "build/installer.nsh",
-      "runAfterFinish": false
+      "runAfterFinish": false,
+      "warningsAsErrors": false
     }
   }
 }
