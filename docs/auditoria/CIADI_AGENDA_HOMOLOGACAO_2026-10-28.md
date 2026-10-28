@@ -102,3 +102,10 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - Confirmado por consulta ao esquema que as tabelas existentes `ciadi_campanhas_marketing`, `ciadi_envios_marketing` e `ciadi_eventos_marketing` cobrem campanhas e eventos de email, mas não constituem um livro de custos nem um conector de métricas sociais.
 - Pendentes: testar Realtime e RLS; configurar webhook real do fornecedor de email com validação de assinatura e deduplicação; criar gestão de orçamento/custos; desenvolver integrações OAuth/API de Meta, TikTok, LinkedIn e YouTube; criar sincronização server-side e relatórios planeado vs executado.
 - Nenhuma credencial externa foi configurada, nenhuma publicação social foi feita e nenhuma alteração de esquema/RLS foi aplicada à base de produção. A conclusão depende de credenciais oficiais, permissões das contas e homologação de segurança.
+
+
+## Próxima implementação técnica — marketing integrado — 28-10-2026
+- Criada proposta de implementação segura em `docs/marketing/CIADI_INTEGRACOES_MARKETING_IMPLEMENTACAO.md`.
+- Define o modelo proposto para custos, integrações, publicações, métricas e logs de sincronização, além das regras de acesso e plano de homologação.
+- Trata-se de proposta documental; não foi aplicada migração SQL, não foram criadas tabelas e não foram configuradas credenciais externas.
+- Próxima execução: inspeccionar novamente o esquema existente, validar o modelo contra as tabelas actuais, preparar SQL para revisão, implementar funções server-side e testar com dados fictícios antes de pedir autorização para qualquer alteração de produção.
