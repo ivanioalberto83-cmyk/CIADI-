@@ -251,3 +251,12 @@ Consulta read-only ao esquema e às políticas de produção confirmou bloqueios
 - Bloqueio que permanece: a RLS de produção continua a recusar gravações aos novos perfis, porque as políticas actuais dependem de `is_staff()`/funções financeiras limitadas a `admin`/`gestor`. A RPC proposta também ainda não existe na base de dados de produção.
 - Próximo passo: rever a proposta SQL, preparar testes de autorização positivos/negativos em homologação e só depois pedir autorização separada para aplicar a migração. Até lá, não afirmar que RH ou Receção já gravam no Supabase.
 
+## RH — folha salarial com separação de aprovação — 28-10-2026
+
+- O processamento da folha no Dashboard passou a usar a RPC proposta `ciadi_rh_opcoes_folha()` para obter apenas IDs/nomes de empresas e centros de custo quando o perfil é RH; não consulta directamente as tabelas financeiras completas nessa etapa.
+- O cálculo/agregação final dos totais passou a chamar `ciadi_rh_finalizar_folha_rascunho()`, que deve recalcular totais no servidor e manter o estado em rascunho. A proposta não concede UPDATE directo de folha ao perfil RH.
+- Os botões de aprovar e marcar como paga ficam visíveis apenas a `admin`/`gestor`, alinhados com as RPCs actuais, que já limitam essas operações a esses perfis.
+- A proposta SQL foi reforçada com inserção limitada a rascunhos, limpeza apenas da própria folha em rascunho e RPCs com `search_path` vazio, validação do perfil e revogação de EXECUTE a `PUBLIC`.
+- O código do Dashboard foi sincronizado e o workflow `Validate CIADI dashboard integration`, execução `40717391004`, terminou com **success**: igualdade dos dois HTML, sintaxe JS e verificações estáticas.
+- Estas RPCs e políticas continuam apenas propostas documentais; não existem garantias de funcionamento no Supabase de produção até serem revistas, testadas num ambiente isolado e aplicadas com autorização. A emissão fiscal pela Receção permanece um fluxo separado, ainda sem autorização RPC própria.
+
