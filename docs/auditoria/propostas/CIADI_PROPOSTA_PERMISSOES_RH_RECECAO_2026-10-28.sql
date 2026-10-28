@@ -122,23 +122,17 @@ USING (EXISTS (
   WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
 ));
 
-CREATE POLICY ciadi_folhas_salariais_rh_insert
+CREATE POLICY ciadi_folhas_salariais_rh_insert_draft
 ON public.ciadi_folhas_salariais FOR INSERT TO authenticated
-WITH CHECK (EXISTS (
-  SELECT 1 FROM public.perfis p
-  WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
-));
-
-CREATE POLICY ciadi_folhas_salariais_rh_update
-ON public.ciadi_folhas_salariais FOR UPDATE TO authenticated
-USING (EXISTS (
-  SELECT 1 FROM public.perfis p
-  WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
-))
-WITH CHECK (EXISTS (
-  SELECT 1 FROM public.perfis p
-  WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
-));
+WITH CHECK (
+  estado = 'rascunho'
+  AND total_bruto = 0 AND total_descontos = 0 AND total_liquido = 0
+  AND criado_por = (SELECT auth.uid())
+  AND EXISTS (
+    SELECT 1 FROM public.perfis p
+    WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
+  )
+);
 
 CREATE POLICY ciadi_folha_linhas_rh_select
 ON public.ciadi_folha_salarial_linhas FOR SELECT TO authenticated
@@ -147,23 +141,18 @@ USING (EXISTS (
   WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
 ));
 
-CREATE POLICY ciadi_folha_linhas_rh_insert
+CREATE POLICY ciadi_folha_linhas_rh_insert_draft
 ON public.ciadi_folha_salarial_linhas FOR INSERT TO authenticated
-WITH CHECK (EXISTS (
-  SELECT 1 FROM public.perfis p
-  WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
-));
-
-CREATE POLICY ciadi_folha_linhas_rh_update
-ON public.ciadi_folha_salarial_linhas FOR UPDATE TO authenticated
-USING (EXISTS (
-  SELECT 1 FROM public.perfis p
-  WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
-))
-WITH CHECK (EXISTS (
-  SELECT 1 FROM public.perfis p
-  WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
-));
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.ciadi_folhas_salariais f
+    WHERE f.id = folha_id AND f.estado = 'rascunho' AND f.criado_por = (SELECT auth.uid())
+  )
+  AND EXISTS (
+    SELECT 1 FROM public.perfis p
+    WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
+  )
+);
 
 -- Receção: acesso apenas a cadastro de clientes, sem DELETE.
 -- A consulta de empresas emitentes deve usar RPC/view que devolva só ID e razão social;
@@ -230,4 +219,129 @@ GRANT EXECUTE ON FUNCTION public.ciadi_recepcao_empresas_ativas() TO authenticat
 -- A autorização desta RPC de leitura é limitada aos campos indicados.
 -- A RPC de criação/emissão de factura continua bloqueada para Receção até existir
 -- autorização própria e validada, baseada no operador e nas permissões comerciais.
+
+-- O RH pode limpar apenas a sua própria folha em rascunho se uma operação
+-- de criação falhar. Não pode apagar folhas aprovadas/pagas nem rascunhos alheios.
+CREATE POLICY ciadi_folhas_salariais_rh_delete_own_draft
+ON public.ciadi_folhas_salariais FOR DELETE TO authenticated
+USING (
+  estado = 'rascunho' AND criado_por = (SELECT auth.uid())
+  AND EXISTS (
+    SELECT 1 FROM public.perfis p
+    WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
+  )
+);
+
+CREATE POLICY ciadi_folha_linhas_rh_delete_own_draft
+ON public.ciadi_folha_salarial_linhas FOR DELETE TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.ciadi_folhas_salariais f
+    WHERE f.id = folha_id AND f.estado = 'rascunho' AND f.criado_por = (SELECT auth.uid())
+  )
+  AND EXISTS (
+    SELECT 1 FROM public.perfis p
+    WHERE p.id = (SELECT auth.uid()) AND p.ativo = true AND p.tipo = 'rh'
+  )
+);
+
+-- Opções mínimas para preparar a folha. Evita conceder ao RH leitura ampla
+-- das tabelas financeiras de empresas e centros de custo.
+CREATE OR REPLACE FUNCTION public.ciadi_rh_opcoes_folha()
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.perfis p
+    WHERE p.id = (SELECT auth.uid()) AND p.ativo = true
+      AND p.tipo IN ('rh', 'admin', 'gestor')
+  ) THEN
+    RAISE EXCEPTION 'Sem autorização para consultar opções de folha salarial' USING ERRCODE='42501';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'empresas', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object('id', e.id, 'razao_social', e.razao_social) ORDER BY e.razao_social)
+      FROM public.finance_empresas e
+      WHERE e.ativo = true
+    ), '[]'::jsonb),
+    'centros_custo', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object('id', c.id, 'codigo', c.codigo, 'nome', c.nome, 'empresa_id', c.empresa_id) ORDER BY c.codigo)
+      FROM public.finance_centros_custo c
+      WHERE c.ativo = true
+    ), '[]'::jsonb)
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.ciadi_rh_opcoes_folha() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.ciadi_rh_opcoes_folha() TO authenticated;
+
+-- Recalcula apenas os totais de uma folha em rascunho. Não altera o estado.
+-- RH não recebe UPDATE directo na folha, impedindo que contorne aprovação/pagamento.
+CREATE OR REPLACE FUNCTION public.ciadi_rh_finalizar_folha_rascunho(p_folha_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_user uuid := auth.uid();
+  v_sheet public.ciadi_folhas_salariais%rowtype;
+  v_count integer;
+  v_bruto numeric(14,2);
+  v_descontos numeric(14,2);
+  v_liquido numeric(14,2);
+BEGIN
+  IF v_user IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.perfis p
+    WHERE p.id = v_user AND p.ativo = true AND p.tipo IN ('rh', 'admin', 'gestor')
+  ) THEN
+    RAISE EXCEPTION 'Sem autorização para finalizar a folha em rascunho' USING ERRCODE='42501';
+  END IF;
+
+  SELECT * INTO v_sheet
+  FROM public.ciadi_folhas_salariais
+  WHERE id = p_folha_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Folha não encontrada'; END IF;
+  IF v_sheet.estado <> 'rascunho' THEN RAISE EXCEPTION 'Só é possível calcular uma folha em rascunho'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.finance_empresas e
+    WHERE e.id = v_sheet.empresa_id AND e.ativo = true
+  ) THEN
+    RAISE EXCEPTION 'Empresa emitente inválida/inactiva';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.finance_centros_custo c
+    WHERE c.id = v_sheet.centro_custo_id AND c.ativo = true
+      AND (c.empresa_id IS NULL OR c.empresa_id = v_sheet.empresa_id)
+  ) THEN
+    RAISE EXCEPTION 'Centro de custo inválido/inactivo para a empresa';
+  END IF;
+
+  SELECT count(*), coalesce(sum(total_bruto),0), coalesce(sum(total_descontos),0), coalesce(sum(total_liquido),0)
+  INTO v_count, v_bruto, v_descontos, v_liquido
+  FROM public.ciadi_folha_salarial_linhas
+  WHERE folha_id = p_folha_id;
+  IF v_count = 0 THEN RAISE EXCEPTION 'A folha não contém linhas de trabalhadores'; END IF;
+
+  UPDATE public.ciadi_folhas_salariais
+  SET total_bruto = v_bruto, total_descontos = v_descontos, total_liquido = v_liquido,
+      atualizado_por = v_user, updated_at = now()
+  WHERE id = p_folha_id;
+
+  RETURN jsonb_build_object('id', p_folha_id, 'estado', 'rascunho',
+    'colaboradores', v_count, 'total_bruto', v_bruto,
+    'total_descontos', v_descontos, 'total_liquido', v_liquido);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.ciadi_rh_finalizar_folha_rascunho(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.ciadi_rh_finalizar_folha_rascunho(uuid) TO authenticated;
 
