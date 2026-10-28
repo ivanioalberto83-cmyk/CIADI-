@@ -59,7 +59,7 @@
           ]
         }
       ],
-      "artifactName": "CIADI-Setup-\${version}.\${ext}"
+      "artifactName": "CIADI-Setup-${version}.${ext}"
     },
     "nsis": {
       "installerIcon": "ciadi.ico",
