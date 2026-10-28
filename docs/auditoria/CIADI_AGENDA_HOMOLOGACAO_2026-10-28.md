@@ -242,3 +242,12 @@ Consulta read-only ao esquema e às políticas de produção confirmou bloqueios
 - Workflow `Validate CIADI dashboard integration`, execução `40714677233`: **success** (sincronização, sintaxe JavaScript e verificações estáticas).
 - Esta correcção não contorna nem altera RLS; a gravação por perfil RH continua bloqueada até se preparar, rever e autorizar a solução de permissões.
 
+## Implementação em curso — cadastro RH e abertura do formulário de cliente — 28-10-2026
+
+- O cadastro RH foi ajustado para só consultar a empresa emitente quando o utilizador preenche salário de referência; salário inválido/negativo é recusado antes de gravar. Isto remove uma dependência financeira desnecessária do registo laboral sem salário.
+- O formulário de cliente passou a chamar `ciadi_recepcao_empresas_ativas()` para o perfil Receção, em vez de consultar directamente todos os dados da tabela `finance_empresas`.
+- Foi criada a proposta SQL `docs/auditoria/propostas/CIADI_PROPOSTA_PERMISSOES_RH_RECECAO_2026-10-28.sql` com políticas limitadas para RH e Receção e uma RPC de leitura mínima da empresa emitente. É um documento de proposta, não foi aplicado à produção.
+- Os dois HTML foram sincronizados após as alterações.
+- Bloqueio que permanece: a RLS de produção continua a recusar gravações aos novos perfis, porque as políticas actuais dependem de `is_staff()`/funções financeiras limitadas a `admin`/`gestor`. A RPC proposta também ainda não existe na base de dados de produção.
+- Próximo passo: rever a proposta SQL, preparar testes de autorização positivos/negativos em homologação e só depois pedir autorização separada para aplicar a migração. Até lá, não afirmar que RH ou Receção já gravam no Supabase.
+
