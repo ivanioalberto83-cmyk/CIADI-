@@ -138,3 +138,35 @@ Nenhuma despesa será assumida sem aprovação da Direção.
 - Revisão do plano ao final dos 90 dias.
 
 **Estado:** plano de trabalho proposto e apresentado no módulo Marketing Digital da branch de homologação. O orçamento, metas finais, canais efectivamente activos e responsáveis nominais precisam de validação da Direção. Não representa campanhas já publicadas nem resultados alcançados.
+
+
+## 9. Dados reais, custos e desempenho por campanha
+O painel de desempenho consulta as tabelas existentes `ciadi_campanhas_marketing`, `ciadi_envios_marketing` e `ciadi_eventos_marketing`. Apresenta contadores e resultados apenas quando estão disponíveis na base de dados. A interface tenta subscrever alterações via Supabase Realtime; a entrega em tempo real depende de Realtime activo para estas tabelas, permissões/RLS e conectividade do cliente.
+
+### Limitações confirmadas no esquema actual
+- Campanhas existentes focam sobretudo email; não foi identificada estrutura própria para custos/orçamentos por campanha.
+- Não foi identificada tabela de contas sociais autorizadas nem de métricas sincronizadas de Meta, TikTok, LinkedIn ou YouTube.
+- Não há prova de credenciais OAuth, webhooks externos ou tarefas de sincronização activos. O painel mostra estas integrações como não ligadas; não fabrica alcance, impressões, cliques, custos ou conversões.
+- As taxas de entrega/abertura/clique dependem da recepção de eventos reais do fornecedor e da deduplicação; contadores não são apresentados como métricas confirmadas se os dados não estiverem disponíveis.
+
+### Arquitectura necessária para concluir
+1. Criar registo de orçamento/custos por campanha: orçamento aprovado, custo planeado e real, moeda, fornecedor, período, comprovativo/referência, aprovador e data.
+2. Criar registo de integrações por plataforma/conta: estado, permissões concedidas, conta institucional, último sync, erro e cursor de sincronização. Tokens e segredos ficam exclusivamente no backend/secret store, nunca no HTML ou em tabelas acessíveis ao cliente.
+3. Criar tabela de métricas por plataforma/campanha/publicação/período: impressões, alcance, visualizações, interacções, cliques, contactos/conversões atribuíveis, custo, moeda, origem e timestamp da fonte.
+4. Implementar Edge Functions/serviços server-side para OAuth, renovação de tokens, leitura de APIs, validação de assinaturas de webhooks, deduplicação de eventos, limites de taxa e registo de erros.
+5. Activar/testar Supabase Realtime apenas nas tabelas necessárias; manter RLS restritiva e testar leitura negada a perfis não autorizados.
+6. Associar calendário editorial (planeado) a publicação real (executado), URL/ID da publicação, canal, estado de aprovação, data de publicação e resultados sincronizados.
+7. Criar relatório mensal com planeado vs executado, resultados por canal, custo aprovado vs realizado, custo por resultado quando mensurável, falhas de sincronização e recomendações.
+
+### Condições de homologação
+- Não aplicar DDL/RLS em produção nesta etapa.
+- Obter aprovação da Direcção para orçamento, plataformas/canais e permissões da conta institucional.
+- Configurar credenciais oficiais OAuth/API e segredos no backend com intervenção autorizada do administrador das contas.
+- Testar em ambiente de homologação com dados fictícios e, depois, validar com uma conta social institucional autorizada.
+- Não importar pacientes, diagnósticos ou contactos clínicos para públicos de marketing; manter consentimento/base legal e descadastro.
+- Validar eventos duplicados, token expirado, API indisponível, limites de taxa, sincronização parcial e cálculo de custos.
+
+### Estado em 28-10-2026
+- Interface de desempenho criada no ramo de homologação e ligada por consulta às tabelas de campanha/email existentes.
+- Subscrições Realtime adicionadas no cliente, ainda por validar no ambiente de execução e na configuração de publicação das tabelas.
+- Custos por campanha e conectores de redes sociais ainda não implementados; nenhuma credencial externa foi configurada e nenhuma campanha foi publicada por esta alteração.
