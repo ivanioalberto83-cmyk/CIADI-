@@ -16,6 +16,7 @@ on:
       - main
       - feature/ciadi-compras-contabilidade-integrada
       - fix/ciadi-rh-polos-compras-20261027
+      - feat/ciadi-payroll-engine-20261028
     tags:
       - 'ciadi-v*'
 
