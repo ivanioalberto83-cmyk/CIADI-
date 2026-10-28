@@ -68,8 +68,8 @@ function visibleMenu(){
     if(id==='agente') return canUseAgent();
     if(id==='acompanhantes_at') return canAccessAT();
     if(isGlobalAdmin()) return true;
-    if(profile?.tipo==='rh') return ['overview','rh','auditoria'].includes(id);
-    if(profile?.tipo==='rececao') return ['overview','pedidos_site','agendamentos','triagens','pacientes','profissionais','documentos'].includes(id);
+    if(profile?.tipo==='rh') return ['rh'].includes(id);
+    if(profile?.tipo==='rececao') return ['pedidos_site','agendamentos','triagens','pacientes','profissionais','documentos','clientes','faturacao','caixa'].includes(id);
     if(profile?.tipo==='profissional') return ['overview','agendamentos','triagens','pacientes','profissionais','documentos','familias','clinica','acompanhantes_at'].includes(id);
     return profile?.tipo==='gestor' ? id!=='agente' : ['overview'].includes(id);
   });
