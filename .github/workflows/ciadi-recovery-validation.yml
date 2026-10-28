@@ -1,0 +1,88 @@
+name: CIADI Recovery Validation
+
+on:
+  push:
+    branches:
+      - feat/ciadi-safe-update-recovery-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    name: Validar código e configuração
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar sintaxe JavaScript e JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check ciadi-windows/main.cjs
+          node -e "JSON.parse(require('node:fs').readFileSync('ciadi-windows/package.json','utf8'))"
+          test -f ciadi-windows/recovery/Restore-CIADI.ps1
+          grep -q 'ConfirmRestore' ciadi-windows/recovery/Restore-CIADI.ps1
+          grep -q 'createRecoveryPoint' ciadi-windows/main.cjs
+
+  windows-build:
+    name: Compilar Setup de homologação
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar script de restauração PowerShell
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'ciadi-windows/recovery/Restore-CIADI.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'Erro de sintaxe no script de recuperação.'
+          }
+      - name: Preparar dashboard e ícone
+        shell: pwsh
+        run: |
+          $source = 'CIADI_DASHBOARD_FINANCEIRO.html'
+          if (!(Test-Path $source)) { throw "Falta o dashboard de origem: $source" }
+          Copy-Item $source 'ciadi-windows/index.html' -Force
+          $html = Get-Content $source -Raw
+          $match = [regex]::Match($html, 'data:image/png;base64,([A-Za-z0-9+/=]+)')
+          if (!$match.Success) { throw 'Não foi encontrado logótipo PNG incorporado no dashboard.' }
+          $png = [Convert]::FromBase64String($match.Groups[1].Value)
+          $ico = New-Object byte[] (22 + $png.Length)
+          $ico[2] = 1
+          $ico[4] = 1
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]1), 0, $ico, 10, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]32), 0, $ico, 12, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]$png.Length), 0, $ico, 14, 4)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]22), 0, $ico, 18, 4)
+          [Buffer]::BlockCopy($png, 0, $ico, 22, $png.Length)
+          [IO.File]::WriteAllBytes('ciadi-windows/ciadi.ico', $ico)
+      - name: Instalar dependências
+        working-directory: ciadi-windows
+        run: npm install --no-audit
+      - name: Compilar Setup.exe sem publicar release
+        working-directory: ciadi-windows
+        run: npm run dist:win
+      - name: Guardar Setup de homologação
+        uses: actions/upload-artifact@v4
+        with:
+          name: CIADI-Recovery-Setup-Test
+          path: ciadi-windows/release/CIADI-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 3
