@@ -1106,12 +1106,18 @@ async function hrNewEmployee(){
     if(error)throw error;
     await modal('Cadastrar trabalhador',`<div class="grid md:grid-cols-2 gap-4">${selectField('profissional_id','Profissional associado',(pros||[]).map(p=>({value:p.id,label:p.nome_completo+' · '+(p.email_profissional||'sem email')})),'',true)}${inputField('codigo_funcionario','Código do trabalhador')}${inputField('matricula_interna','Matrícula interna')}${inputField('cargo','Cargo')}${inputField('departamento','Departamento')}${inputField('unidade_local','Unidade / Polo')}${selectField('tipo_vinculo','Tipo de vínculo',[['efetivo','Efetivo'],['contrato','Contrato'],['prestador','Prestador'],['estagio','Estágio'],['voluntario','Voluntário'],['temporario','Temporário'],['outro','Outro']].map(([value,label])=>({value,label})),'contrato',true)}${inputField('data_admissao','Data de admissão',new Date().toISOString().slice(0,10),'date')}${inputField('data_inicio_funcoes','Início de funções',new Date().toISOString().slice(0,10),'date')}${selectField('regime_trabalho','Regime',[['integral','Integral'],['parcial','Parcial'],['turnos','Turnos'],['flexivel','Flexível'],['remoto','Remoto'],['hibrido','Híbrido'],['outro','Outro']].map(([value,label])=>({value,label})),'integral')}${inputField('carga_horaria_semanal','Carga horária semanal','40','number')}${inputField('email_corporativo','Email corporativo','','email')}${inputField('telefone_corporativo','Telefone corporativo')}${inputField('salario_referencia','Salário de referência (Kz)','','number',false,'min="0" step="0.01"')}${textareaField('observacoes_internas','Observações','',true)}</div>`,async fd=>{
       const pid=fd.get('profissional_id');if(!pid)throw new Error('Seleccione um profissional.');
-      const {data:company,error:companyError}=await sb.from('finance_empresas').select('id').eq('ativo',true).eq('empresa_principal',true).maybeSingle();if(companyError)throw companyError;
+      const salary=Number(fd.get('salario_referencia')||0);
+      if(!Number.isFinite(salary)||salary<0)throw new Error('O salário de referência deve ser um número igual ou superior a zero.');
+      let company=null;
+      if(salary>0){
+        const lookup=await sb.from('finance_empresas').select('id').eq('ativo',true).eq('empresa_principal',true).maybeSingle();
+        if(lookup.error)throw lookup.error;
+        company=lookup.data;
+        if(!company?.id)throw new Error('Configure primeiro a empresa emitente principal antes de registar um salário de referência.');
+      }
       const row={profissional_id:pid,codigo_funcionario:fd.get('codigo_funcionario')||null,matricula_interna:fd.get('matricula_interna')||null,cargo:fd.get('cargo')||null,departamento:fd.get('departamento')||null,unidade_local:fd.get('unidade_local')||null,tipo_vinculo:fd.get('tipo_vinculo')||'contrato',data_admissao:fd.get('data_admissao')||null,data_inicio_funcoes:fd.get('data_inicio_funcoes')||null,regime_trabalho:fd.get('regime_trabalho')||null,carga_horaria_semanal:fd.get('carga_horaria_semanal')?Number(fd.get('carga_horaria_semanal')):null,email_corporativo:fd.get('email_corporativo')||null,telefone_corporativo:fd.get('telefone_corporativo')||null,observacoes_internas:fd.get('observacoes_internas')||null,estado:'ativo'};
       const {data:employee,error}=await sb.from('ciadi_funcionarios').insert(row).select().single();if(error)throw error;
-      const salary=Number(fd.get('salario_referencia')||0);
       if(salary>0){
-        if(!company?.id){await sb.from('ciadi_funcionarios').delete().eq('id',employee.id);throw new Error('Configure primeiro a empresa emitente principal para associar o contrato e o salário.');}
         const {error:contractError}=await sb.from('ciadi_funcionario_contratos').insert({funcionario_id:employee.id,tipo_contrato:row.tipo_vinculo,numero_contrato:row.codigo_funcionario,data_inicio:row.data_inicio_funcoes||row.data_admissao||new Date().toISOString().slice(0,10),salario_referencia:salary,moeda:'AOA',estado:'ativo',observacoes:'Criado no cadastro RH.'});
         if(contractError){await sb.from('ciadi_funcionarios').delete().eq('id',employee.id);throw contractError;}
       }
