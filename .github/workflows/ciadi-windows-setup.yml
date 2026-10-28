@@ -87,6 +87,28 @@ jobs:
           }
           node --check "ciadi-windows/main.cjs"
           node --check "ciadi-windows/preload.cjs"
+          $installer = Get-Content "ciadi-windows/build/installer.nsh" -Raw
+          foreach ($profile in @("admin", "suporte_informatica", "rh", "rececao")) {
+            if ($installer -notmatch [regex]::Escape($profile)) {
+              throw "O seletor NSIS não contém o perfil obrigatório '$profile'."
+            }
+          }
+          if ($installer -notmatch "Page custom CIADIProfilePage CIADIProfilePageLeave") {
+            throw "O instalador não declara a página de seleção de perfil."
+          }
+          if ($installer -notmatch "WriteRegStr HKCU" -or $installer -notmatch "CreateShortCut") {
+            throw "O instalador não guarda a identificação da estação ou não cria atalhos."
+          }
+          $package = Get-Content "ciadi-windows/package.json" -Raw | ConvertFrom-Json
+          if ($package.build.nsis.include -ne "build/installer.nsh") {
+            throw "O package.json não inclui o script NSIS personalizado."
+          }
+          if ($package.build.nsis.createDesktopShortcut -ne $false -or $package.build.nsis.createStartMenuShortcut -ne $false) {
+            throw "Os atalhos padrão não foram desativados; podem duplicar os atalhos por perfil."
+          }
+          if ((Get-Content "ciadi-windows/main.cjs" -Raw) -notmatch "StationProfile") {
+            throw "A aplicação não lê a identificação da estação."
+          }
 
       - name: Gerar lockfile a partir das versões fixadas
         working-directory: ciadi-windows
