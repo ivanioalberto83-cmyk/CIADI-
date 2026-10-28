@@ -2,9 +2,8 @@
 !include "LogicLib.nsh"
 !include "WinMessages.nsh"
 
-Var CIADIProfile
-
 !ifndef BUILD_UNINSTALLER
+Var CIADIProfile
 Var CIADIProfileDialog
 Var CIADIProfileRadioPolo001
 Var CIADIProfileRadioPolo002
