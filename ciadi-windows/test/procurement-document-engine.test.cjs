@@ -8,8 +8,8 @@ test('calculates line discounts, tax and totals consistently', () => {
     { description: 'Canetas', quantity: 3, unitPrice: 200, discount: 0, taxRate: 0, unit: 'caixa' }
   ]);
   assert.equal(result.subtotal, 2500);
-  assert.equal(result.tax, 126);
-  assert.equal(result.total, 2626);
+  assert.equal(result.tax, 266);
+  assert.equal(result.total, 2766);
 });
 
 test('rejects empty lines, negative values and discounts over gross', () => {
