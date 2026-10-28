@@ -24,9 +24,22 @@ if (-not (Test-Path $manifestPath) -or -not (Test-Path $appBackup)) {
   throw "Ponto de recuperação inválido: falta manifest.json ou pasta app."
 }
 $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+if ($manifest.schemaVersion -ne 1 -or $manifest.appName -ne 'CIADI Dashboard' -or $manifest.scope -ne 'application-files-only') {
+  throw "Manifesto incompatível ou não confiável. A restauração foi interrompida."
+}
 $target = [string]$manifest.installPath
 if (-not $target -or -not (Test-Path $target)) {
   throw "A pasta de instalação original não existe. Instale a versão CIADI compatível antes de restaurar."
+}
+$targetExe = Join-Path $target 'CIADI Dashboard.exe'
+$backupAsar = Join-Path $appBackup 'resources\app.asar'
+if (-not (Test-Path $targetExe) -or -not (Test-Path $backupAsar)) {
+  throw "O destino ou a cópia não corresponde à estrutura esperada do CIADI Dashboard. Nada foi alterado."
+}
+$resolvedTarget = [IO.Path]::GetFullPath($target).TrimEnd('\')
+$resolvedBackup = [IO.Path]::GetFullPath($BackupPath)
+if ($resolvedBackup.StartsWith($resolvedTarget, [StringComparison]::OrdinalIgnoreCase)) {
+  throw "O ponto de recuperação está dentro da pasta de destino. A restauração foi interrompida."
 }
 
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
