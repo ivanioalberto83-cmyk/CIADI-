@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { calculatePayroll, IRT_GROUP_A_2026 } = require('../payroll-engine.cjs');
+const { calculatePayroll, IRT_GROUP_A_2026 } = require('../payroll-engine.js');
 
 test('calculates INSS employee/employer and IRT Group A from 2026 table', () => {
   const result = calculatePayroll({
