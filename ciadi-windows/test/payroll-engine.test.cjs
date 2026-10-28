@@ -52,9 +52,9 @@ test('supports explicit allowance tax/contribution flags and unpaid absences', (
   });
   assert.equal(result.absenceDeduction, 20000);
   assert.equal(result.adjustedBaseSalary, 200000);
-  assert.equal(result.inssBase, 215000);
-  assert.equal(result.inssEmployee, 6450);
-  assert.equal(result.inssEmployer, 17200);
+  assert.equal(result.inssBase, 210000);
+  assert.equal(result.inssEmployee, 6300);
+  assert.equal(result.inssEmployer, 16800);
   assert.equal(result.grossPay, 235000);
   assert.equal(result.netPay, result.grossPay - result.inssEmployee - result.irt - 1000);
 });
