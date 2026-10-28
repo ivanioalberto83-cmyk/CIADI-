@@ -1173,12 +1173,23 @@ async function hrPayrolls(){
 }
 async function hrNewPayroll(){
   try{
-    const [{data:companies,error:ce},{data:centres,error:cc},{data:employees,error:ee}]=await Promise.all([
-      sb.from('finance_empresas').select('id,razao_social').eq('ativo',true).order('razao_social'),
-      sb.from('finance_centros_custo').select('id,codigo,nome,empresa_id').eq('ativo',true).order('codigo'),
-      sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissionais(nome_completo),ciadi_funcionario_contratos(salario_referencia,estado,data_inicio,data_fim)').eq('estado','ativo')
-    ]);
-    if(ce)throw ce;if(cc)throw cc;if(ee)throw ee;
+    let companies=[],centres=[],employees=[];
+    if(profile?.tipo==='rh'){
+      const [{data:options,error:optionsErr},{data:employeeRows,error:employeeErr}]=await Promise.all([
+        sb.rpc('ciadi_rh_opcoes_folha'),
+        sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissionais(nome_completo),ciadi_funcionario_contratos(salario_referencia,estado,data_inicio,data_fim)').eq('estado','ativo')
+      ]);
+      if(optionsErr)throw optionsErr;if(employeeErr)throw employeeErr;
+      companies=options?.empresas||[];centres=options?.centros_custo||[];employees=employeeRows||[];
+    }else{
+      const [{data:companyRows,error:companyErr},{data:centreRows,error:centreErr},{data:employeeRows,error:employeeErr}]=await Promise.all([
+        sb.from('finance_empresas').select('id,razao_social').eq('ativo',true).order('razao_social'),
+        sb.from('finance_centros_custo').select('id,codigo,nome,empresa_id').eq('ativo',true).order('codigo'),
+        sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissionais(nome_completo),ciadi_funcionario_contratos(salario_referencia,estado,data_inicio,data_fim)').eq('estado','ativo')
+      ]);
+      if(companyErr)throw companyErr;if(centreErr)throw centreErr;if(employeeErr)throw employeeErr;
+      companies=companyRows||[];centres=centreRows||[];employees=employeeRows||[];
+    }
     if(!(companies||[]).length)throw new Error('Cadastre a empresa emitente antes de processar salários.');
     if(!(centres||[]).length)throw new Error('Cadastre um centro de custo válido antes de processar salários.');
     const now=new Date();
@@ -1187,8 +1198,7 @@ async function hrNewPayroll(){
       if(year<2000||year>2200||month<1||month>12)throw new Error('Ano ou mês inválido.');
       const active=(employees||[]).map(e=>{const cs=(e.ciadi_funcionario_contratos||[]).filter(c=>c.estado==='ativo'&&c.salario_referencia!=null).sort((a,b)=>String(b.data_inicio||'').localeCompare(String(a.data_inicio||'')));return {e,contract:cs[0],salary:Number(cs[0]?.salario_referencia||0)}}).filter(x=>x.salary>0);
       if(!active.length)throw new Error('Nenhum trabalhador activo tem salário de referência num contrato activo. Crie/actualize os contratos primeiro.');
-      const {data:company,error:companyErr}=await sb.from('finance_empresas').select('id').eq('id',fd.get('empresa_id')).single();if(companyErr)throw companyErr;
-      const head={empresa_id:company.id,centro_custo_id:fd.get('centro_custo_id'),periodo_ano:year,periodo_mes:month,estado:'rascunho',moeda:'AOA',total_bruto:0,total_descontos:0,total_liquido:0,criado_por:me.id,atualizado_por:me.id,observacoes:'Processamento inicial; validar taxas fiscais e contributivas antes da aprovação.'};
+      const head={empresa_id:fd.get('empresa_id'),centro_custo_id:fd.get('centro_custo_id'),periodo_ano:year,periodo_mes:month,estado:'rascunho',moeda:'AOA',total_bruto:0,total_descontos:0,total_liquido:0,criado_por:me.id,atualizado_por:me.id,observacoes:'Processamento inicial; validar taxas fiscais e contributivas antes da aprovação.'};
       const {data:sheet,error:sheetErr}=await sb.from('ciadi_folhas_salariais').insert(head).select().single();if(sheetErr)throw sheetErr;
       const lines=active.map(({e,salary})=>{const irt=Math.round(salary*irtRate*100)/100,inss=Math.round(salary*inssRate*100)/100,entity=Math.round(salary*entityRate*100)/100,gross=salary,deductions=irt+inss,net=gross-deductions;return {folha_id:sheet.id,funcionario_id:e.id,salario_base:salary,subsidios:{},total_subsidios:0,horas_extra:0,valor_horas_extra:0,irt,inss,inss_entidade:entity,outros_descontos:0,deducao_faltas:0,descontos:{irt,inss},total_bruto:gross,total_descontos:deductions,total_liquido:net,numero_recibo:'CIADI-'+year+String(month).padStart(2,'0')+'-'+String(e.codigo_funcionario||e.id.slice(0,8)),breakdown_calculo:{irt_percent:irtRate*100,inss_percent:inssRate*100,inss_entidade_percent:entityRate*100}}});
       const {error:linesErr}=await sb.from('ciadi_folha_salarial_linhas').insert(lines);
