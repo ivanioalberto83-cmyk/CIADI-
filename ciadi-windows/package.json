@@ -1,6 +1,6 @@
 {
   "name": "ciadi-dashboard-windows",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Aplicação Windows do Dashboard CIADI com módulo isolado de homologação de assiduidade biométrica",
   "main": "main.cjs",
   "author": "CIADI",
