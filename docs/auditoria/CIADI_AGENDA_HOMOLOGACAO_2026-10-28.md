@@ -94,3 +94,11 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - Bloqueios confirmados a resolver: constraint de `perfis.tipo` não aceita `suporte_informatica`, `rh`, `rececao`; atribuição explícita por polo e políticas server-side ainda não aplicadas.
 - Próximas tarefas: preparar proposta de migration sem aplicar em produção; desenhar tabela de associação utilizador-polo e regras de acesso; implementar funções seguras de convite, alteração de perfil/polo e suspensão/revogação de sessões; testar acesso permitido e negado com contas fictícias; rever logs e políticas antes de activar os botões.
 - A Direção/ADM mantém aprovação de alterações privilegiadas; o Suporte Informático executa operações autorizadas e auditadas. O ADM e o Suporte mantêm visão global dos polos, sem depender do polo seleccionado no instalador.
+
+
+## Marketing — campanhas reais e integração social em tempo real — 28-10-2026
+- Implementado no ramo de homologação um painel de desempenho que lê campanhas, envios e eventos das tabelas existentes do Supabase e subscreve alterações Realtime no cliente.
+- O painel mostra campanhas, enviados, falhas, entregas, aberturas, cliques e eventos conforme os dados registados. Falhas de leitura são expostas como indisponibilidade, não como zero.
+- Confirmado por consulta ao esquema que as tabelas existentes `ciadi_campanhas_marketing`, `ciadi_envios_marketing` e `ciadi_eventos_marketing` cobrem campanhas e eventos de email, mas não constituem um livro de custos nem um conector de métricas sociais.
+- Pendentes: testar Realtime e RLS; configurar webhook real do fornecedor de email com validação de assinatura e deduplicação; criar gestão de orçamento/custos; desenvolver integrações OAuth/API de Meta, TikTok, LinkedIn e YouTube; criar sincronização server-side e relatórios planeado vs executado.
+- Nenhuma credencial externa foi configurada, nenhuma publicação social foi feita e nenhuma alteração de esquema/RLS foi aplicada à base de produção. A conclusão depende de credenciais oficiais, permissões das contas e homologação de segurança.
