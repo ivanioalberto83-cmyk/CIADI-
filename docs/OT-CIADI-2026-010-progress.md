@@ -26,7 +26,9 @@ Ambiente: desenvolvimento/homologação. Nenhuma alteração de esquema ou dados
 - [x] Formulário alinhado com os valores de tipo e público existentes nas constraints da base de dados.
 - [x] `index.html` e `CIADI_DASHBOARD_FINANCEIRO.html` sincronizados e verificados idênticos na branch.
 - [ ] Testar CRUD com conta admin/gestor em homologação e confirmar permissões RLS na interface.
-- [ ] Validar e completar o calendário anual de feriados/efemérides com fontes oficiais.\n- [x] Auditoria read-only: 37 efemérides ativas já existem na tabela.\n- [ ] Auditoria read-only: existem 0 registos em `ciadi_aniversarios`, 0 lembretes em `ciadi_aniversario_lembretes` e 0 notificações em `notificacoes`; é necessário cadastrar aniversários de colaboradores com autorização antes de testar esse fluxo.
+- [ ] Validar e completar o calendário anual de feriados/efemérides com fontes oficiais.
+- [x] Auditoria read-only: 37 efemérides ativas já existem na tabela.
+- [ ] Auditoria read-only: existem 0 registos em `ciadi_aniversarios`, 0 lembretes em `ciadi_aniversario_lembretes` e 0 notificações em `notificacoes`; é necessário cadastrar aniversários de colaboradores com autorização antes de testar esse fluxo.
 
 ## Fase 4 — Emails e notificações
 - [x] Confirmada a existência de tabelas `notificacoes`, `ciadi_aniversario_lembretes`, `ciadi_aniversario_preferencias` e regras de lembrete.
