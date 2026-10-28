@@ -9,7 +9,7 @@ Var CIADIProfileRadioPolo002
 Var CIADIProfileRadioAdm
 Var CIADIProfileRadioSupport
 
-!macro customPageAfterChangeDir
+!macro customWelcomePage
   Page custom CIADIProfilePageCreate CIADIProfilePageLeave
 !macroend
 
