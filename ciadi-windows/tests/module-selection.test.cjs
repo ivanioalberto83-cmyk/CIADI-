@@ -42,6 +42,10 @@ test('desktop launcher passes selected module to the dashboard without changing 
 });
 
 test('dashboard maps each launcher to a landing page and filters navigation by module', () => {
+  const admModules = dashboard.match(/adm:\s*\[([^\]]+)\]/)?.[1] || '';
+  assert.match(admModules, /'rh'/, 'ADM must expose RH');
+  assert.match(admModules, /'rh_folha'/, 'ADM must expose payroll');
+  assert.match(admModules, /'aprovisionamento'/, 'ADM must expose procurement');
   for (const id of ['adm', 'suporte', 'rh', 'recepcao']) {
     assert.ok(dashboard.includes(id + ':'), 'module mapping missing: ' + id);
   }
