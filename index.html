@@ -797,7 +797,53 @@ async function polesAccess(){
 }
 async function hrDashboard(){
   const c=document.getElementById('content');
-  c.innerHTML=`<div class="space-y-5"><div class="card p-6"><h2 class="text-2xl font-black">Recursos Humanos</h2><p class="text-slate-600 mt-1">Trabalhadores, contratos e documentos ficam agrupados aqui. A Folha Salarial deixa de aparecer como item independente na navegação principal.</p><div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-5"><button onclick="hrEmployees()" class="border rounded-xl p-4 text-left"><b>👥 Trabalhadores</b><p class="text-sm text-slate-500 mt-1">Cadastro e vínculo laboral</p></button><button onclick="hrContracts()" class="border rounded-xl p-4 text-left"><b>📄 Contratos</b><p class="text-sm text-slate-500 mt-1">Criar e imprimir contratos</p></button><button onclick="hrDocuments()" class="border rounded-xl p-4 text-left"><b>🗂️ Documentos RH</b><p class="text-sm text-slate-500 mt-1">Documentos e comprovativos</p></button><button onclick="hrPayrolls()" class="border rounded-xl p-4 text-left"><b>💵 Folha Salarial</b><p class="text-sm text-slate-500 mt-1">Processar, rever, imprimir e pagar</p></button></div></div></div>`;
+  c.innerHTML=`<div class="space-y-5">
+    <div class="card p-6">
+      <h2 class="text-2xl font-black">Recursos Humanos</h2>
+      <p class="text-slate-600 mt-1">Gestão laboral, arquivo individual, regulamentos internos e procedimentos institucionais. A gestão de perfis e a ativação de A.T. permanecem sob responsabilidade do ADM.</p>
+      <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
+        <button onclick="hrEmployees()" class="border rounded-xl p-4 text-left"><b>👥 Colaboradores</b><p class="text-sm text-slate-500 mt-1">Cadastro e vínculo laboral</p></button>
+        <button onclick="hrContracts()" class="border rounded-xl p-4 text-left"><b>📄 Contratos</b><p class="text-sm text-slate-500 mt-1">Contratos e adendas</p></button>
+        <button onclick="hrDocuments()" class="border rounded-xl p-4 text-left"><b>🗂️ Documentos individuais</b><p class="text-sm text-slate-500 mt-1">Documentos e comprovativos</p></button>
+        <button onclick="hrPayrolls()" class="border rounded-xl p-4 text-left"><b>💵 Remunerações</b><p class="text-sm text-slate-500 mt-1">Folha salarial e recibos</p></button>
+      </div>
+    </div>
+    <div class="card p-6">
+      <h3 class="text-lg font-black">Regulamentos, procedimentos e arquivo institucional</h3>
+      <p class="text-sm text-slate-500 mt-1">Catálogo organizado para orientar a documentação interna. Os itens abaixo são uma lista de documentos a reunir, validar e carregar; não representam ficheiros já existentes ou aprovados.</p>
+      <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
+        <button onclick="hrOpenCatalog('regulamentos')" class="border rounded-xl p-4 text-left"><b>📘 Regulamentos internos</b><p class="text-sm text-slate-500 mt-1">Normas e políticas do CIADI</p></button>
+        <button onclick="hrOpenCatalog('procedimentos')" class="border rounded-xl p-4 text-left"><b>⚙️ Procedimentos</b><p class="text-sm text-slate-500 mt-1">Instruções operacionais</p></button>
+        <button onclick="hrOpenCatalog('assiduidade')" class="border rounded-xl p-4 text-left"><b>🕒 Assiduidade e férias</b><p class="text-sm text-slate-500 mt-1">Horários, faltas e licenças</p></button>
+        <button onclick="hrOpenCatalog('formacao')" class="border rounded-xl p-4 text-left"><b>🎓 Formação e avaliação</b><p class="text-sm text-slate-500 mt-1">Competências e desempenho</p></button>
+        <button onclick="hrOpenCatalog('recrutamento')" class="border rounded-xl p-4 text-left"><b>🔎 Recrutamento</b><p class="text-sm text-slate-500 mt-1">Vagas e candidaturas</p></button>
+        <button onclick="hrOpenCatalog('seguranca')" class="border rounded-xl p-4 text-left"><b>🛡️ Saúde e segurança</b><p class="text-sm text-slate-500 mt-1">Prevenção e emergência</p></button>
+        <button onclick="hrOpenCatalog('confidencial')" class="border rounded-xl p-4 text-left"><b>🔒 Disciplina e confidencialidade</b><p class="text-sm text-slate-500 mt-1">Acesso restrito</p></button>
+        <button onclick="hrOpenCatalog('arquivo')" class="border rounded-xl p-4 text-left"><b>🗃️ Arquivo e modelos</b><p class="text-sm text-slate-500 mt-1">Formulários e versões</p></button>
+        <button onclick="hrOpenCatalog('saida')" class="border rounded-xl p-4 text-left"><b>🚪 Saída do colaborador</b><p class="text-sm text-slate-500 mt-1">Encerramento e checklist</p></button>
+        <button onclick="hrOpenCatalog('documentos')" class="border rounded-xl p-4 text-left"><b>📑 Declarações e recibos</b><p class="text-sm text-slate-500 mt-1">Modelos laborais a validar</p></button>
+      </div>
+    </div>
+    <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+      <b>Estado documental:</b> as áreas e listas de referência estão visíveis no RH. A biblioteca institucional ainda precisa de armazenamento privado, carregamento de ficheiros, metadados, aprovações e políticas de acesso antes de poder guardar documentos reais.
+    </div>
+  </div>`;
+}
+function hrOpenCatalog(key){
+  const catalogs={
+    regulamentos:{title:'RH · Regulamentos internos',description:'Documentos institucionais que devem ser preparados, revistos e aprovados pela Direção antes de entrarem em vigor.',items:['Regulamento interno do CIADI','Código de conduta e ética profissional','Regulamento de assiduidade e pontualidade','Política de confidencialidade e proteção de dados','Normas de apresentação e comportamento profissional','Regras de utilização de equipamentos e sistemas informáticos','Normas de comunicação interna e relacionamento com famílias','Regras de acesso às instalações e aos documentos','Normas de utilização dos espaços clínicos e administrativos','Política de conflitos de interesses e utilização de recursos']},
+    procedimentos:{title:'RH · Procedimentos operacionais',description:'Procedimentos documentados, com responsável, versão, data de aprovação e histórico de revisão.',items:['Recrutamento e seleção','Admissão e integração de novos colaboradores','Pedido e aprovação de férias e licenças','Registo de faltas, atrasos e justificações','Avaliação de desempenho','Formação e supervisão profissional','Gestão de reclamações internas','Procedimento disciplinar com validação competente','Entrega e devolução de equipamentos','Arquivo, consulta e conservação documental','Comunicação de incidentes e acidentes','Saída do colaborador e revogação de acessos']},
+    assiduidade:{title:'RH · Assiduidade, férias e licenças',description:'Modelos e registos a organizar; os dados pessoais e justificativos devem ter acesso limitado.',items:['Horários e escalas de trabalho','Registo de presenças e ausências','Formulário de justificação de falta','Mapa mensal de assiduidade','Pedido e aprovação de férias','Mapa de saldo de férias','Pedido de licença ou dispensa','Registo de substituições e alterações de escala']},
+    formacao:{title:'RH · Formação e avaliação',description:'Registos de desenvolvimento e desempenho profissional.',items:['Plano anual de formação','Ficha de inscrição e presença','Registo de formação inicial e contínua','Certificados de formação','Matriz de competências por função','Ficha de avaliação de desempenho','Registo de reunião de feedback','Plano individual de desenvolvimento','Registos de supervisão profissional']},
+    recrutamento:{title:'RH · Recrutamento e seleção',description:'Os dados de candidatos devem ser tratados com acesso limitado e prazo de conservação definido.',items:['Requisição de vaga','Descrição do perfil e funções','Anúncio de recrutamento','Ficha de candidatura','CV e comprovativos de qualificações','Grelha de avaliação e entrevista','Registo de decisão de seleção','Proposta de contratação','Lista de verificação de admissão']},
+    seguranca:{title:'RH · Saúde, segurança e bem-estar',description:'A documentação deve ser adaptada às instalações e às obrigações aplicáveis ao CIADI.',items:['Normas de segurança no local de trabalho','Plano de emergência e evacuação','Registo de acidentes e incidentes laborais','Registo de formação em segurança','Orientações ergonómicas e prevenção de riscos','Documentos de saúde ocupacional, quando aplicáveis (acesso restrito)']},
+    confidencial:{title:'RH · Disciplina e confidencialidade',description:'Área sensível: os documentos reais devem ter permissões restritas e registo de acesso.',items:['Termo de confidencialidade','Termo de proteção de dados','Registo de ocorrência laboral','Comunicação formal e notificação','Registo de audição e resposta','Decisão e medida aplicada','Registo de reclamação interna e resposta']},
+    arquivo:{title:'RH · Arquivo e modelos',description:'Catálogo de modelos a carregar e gerir com controlo de versões.',items:['Modelo de declaração de serviço','Modelo de declaração de vínculo laboral','Modelo de declaração de remuneração, quando autorizado','Modelo de requerimento interno','Modelo de pedido de férias/licença','Modelo de comunicação formal','Modelo de entrega/devolução de equipamento','Modelo de avaliação de desempenho','Modelo de ata de reunião de RH','Arquivo de versões obsoletas e aprovadas']},
+    documentos:{title:'RH · Declarações, recibos e documentos laborais',description:'Modelos a validar antes de emitir. A emissão oficial e o arquivo persistente ainda precisam de ser ligados ao armazenamento documental.',items:['Declaração de serviço','Declaração de vínculo laboral','Declaração de antiguidade','Declaração de remuneração, sujeita a autorização','Recibo de salário por período','Comprovativo de férias ou licença','Comprovativo de entrega de documentos','Declaração de formação ou participação']},
+    saida:{title:'RH · Saída do colaborador',description:'Checklist de encerramento do vínculo e proteção dos ativos e acessos do CIADI.',items:['Comunicação de cessação do vínculo','Checklist de devolução de bens e equipamentos','Confirmação de entrega de documentos','Revogação dos acessos aos sistemas','Acerto final e documentação aplicável','Arquivo restrito do processo do antigo colaborador']}
+  };
+  const item=catalogs[key]; if(!item){toast('Catálogo não encontrado.');return;}
+  tablePage(item.title,item.description,`<div class="card p-5"><ol class="list-decimal pl-6 space-y-3">${item.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div><div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><b>Catálogo de referência:</b> esta lista não confirma que o documento existe, está aprovado ou foi guardado no sistema. O carregamento e a gestão de versões dependem da biblioteca institucional segura.</div><div class="mt-4"><button class="border rounded-xl px-4 py-2" onclick="hrDashboard()">← Voltar ao RH</button></div>`);
 }
 async function hrEmployees(){
   try{
