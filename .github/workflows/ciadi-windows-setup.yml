@@ -16,6 +16,7 @@ on:
       - main
       - feature/ciadi-compras-contabilidade-integrada
       - fix/ciadi-rh-polos-compras-20261027
+      - feat/ciadi-payroll-engine-20261028
     tags:
       - 'ciadi-v*'
 
@@ -44,7 +45,7 @@ jobs:
         run: npm test
 
   build-windows:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/fix/ciadi-rh-polos-compras-20261027') || startsWith(github.ref, 'refs/tags/ciadi-v') || (github.event_name == 'workflow_dispatch' && inputs.build_setup == true)
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/fix/ciadi-rh-polos-compras-20261027' || github.ref == 'refs/heads/feat/ciadi-payroll-engine-20261028')) || startsWith(github.ref, 'refs/tags/ciadi-v') || (github.event_name == 'workflow_dispatch' && inputs.build_setup == true)
     runs-on: windows-latest
     steps:
       - name: Checkout
