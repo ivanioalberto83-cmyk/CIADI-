@@ -1,7 +1,7 @@
 # CIADI — Agenda de homologação do Dashboard
 **Data:** 28-10-2026  
 **Branch:** `agent/ciadi-dashboard-20261028`  
-**Escopo:** Dashboard web existente. O Setup Windows e a separação dos polos no instalador ficam fora desta alteração.
+**Escopo:** Dashboard, separação lógica de polos/áreas e próximo Setup Windows. O requisito é manter **um único instalador e uma única aplicação CIADI**, mas apresentar áreas e acessos separados por perfil/polo após autenticação; não criar um instalador independente por área.
 
 ## Regras de trabalho
 - Não integrar na `main`, publicar ou alterar produção durante esta homologação.
@@ -138,3 +138,39 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - Novos testes de regressão para escopo de suporte e consulta de fornecedores.
 - Migration de perfis preparada em `supabase/migrations/20261028150000_expand_ciadi_profile_types.sql`, mas não aplicada a produção.
 - O Setup.exe só deve ser entregue depois do workflow Windows concluir com sucesso e o artefacto actual ser confirmado.
+
+## Requisito prioritário revisto — um único Setup, áreas e polos separados — 28-10-2026
+
+### Decisão confirmada
+- Manter um único instalador CIADI-Setup.exe (Electron + NSIS), identidade visual, ícone, atalhos, opção de diretório, persistência de dados e ligação ao Supabase.
+- A separação deve ocorrer dentro da aplicação instalada: após login, a navegação apresenta o painel e os módulos autorizados ao perfil e ao contexto operacional do utilizador.
+- Não gerar um Setup separado para cada polo ou área. A versão 1.0.1 compilada anteriormente não comprova esta separação funcional; é necessário implementar e testar antes de gerar a próxima versão.
+
+### Estrutura funcional esperada
+1. **Painel central ADM:** visão global de todos os polos e áreas. O ADM não pode ficar preso a um polo seleccionado; pode consultar/gerir o contexto de qualquer polo autorizado.
+2. **Polos:** cada polo deve ter identificação própria e associação explícita dos registos operacionais ao polo, sem misturar dados entre polos.
+3. **Áreas/módulos repartidos:** cada área (por exemplo, Gestão Clínica/Receção, Financeiro/Faturação, RH, Aprovisionamento e Suporte Informático) deve ter entrada identificável no mesmo programa, com funções e permissões próprias. A lista final de áreas deve ser reconciliada com os módulos realmente existentes no repositório, sem apresentar atalhos demonstrativos como funcionalidades concluídas.
+4. **Utilizadores de polo/área:** recebem apenas os módulos e dados permitidos pela matriz de acesso; a seleção do polo não é uma medida de segurança por si só.
+5. **Suporte Informático:** acesso ao módulo de suporte autorizado, sem herdar privilégios de ADM. O agente só pode executar operações quando existir um executor seguro, autorizado e auditado.
+6. **Dados e segurança:** preservar dados existentes, RLS e políticas actuais; qualquer mudança de esquema, associações de polo, RPC ou RLS deve ser preparada e revista separadamente, sem aplicação automática em produção.
+
+### Trabalho obrigatório antes do próximo Setup
+- [ ] Inventariar os polos reais, as áreas/módulos existentes e a forma actual de associação dos registos a um polo.
+- [ ] Definir matriz de acesso por perfil × área × polo, incluindo ADM global e Suporte Informático restrito.
+- [ ] Rever o código de autenticação e navegação; identificar por que razão o utilizador vê apenas o painel ADM e não a separação operacional esperada.
+- [ ] Rever esquema Supabase, chaves estrangeiras, RLS e RPCs em modo read-only; documentar lacunas antes de propor migrações.
+- [ ] Implementar a separação na branch de homologação, sem alterar produção.
+- [ ] Testar com contas e dados fictícios: ADM vê todos os polos; utilizador de polo não vê dados de outro polo; módulos não autorizados são negados mesmo por URL/chamada directa; Suporte não recebe permissões globais.
+- [ ] Confirmar que index.html e CIADI_DASHBOARD_FINANCEIRO.html continuam byte-a-byte idênticos e que o pacote Electron inclui a versão correcta.
+- [ ] Executar testes automatizados e construir o próximo Setup Windows; verificar instalação/actualização em Windows, login, menus, persistência e ligação ao Supabase.
+- [ ] Só declarar a versão pronta após teste funcional em Windows e revisão dos resultados; manter PR em Draft e não publicar/alterar produção sem aprovação.
+
+### Critério de aceitação
+O requisito só fica satisfeito quando o mesmo Setup instala uma aplicação em que, depois do login, o painel e os módulos são apresentados de acordo com perfil e polo; o ADM mantém visão global, os dados ficam segregados por polo conforme a autorização server-side, e os testes de acesso permitido/negado passam. A compilação ou a mera presença de menus não basta.
+
+### Estado nesta revisão
+- Confirmado pelo relato de instalação: o utilizador instalou o Setup e observou apenas o painel ADM, sem a repartição esperada de polos/áreas.
+- O código revisto nesta branch apresenta uma área “Polos e acessos” centrada em metadados de perfis; isso, por si só, não implementa uma estrutura completa de polos/áreas.
+- A agenda fica actualizada para corrigir a separação no mesmo instalador, e não para criar múltiplos instaladores.
+- A separação funcional completa, a matriz de permissões server-side e os testes em Windows continuam pendentes. Não declarar homologação.
+
