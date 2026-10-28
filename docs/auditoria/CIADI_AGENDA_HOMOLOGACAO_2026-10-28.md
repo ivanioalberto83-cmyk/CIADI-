@@ -209,3 +209,36 @@ Para cada teste registar: perfil utilizado, módulo, acção, tabela/RPC/serviç
 - As áreas RH e Receção incluem também catálogos de referência/consulta que são explicitamente demonstrativos; não devem ser confundidos com gestão persistente de documentos.
 - Nenhuma alteração de produção, dados, esquema ou RLS é autorizada por esta actualização da agenda. A implementação funcional deverá ocorrer na branch de homologação, com revisão de cada fluxo antes de propor qualquer alteração ao backend.
 
+## Causa raiz confirmada — políticas do Supabase bloqueiam os perfis funcionais — 28-10-2026
+
+Consulta read-only ao esquema e às políticas de produção confirmou bloqueios adicionais. Não foram feitas alterações na base de dados.
+
+### Recursos Humanos
+- As políticas de `ciadi_funcionarios`, `ciadi_funcionario_contratos`, `ciadi_funcionario_documentos`, `ciadi_funcionario_assiduidade`, `ciadi_funcionario_avaliacoes`, `ciadi_funcionario_ferias_licencas`, `ciadi_funcionario_formacoes`, `ciadi_funcionario_historico` e `ciadi_funcionario_competencias` dependem de `is_staff()`.
+- A função `is_staff()` permite actualmente `admin`, `gestor` ou profissional A.T. activo; não inclui o perfil `rh`. Assim, a interface pode apresentar formulários de RH, mas o Supabase pode recusar gravações.
+- As políticas de `ciadi_folhas_salariais` e `ciadi_folha_salarial_linhas` estão limitadas a `admin`/`gestor`. A gestão salarial pelo RH requer decisão e autorização explícitas, sem alargar a função genérica `is_staff()`.
+- `ciadi_funcionario_beneficios` e `ciadi_funcionario_confidencial` têm restrições explícitas de administração/gestão; não as alargar automaticamente ao RH.
+
+### Receção, clientes e faturação
+- A política de `finance_clientes` usa `ciadi_finance_staff()`, que permite apenas `admin`/`gestor`.
+- A política de `finance_empresas` usa `ciadi_finance_is_staff()`, também limitada a `admin`/`gestor`. O formulário de cliente tenta consultar esta tabela antes de abrir; uma recusa pode impedir que a Receção sequer abra o formulário.
+- As RPCs de criação/emissão/cálculo fiscal, incluindo `ciadi_faturacao_criar_documento`, verificam `is_staff()`. Dar acesso visual à Receção não lhe dá permissão real para facturar.
+- Caixa tem um mecanismo separado em `ciadi_finance_can()` e `finance_operadores`; a Receção precisa de operador activo e permissões de caixa explicitamente configuradas. Não deve receber acesso à contabilidade, fecho contabilístico, estornos ou administração fiscal global.
+
+### Perfis
+- O constraint de `perfis.tipo` em produção ainda não permite `suporte_informatica`, `rh` ou `rececao`; a migration existente que propõe estes tipos continua por aplicar.
+- Adicionar apenas os tipos ao constraint não basta. São necessárias políticas/RPCs específicas e testes de autorização para cada módulo.
+
+### Próximos passos seguros
+1. Preparar uma proposta de políticas/RPCs por módulo e perfil, sem a aplicar em produção.
+2. Para RH, permitir operações laborais necessárias sem incluir automaticamente benefícios, dados confidenciais ou permissões de ADM.
+3. Para Receção, criar uma via de leitura mínima dos dados da empresa emitente e autorizações estreitas para cadastro de clientes, criação/emissão de documentos e caixa; evitar conceder acesso genérico à contabilidade.
+4. Testar operações permitidas e negadas com perfis fictícios num ambiente de homologação.
+5. Só pedir autorização para migração/deploy depois da revisão da proposta e da confirmação de backups/restauro.
+
+### Código do Dashboard — correcção pequena aplicada
+- No formulário de RH, a consulta da empresa emitente passou a ser necessária apenas quando o salário de referência é superior a zero. O registo laboral sem salário deixa de depender de uma consulta financeira desnecessária.
+- `index.html` e `CIADI_DASHBOARD_FINANCEIRO.html` foram sincronizados.
+- Workflow `Validate CIADI dashboard integration`, execução `40714677233`: **success** (sincronização, sintaxe JavaScript e verificações estáticas).
+- Esta correcção não contorna nem altera RLS; a gravação por perfil RH continua bloqueada até se preparar, rever e autorizar a solução de permissões.
+
