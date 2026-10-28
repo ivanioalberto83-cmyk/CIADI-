@@ -21,9 +21,9 @@ const SUPABASE_KEY='sb_publishable_SSA6B6gfnaUxKhOzReE6HQ_utqQRebz';
 let sb=null, me=null, profile=null, current='overview', sosChannel=null;
 const CIADI_MODULE = new URLSearchParams(window.location.search).get('ciadiModule');
 const MODULE_MENU = {
-  adm: ['overview','financeiro','faturacao','cadastros_comerciais','rh','rh_folha','polos_acessos','aprovisionamento','caixa','contabilidade','saft','especialidades','triagens','conteudos','multimedia','marketing','janeth','utilizadores','instituicao','empresas','clinica','auditoria'],
+  adm: ['overview','financeiro','faturacao','cadastros_comerciais','rh','rh_folha','calendario','polos_acessos','aprovisionamento','caixa','contabilidade','saft','especialidades','triagens','conteudos','multimedia','marketing','janeth','utilizadores','instituicao','empresas','clinica','auditoria'],
   suporte: ['overview','polos_acessos','biometria','auditoria','utilizadores','instituicao'],
-  rh: ['overview','rh','rh_folha','biometria','acompanhantes_at'],
+  rh: ['overview','rh','rh_folha','calendario','biometria','acompanhantes_at'],
   recepcao: ['overview','agendamentos','pedidos_site','pacientes','profissionais','familias']
 };
 const MODULE_LANDING = { adm:'overview', suporte:'auditoria', rh:'rh', recepcao:'agendamentos' };
@@ -48,14 +48,14 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['cadastros_comerciais','👥 Clientes, Entidades e Fornecedores'],['rh','👔 Recursos Humanos'],['rh_folha','💰 Folha salarial'],['polos_acessos','🏢 Polos e acessos'],['biometria','🖐️ Assiduidade Biométrica'],['aprovisionamento','📦 Aprovisionamento / Compras'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
+const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['cadastros_comerciais','👥 Clientes, Entidades e Fornecedores'],['rh','👔 Recursos Humanos'],['rh_folha','💰 Folha salarial'],['calendario','📆 Calendário Inteligente'],['polos_acessos','🏢 Polos e acessos'],['biometria','🖐️ Assiduidade Biométrica'],['aprovisionamento','📦 Aprovisionamento / Compras'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
 function visibleMenu(){ return menu.filter(([id])=> moduleAllowsPage(id) && (id!=='acompanhantes_at' || canAccessAT())); }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){if(!moduleAllowsPage(id)){toast('Este módulo não está selecionado para esta estação.');return;}current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='cadastros_comerciais')return commercialRegistries(); if(id==='rh')return ciadiHR(); if(id==='rh_folha')return ciadiPayroll(); if(id==='polos_acessos')return ciadiPoloAccess(); if(id==='biometria')return biometricHub(); if(id==='aprovisionamento')return ciadiProcurement(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){if(!moduleAllowsPage(id)){toast('Este módulo não está selecionado para esta estação.');return;}current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='cadastros_comerciais')return commercialRegistries(); if(id==='rh')return ciadiHR(); if(id==='rh_folha')return ciadiPayroll(); if(id==='calendario')return ciadiCalendar(); if(id==='polos_acessos')return ciadiPoloAccess(); if(id==='biometria')return biometricHub(); if(id==='aprovisionamento')return ciadiProcurement(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 
 function openCiadiBiometric(){
   const desktop=window.ciadiDesktop;
@@ -1424,5 +1424,79 @@ sb.auth.onAuthStateChange((event,session)=>{
   if(event==='SIGNED_OUT'){document.getElementById('app').classList.add('hiddenx');document.getElementById('login').classList.remove('hiddenx');}
 });
 boot();
-</script><script src="./payroll-engine.js"></script>
+
+async function ciadiCalendar(){
+  const c=document.getElementById('content');
+  const manager=['admin','gestor'].includes(String(profile?.tipo||'').toLowerCase());
+  c.innerHTML='<div class="space-y-5">'+
+    '<div class="card p-6"><div class="flex flex-wrap items-start justify-between gap-4"><div><div class="text-xs font-black uppercase tracking-widest text-orange">CIADI · Planeamento institucional</div><h2 class="text-3xl font-black mt-1">Calendário Inteligente</h2><p class="text-slate-500 mt-2">Efemérides, feriados de Angola, aniversários autorizados e atividades internas.</p></div><button id="ciadiCalendarRefresh" class="border rounded-xl px-4 py-2 font-bold">Atualizar</button></div>'+
+    '<div class="grid sm:grid-cols-3 gap-3 mt-5"><div class="rounded-2xl bg-orange-50 p-4"><div class="text-sm text-slate-500">Eventos ativos</div><div id="ciadiCalendarEventCount" class="text-2xl font-black">—</div></div><div class="rounded-2xl bg-amber-50 p-4"><div class="text-sm text-slate-500">Próximos 30 dias</div><div id="ciadiCalendarUpcomingCount" class="text-2xl font-black">—</div></div><div class="rounded-2xl bg-slate-50 p-4"><div class="text-sm text-slate-500">Aniversários visíveis</div><div id="ciadiCalendarBirthdayCount" class="text-2xl font-black">—</div></div></div><div id="ciadiCalendarStatus" class="text-sm text-slate-600 mt-4">A carregar calendário…</div></div>'+
+    (manager?'<div class="card p-6"><h3 class="text-xl font-black">Registar efeméride ou evento</h3><p class="text-sm text-slate-500 mt-1">A gravação utiliza a tabela existente ciadi_efemerides. Não altera o esquema da base de dados.</p><form id="ciadiCalendarForm" class="grid md:grid-cols-2 gap-3 mt-4">'+
+    '<label class="text-sm font-semibold">Título<input name="titulo" required maxlength="180" class="mt-1 w-full border rounded-xl p-3" placeholder="Ex.: Dia Mundial da Saúde Mental"></label><label class="text-sm font-semibold">Data<input name="data_evento" type="date" required class="mt-1 w-full border rounded-xl p-3"></label>'+
+    '<label class="text-sm font-semibold">Tipo<select name="tipo" class="mt-1 w-full border rounded-xl p-3"><option value="efemeride_nacional">Efeméride nacional</option><option value="efemeride_internacional">Efeméride internacional</option><option value="feriado_nacional">Feriado nacional</option><option value="psicologia">Psicologia</option><option value="saude">Saúde</option><option value="neurodesenvolvimento">Neurodesenvolvimento</option><option value="infancia">Infância</option><option value="familia">Família</option><option value="ciadi">Evento interno CIADI</option></select></label><label class="text-sm font-semibold">Categoria<input name="categoria" maxlength="100" class="mt-1 w-full border rounded-xl p-3" placeholder="Ex.: Saúde Mental"></label>'+
+    '<label class="text-sm font-semibold md:col-span-2">Descrição<textarea name="descricao" rows="2" maxlength="2000" class="mt-1 w-full border rounded-xl p-3" placeholder="Objetivo, atividade ou observações"></textarea></label><label class="text-sm font-semibold">Público<select name="publico" class="mt-1 w-full border rounded-xl p-3"><option value="todos">Todos os públicos autorizados</option><option value="profissional">Profissionais</option><option value="administracao">Administração</option><option value="operador">Operadores</option><option value="familia">Famílias</option><option value="at">Acompanhantes Terapêuticos</option></select></label>'+
+    '<div class="flex flex-wrap gap-4 items-center pt-6"><label class="flex items-center gap-2 text-sm"><input type="checkbox" name="recorrente_anual" checked> Repetir anualmente</label><label class="flex items-center gap-2 text-sm"><input type="checkbox" name="notificar" checked> Preparar lembrete</label></div><div class="md:col-span-2 flex justify-end"><button id="ciadiCalendarSave" class="bg-orange text-white rounded-xl px-5 py-3 font-bold">Guardar evento</button></div></form></div>':'')+
+    '<div class="card p-6"><div class="flex flex-wrap items-center justify-between gap-3"><h3 class="text-xl font-black">Próximos eventos</h3><select id="ciadiCalendarFilter" class="border rounded-xl p-2"><option value="todos">Todas as categorias</option><option value="feriado_nacional">Feriados nacionais</option><option value="efemeride_nacional">Efemérides nacionais</option><option value="efemeride_internacional">Efemérides internacionais</option><option value="psicologia">Psicologia</option><option value="saude">Saúde</option><option value="neurodesenvolvimento">Neurodesenvolvimento</option><option value="infancia">Infância</option><option value="aniversario">Aniversários</option></select></div><div id="ciadiCalendarEvents" class="grid gap-3 mt-4"></div></div>'+
+    '<div class="card p-5 border border-amber-200"><h3 class="font-black">Automatização de email e notificações</h3><p class="text-sm text-slate-600 mt-2">A gestão do calendário utiliza as tabelas existentes. O envio automático real de emails e a geração agendada de notificações ainda precisam de um processo agendado idempotente, validação do serviço de email e testes de entrega. Esta interface não envia mensagens em massa nem presume que um aviso foi entregue.</p></div></div>';
+  const status=document.getElementById('ciadiCalendarStatus'),eventsEl=document.getElementById('ciadiCalendarEvents');
+  let eventRows=[],birthdayRows=[];
+  const dateOnly=v=>String(v||'').slice(0,10);
+  const toDate=s=>{if(!s)return null;const d=new Date(s+'T12:00:00');return Number.isNaN(d.getTime())?null:d;};
+  const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const displayDate=s=>{const d=toDate(s);return d?d.toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'}):'Data por confirmar';};
+  const eventDate=e=>{
+    const source=dateOnly(e.data_evento),d=toDate(source);if(!d)return null;
+    if(e.recorrente_anual){const now=new Date();let candidate=new Date(now.getFullYear(),d.getMonth(),d.getDate(),12);const today=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12);if(candidate<today)candidate=new Date(now.getFullYear()+1,d.getMonth(),d.getDate(),12);return candidate;}
+    return d;
+  };
+  function render(){
+    const now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12),cutoff=new Date(today);cutoff.setDate(cutoff.getDate()+365);
+    const normalized=eventRows.map(e=>Object.assign({},e,{_date:eventDate(e)})).filter(e=>e._date&&e._date>=today&&e._date<=cutoff);
+    const birthdays=birthdayRows.map(b=>{const dm=String(b.dia_mes||'').match(/^(\d{2})-(\d{2})$/);if(!dm)return null;let d=new Date(now.getFullYear(),Number(dm[1])-1,Number(dm[2]),12);if(d<today)d=new Date(now.getFullYear()+1,Number(dm[1])-1,Number(dm[2]),12);return Object.assign({},b,{_date:d});}).filter(Boolean).filter(b=>b._date>=today&&b._date<=cutoff);
+    document.getElementById('ciadiCalendarEventCount').textContent=eventRows.filter(e=>e.ativo).length;
+    document.getElementById('ciadiCalendarUpcomingCount').textContent=normalized.filter(e=>(e._date-today)/86400000<=30).length;
+    document.getElementById('ciadiCalendarBirthdayCount').textContent=birthdays.length;
+    const filter=document.getElementById('ciadiCalendarFilter')?.value||'todos';
+    const all=normalized.map(e=>Object.assign({},e,{_kind:'event'})).concat(birthdays.map(b=>Object.assign({},b,{_kind:'aniversario',titulo:b.nome_exibicao,tipo:'aniversario',descricao:'Aniversário registado no calendário institucional.'}))).filter(e=>filter==='todos'||(filter==='aniversario'?e._kind==='aniversario':e.tipo===filter));
+    all.sort((a,b)=>a._date-b._date);
+    if(!all.length){eventsEl.innerHTML='<div class="border rounded-xl p-5 text-slate-500">Não há eventos futuros nesta seleção. Verifique os filtros e os registos ativos.</div>';return;}
+    eventsEl.innerHTML=all.map(e=>{
+      const d=iso(e._date),kind=e._kind==='aniversario'?'Aniversário':String(e.tipo||'evento').replace(/_/g,' ');
+      const description=e._kind==='aniversario'?'Visibilidade: '+String(e.visibilidade||'equipa'):String(e.descricao||'Sem descrição adicional.');
+      return '<article class="border rounded-2xl p-4 flex flex-wrap justify-between gap-3"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><span class="rounded-full bg-orange-50 text-orange-800 px-3 py-1 text-xs font-bold">'+esc(kind)+'</span><span class="text-sm text-slate-500">'+esc(displayDate(d))+'</span></div><h4 class="font-black text-lg mt-2">'+esc(e.titulo||'Evento sem título')+'</h4><p class="text-sm text-slate-600 mt-1 whitespace-pre-wrap">'+esc(description)+'</p>'+(e.categoria?'<p class="text-xs text-slate-500 mt-2">Categoria: '+esc(e.categoria)+'</p>':'')+'</div>'+(manager&&e._kind==='event'?'<button class="border rounded-xl px-3 py-2 h-fit" data-toggle-event="'+esc(e.id)+'" data-active="'+(e.ativo?'1':'0')+'">'+(e.ativo?'Desativar':'Ativar')+'</button>':'')+'</article>';
+    }).join('');
+    eventsEl.querySelectorAll('[data-toggle-event]').forEach(btn=>btn.addEventListener('click',async()=>{
+      if(!manager)return;const id=btn.getAttribute('data-toggle-event'),active=btn.getAttribute('data-active')==='1';btn.disabled=true;
+      const {error}=await sb.from('ciadi_efemerides').update({ativo:!active,atualizado_por:me.id,updated_at:new Date().toISOString()}).eq('id',id);
+      if(error){toast('Não foi possível alterar o evento: '+error.message);btn.disabled=false;return;}
+      await audit(active?'DESATIVAR_EFEMERIDE':'ATIVAR_EFEMERIDE','ciadi_efemerides',id,{ativo:!active});toast('Estado do evento atualizado.');await load();
+    }));
+  }
+  async function load(){
+    status.textContent='A consultar efemérides e aniversários…';
+    const evQuery=sb.from('ciadi_efemerides').select('id,data_evento,ano,tipo,categoria,titulo,descricao,publico,recorrente_anual,ativo,notificar,fonte_nome,fonte_url,created_at').order('data_evento',{ascending:true}).limit(1000);const ev=manager?await evQuery:await evQuery.eq('ativo',true);
+    if(ev.error){status.textContent='Não foi possível consultar ciadi_efemerides. Verifique as permissões RLS: '+ev.error.message;eventsEl.innerHTML='<div class="border border-red-200 rounded-xl p-4 text-red-800">O calendário não foi carregado. Nenhuma alteração foi executada.</div>';return;}
+    eventRows=ev.data||[];
+    const b=await sb.from('ciadi_aniversarios').select('id,tipo_pessoa,nome_exibicao,dia_mes,visibilidade,ativo,permitir_mensagem_aniversario,categoria_calendario').eq('ativo',true).eq('tipo_pessoa','colaborador').eq('visibilidade','equipa').limit(500);
+    birthdayRows=b.error?[]:(b.data||[]);if(b.error)console.warn('CIADI calendário: aniversários não consultados',b.error.message);
+    status.textContent='Ligação à base de dados concluída. '+eventRows.filter(e=>e.ativo).length+' efeméride(s) ativa(s) carregada(s). Os aniversários são limitados a colaboradores com visibilidade de equipa. A automação de envios permanece desativada até validar o agendamento e o canal de email.';
+    render();
+  }
+  document.getElementById('ciadiCalendarRefresh').addEventListener('click',load);
+  document.getElementById('ciadiCalendarFilter').addEventListener('change',render);
+  if(manager){
+    document.getElementById('ciadiCalendarForm').addEventListener('submit',async ev=>{
+      ev.preventDefault();const form=ev.currentTarget,btn=document.getElementById('ciadiCalendarSave'),fd=new FormData(form);
+      const title=String(fd.get('titulo')||'').trim(),date=String(fd.get('data_evento')||'');if(!title||!date){toast('Preencha o título e a data.');return;}
+      const d=toDate(date);if(!d){toast('A data do evento é inválida.');return;}btn.disabled=true;btn.textContent='A guardar…';
+      const row={data_evento:date,ano:d.getFullYear(),tipo:String(fd.get('tipo')||'efemeride_nacional'),categoria:String(fd.get('categoria')||'').trim()||null,titulo:title,descricao:String(fd.get('descricao')||'').trim()||null,publico:String(fd.get('publico')||'interno'),recorrente_anual:fd.has('recorrente_anual'),ativo:true,notificar:fd.has('notificar'),criado_por:me.id,atualizado_por:me.id};
+      try{const {data,error}=await sb.from('ciadi_efemerides').insert(row).select('id').single();if(error)throw error;await audit('CRIAR_EFEMERIDE','ciadi_efemerides',data.id,{titulo:title,tipo:row.tipo,data_evento:date});form.reset();form.querySelector('[name="recorrente_anual"]').checked=true;form.querySelector('[name="notificar"]').checked=true;toast('Evento guardado. O envio automático ainda não foi ativado.');await load();}
+      catch(err){toast('Falha ao guardar evento: '+(err?.message||'erro desconhecido'));}
+      finally{btn.disabled=false;btn.textContent='Guardar evento';}
+    });
+  }
+  await load();
+}
+
+</script><script src="./payroll-engine.js"></script><script src="./procurement-document-engine.js"></script>
 </body></html>
