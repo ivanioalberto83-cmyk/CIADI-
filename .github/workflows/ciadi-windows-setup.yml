@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feat/ciadi-setup-profiles-20261028
     tags:
       - 'ciadi-v*'
 
