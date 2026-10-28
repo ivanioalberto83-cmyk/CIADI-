@@ -88,9 +88,13 @@ jobs:
           node --check "ciadi-windows/main.cjs"
           node --check "ciadi-windows/preload.cjs"
 
-      - name: Instalar dependências
+      - name: Gerar lockfile a partir das versões fixadas
         working-directory: ciadi-windows
-        run: npm install --no-audit
+        run: npm install --package-lock-only --ignore-scripts --no-audit
+
+      - name: Instalar dependências de forma reproduzível
+        working-directory: ciadi-windows
+        run: npm ci --no-audit
 
       - name: Compilar Setup.exe
         working-directory: ciadi-windows
