@@ -915,19 +915,21 @@ async function newPayrollLine(sheetId){
     const available=(staffRes.data||[]).filter(x=>!already.has(x.id));
     if(!available.length)throw new Error('Não existem colaboradores disponíveis para adicionar a esta folha.');
     const opts=available.map(x=>({value:x.id,label:(x.profissionais?.nome_completo||x.codigo_funcionario||'Colaborador')+' · '+(x.codigo_funcionario||'sem código')}));
-    await modal('Adicionar colaborador à folha',`<div class="grid md:grid-cols-2 gap-4">${selectField('funcionario_id','Colaborador',opts,'',true)}${inputField('salario_base','Salário base (AOA)','','number',true,'min="0" step="0.01"')}${inputField('total_subsidios','Total de subsídios (AOA)','0','number',true,'min="0" step="0.01"')}${inputField('horas_extra','Horas extraordinárias','0','number',true,'min="0" step="0.01"')}${inputField('valor_horas_extra','Valor das horas extraordinárias (AOA)','0','number',true,'min="0" step="0.01"')}${inputField('irt','IRT validado (AOA)','0','number',true,'min="0" step="0.01"')}${inputField('inss','INSS validado (AOA)','0','number',true,'min="0" step="0.01"')}${inputField('outros_descontos','Outros descontos autorizados (AOA)','0','number',true,'min="0" step="0.01"')}</div><p class="text-xs text-slate-500 mt-3">Valores de IRT e INSS devem ser confirmados pela Contabilidade. O sistema calcula os totais aritméticos, não presume taxas fiscais. O salário de referência registado no RH: ${esc(available.map(x=>{const c=conf[x.id]?.salario_base;return x.codigo_funcionario+': '+(c==null?'não registado':money(c))}).join(' · '))}</p>`,async fd=>{
+    await modal('Adicionar colaborador à folha',`<div class="grid md:grid-cols-2 gap-4">${selectField('funcionario_id','Colaborador',opts,'',true)}${inputField('salario_base','Salário base (AOA)','','number',true,'min="0" step="0.01"')}${inputField('sub_irt_inss','Subsídios sujeitos a IRT e INSS (AOA)','0','number',true,'min="0" step="0.01"')}${inputField('sub_irt','Subsídios sujeitos a IRT, isentos de INSS (AOA)','0','number',true,'min="0" step="0.01"')}${inputField('sub_isentos','Subsídios isentos de IRT e INSS (AOA)','0','number',true,'min="0" step="0.01"')}${inputField('horas_extra','Valor das horas extraordinárias (AOA)','0','number',true,'min="0" step="0.01"')}${inputField('faltas','Dias de faltas não remuneradas','0','number',true,'min="0" step="1"')}${inputField('dias_uteis','Dias úteis contratados no mês','22','number',true,'min="1" step="1"')}${inputField('outros_descontos','Outros descontos autorizados (AOA)','0','number',true,'min="0" step="0.01"')}</div><p class="text-xs text-slate-500 mt-3">Cálculo automático: INSS do trabalhador (3%), INSS da entidade empregadora (8%) e IRT Grupo A pela tabela de 2026. A classificação fiscal de cada subsídio e a regra de faltas devem ser confirmadas pela Contabilidade antes da aprovação. Grupos B/C e regimes especiais não são calculados automaticamente. Salário de referência RH: ${esc(available.map(x=>{const c=conf[x.id]?.salario_base;return x.codigo_funcionario+': '+(c==null?'não registado':money(c))}).join(' · '))}</p>`,async fd=>{
       const num=k=>Number(fd.get(k)||0);
-      const base=num('salario_base'),subs=num('total_subsidios'),extraHours=num('horas_extra'),extraValue=num('valor_horas_extra'),irt=num('irt'),inss=num('inss'),other=num('outros_descontos');
-      const vals=[base,subs,extraHours,extraValue,irt,inss,other];
-      if(vals.some(x=>!Number.isFinite(x)||x<0))throw new Error('Os valores têm de ser números não negativos.');
-      const gross=Math.round((base+subs+extraValue)*100)/100;
-      const deductions=Math.round((irt+inss+other)*100)/100;
-      const net=Math.round((gross-deductions)*100)/100;
-      if(net<0)throw new Error('Os descontos não podem exceder o total bruto.');
-      const row={folha_id:sheetId,funcionario_id:fd.get('funcionario_id'),salario_base:base,subsidios:{total_manual:subs},total_subsidios:subs,horas_extra:extraHours,valor_horas_extra:extraValue,descontos:{outros:other},irt,inss,outros_descontos:other,total_bruto:gross,total_descontos:deductions,total_liquido:net};
+      const base=num('salario_base'),subIrtInss=num('sub_irt_inss'),subIrt=num('sub_irt'),subExempt=num('sub_isentos'),extraValue=num('horas_extra'),absenceDays=num('faltas'),workingDays=num('dias_uteis'),other=num('outros_descontos');
+      const vals=[base,subIrtInss,subIrt,subExempt,extraValue,absenceDays,workingDays,other];
+      if(vals.some(x=>!Number.isFinite(x)||x<0)||workingDays<=0)throw new Error('Preencha valores numéricos válidos e dias úteis superiores a zero.');
+      const calc=window.CIADIPayroll.calculatePayroll({baseSalary:base,allowances:[
+        {code:'sub_irt_inss',amount:subIrtInss,taxableIRT:true,contributesINSS:true},
+        {code:'sub_irt',amount:subIrt,taxableIRT:true,contributesINSS:false},
+        {code:'sub_isentos',amount:subExempt,taxableIRT:false,contributesINSS:false}
+      ],overtimeAmount:extraValue,unpaidAbsenceDays:absenceDays,workingDays,otherDeductions:other,regime:'geral',irtGroup:'A'});
+      const totalSubs=calc.allowanceTotal;
+      const row={folha_id:sheetId,funcionario_id:fd.get('funcionario_id'),salario_base:base,subsidios:{sujeitos_irt_inss:subIrtInss,sujeitos_irt_isentos_inss:subIrt,isentos_irt_inss:subExempt,total_manual:totalSubs},total_subsidios:totalSubs,horas_extra:0,valor_horas_extra:extraValue,descontos:{faltas_nao_remuneradas_dias:absenceDays,dias_uteis_contratados:workingDays,valor_faltas:calc.absenceDeduction,outros:other},irt:calc.irt,inss:calc.inssEmployee,outros_descontos:other,total_bruto:calc.grossPay,total_descontos:calc.totalDeductions,total_liquido:calc.netPay};
       const {data,error}=await sb.from('ciadi_folha_salarial_linhas').insert(row).select('id').single();if(error)throw error;
-      await audit('ADICIONAR_COLABORADOR_FOLHA','ciadi_folha_salarial_linhas',data.id,{folha_id:sheetId,funcionario_id:row.funcionario_id,total_bruto:gross,total_liquido:net});
-      toast('Colaborador adicionado à folha.');closeModal();ciadiPayroll();
+      await audit('ADICIONAR_COLABORADOR_FOLHA','ciadi_folha_salarial_linhas',data.id,{folha_id:sheetId,funcionario_id:row.funcionario_id,total_bruto:calc.grossPay,total_liquido:calc.netPay,irt:calc.irt,inss_trabalhador:calc.inssEmployee,inss_entidade:calc.inssEmployer,versao_regras:calc.ruleVersion});
+      toast('Cálculo efetuado e linha adicionada à folha. Revise antes de aprovar.');closeModal();ciadiPayroll();
     });
   }catch(e){toast(e?.message||'Não foi possível adicionar o colaborador.')}
 }
@@ -1422,4 +1424,5 @@ sb.auth.onAuthStateChange((event,session)=>{
   if(event==='SIGNED_OUT'){document.getElementById('app').classList.add('hiddenx');document.getElementById('login').classList.remove('hiddenx');}
 });
 boot();
-</script></body></html>
+</script><script src="./payroll-engine.js"></script>
+</body></html>
