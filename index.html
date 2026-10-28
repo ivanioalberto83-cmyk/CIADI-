@@ -28,6 +28,7 @@ function initSupabase(){
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
 const menu=[
   ['overview','Visão geral','clinical'],
+  ['rececao','Receção — Operações','clinical'],
   ['sos','🚨 Alertas SOS','clinical'],
   ['pedidos_site','Pedidos de triagem (site)','clinical'],
   ['agendamentos','Agendamentos Clínicos','clinical'],
@@ -35,7 +36,7 @@ const menu=[
   ['triagens','Triagens','clinical'],
   ['pacientes','Pacientes & famílias','clinical'],
   ['profissionais','Profissionais','clinical'],
-  ['documentos','Documentos & Formulários Clínicos','clinical'],
+  ['documentos','📁 Documentos Clínicos','clinical'],
   ['familias','Portal & famílias','clinical'],
   ['clinica','Clínica virtual','clinical'],
   ['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)','clinical'],
@@ -69,7 +70,7 @@ function visibleMenu(){
     if(id==='acompanhantes_at') return canAccessAT();
     if(isGlobalAdmin()) return true;
     if(profile?.tipo==='rh') return ['rh'].includes(id);
-    if(profile?.tipo==='rececao') return ['pedidos_site','agendamentos','triagens','pacientes','profissionais','documentos','clientes','faturacao','caixa'].includes(id);
+    if(profile?.tipo==='rececao') return ['rececao','pedidos_site','agendamentos','triagens','pacientes','profissionais','documentos','clientes','faturacao','caixa'].includes(id);
     if(profile?.tipo==='profissional') return ['overview','agendamentos','triagens','pacientes','profissionais','documentos','familias','clinica','acompanhantes_at'].includes(id);
     return profile?.tipo==='gestor' ? id!=='agente' : ['overview'].includes(id);
   });
@@ -89,7 +90,7 @@ async function go(id){
   const allowed=visibleMenu().some(item=>item[0]===id);
   if(!allowed){toast('Este perfil não tem acesso a este módulo.');return;}
   current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>';
-  if(id==='agente')return agentPanel(); if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='rh')return hrDashboard(); if(id==='polos')return polesAccess(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();
+  if(id==='agente')return agentPanel(); if(id==='overview')return overview(); if(id==='rececao')return receptionDashboard(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='rh')return hrDashboard(); if(id==='polos')return polesAccess(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();
 }
 async function agentPanel(){
   const c=document.getElementById('content');
@@ -170,6 +171,42 @@ async function saveATAssignment(){
   const {error}=await sb.from('ciadi_atribuicoes_at').insert(payload); if(error){toast(error.message);return;} await audit('CRIAR_ATRIBUICAO_AT','ciadi_atribuicoes_at',null,payload); closeModal(); toast('Atribuição de A.T. criada.'); acompanhantesAT();
 }
 async function count(t){const {count,error}=await sb.from(t).select('*',{count:'exact',head:true});return error?'—':count}
+async function receptionDashboard(){
+  if(profile?.tipo==='rececao' && !['rececao'].includes('rececao')){document.getElementById('content').innerHTML='<div class="card p-6">Acesso não autorizado.</div>';return;}
+  const c=document.getElementById('content');
+  c.innerHTML=`<div class="space-y-5">
+    <div class="card p-6"><h2 class="text-2xl font-black">Receção — Operações</h2><p class="text-slate-600 mt-1">Área operacional para atendimento, agenda, triagem administrativa, registo de assistidos, documentação autorizada e operações de caixa/faturação. Não inclui folha salarial, contabilidade, administração global nem Agente de Suporte Informático.</p></div>
+    <section class="card p-5"><h3 class="text-lg font-black">Atendimento e agenda</h3><div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
+      <button onclick="siteTriageRequests()" class="border rounded-xl p-4 text-left"><b>📥 Pedidos do site</b><p class="text-sm text-slate-500 mt-1">Pedidos recebidos para triagem</p></button>
+      <button onclick="appointments()" class="border rounded-xl p-4 text-left"><b>🗓️ Agendamentos</b><p class="text-sm text-slate-500 mt-1">Marcar, confirmar e reagendar</p></button>
+      <button onclick="triagens()" class="border rounded-xl p-4 text-left"><b>📝 Pré-atendimento</b><p class="text-sm text-slate-500 mt-1">Consultar fichas de triagem</p></button>
+      <button onclick="patients()" class="border rounded-xl p-4 text-left"><b>👨‍👩‍👧 Assistidos e famílias</b><p class="text-sm text-slate-500 mt-1">Dados administrativos e contactos</p></button>
+    </div></section>
+    <section class="card p-5"><h3 class="text-lg font-black">Documentos e encaminhamentos</h3><div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
+      <button onclick="clinicalDocumentsHub()" class="border rounded-xl p-4 text-left"><b>📁 Central clínica</b><p class="text-sm text-slate-500 mt-1">Formulários, modelos e avaliações conforme permissão</p></button>
+      <button onclick="documents()" class="border rounded-xl p-4 text-left"><b>📄 Documentos clínicos</b><p class="text-sm text-slate-500 mt-1">Consultar/emissão conforme autorização clínica</p></button>
+      <button onclick="professionals()" class="border rounded-xl p-4 text-left"><b>🩺 Profissionais</b><p class="text-sm text-slate-500 mt-1">Consulta para encaminhamento e agenda</p></button>
+      <button onclick="receptionRecordsCatalog()" class="border rounded-xl p-4 text-left"><b>📚 Atas e registos</b><p class="text-sm text-slate-500 mt-1">Modelos e registos administrativos da Receção</p></button>
+    </div></section>
+    <section class="card p-5"><h3 class="text-lg font-black">Clientes e operações financeiras autorizadas</h3><div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
+      <button onclick="financeClients()" class="border rounded-xl p-4 text-left"><b>👤 Clientes</b><p class="text-sm text-slate-500 mt-1">Dados de faturação e contactos</p></button>
+      <button onclick="financeInvoices()" class="border rounded-xl p-4 text-left"><b>🧾 Faturação</b><p class="text-sm text-slate-500 mt-1">Emitir e consultar conforme autorização</p></button>
+      <button onclick="financeCash()" class="border rounded-xl p-4 text-left"><b>💵 Caixa</b><p class="text-sm text-slate-500 mt-1">Movimentos operacionais autorizados</p></button>
+    </div></section>
+    <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><b>Limite importante:</b> esta página organiza atalhos. A autorização efetiva para ler ou alterar dados continua dependente das políticas RLS e das funções do servidor; os novos perfis de Receção ainda não foram habilitados no constraint do Supabase.</div>
+  </div>`;
+}
+function receptionRecordsCatalog(){
+ const groups=[
+  {title:'Atas e registos administrativos',items:['Ata de reunião operacional da Receção','Registo de passagem de turno','Registo diário de ocorrências administrativas','Registo de entrega e receção de documentos','Registo de encaminhamento para profissional/serviço','Registo de reclamação ou sugestão recebida','Lista de verificação de abertura e fecho da Receção']},
+  {title:'Modelos e comunicações',items:['Confirmação de agendamento','Aviso de reagendamento/cancelamento','Lembrete de consulta','Confirmação de receção de documentos','Declaração de comparência (sujeita a validação)','Registo de contacto com responsável/família','Modelo de pedido de atualização de dados']},
+  {title:'Procedimentos de atendimento',items:['Procedimento de acolhimento e identificação','Procedimento de registo e atualização de assistido','Procedimento de encaminhamento para triagem clínica','Procedimento de proteção de dados no balcão e por telefone','Procedimento de atendimento de reclamações','Procedimento de gestão de documentos entregues','Procedimento de caixa e entrega de valores conforme perfil','Procedimento de emergência e escalonamento de incidentes']},
+  {title:'Limites de acesso',items:['Não consultar notas clínicas além do estritamente autorizado','Não criar, editar ou aprovar avaliações clínicas','Não consultar folha salarial nem processos disciplinares de RH','Não aceder à contabilidade, configuração fiscal global ou gestão de utilizadores','Não executar comandos do Agente de Suporte Informático']}
+ ];
+ const html=groups.map(g=>`<section class="card p-5 mb-4"><h3 class="font-black text-lg">${esc(g.title)}</h3><ol class="list-decimal pl-6 mt-3 space-y-2">${g.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></section>`).join('');
+ tablePage('Receção · Atas, documentos e procedimentos','Catálogo de referência para os documentos e rotinas da Receção. Estes itens são modelos/listas de trabalho, não ficheiros persistidos ou aprovados.',html+`<div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><b>Estado:</b> a biblioteca de ficheiros e o registo persistente de atas ainda precisam de ser ligados a armazenamento seguro e permissões server-side. Não guardar dados de pacientes em notas livres ou documentos públicos.</div><div class="mt-4"><button class="border rounded-xl px-4 py-2" onclick="receptionDashboard()">← Voltar à Receção</button></div>`);
+}
+
 async function siteTriageRequests(){
   if(!['admin','gestor'].includes(profile?.tipo)){
     document.getElementById('content').innerHTML='<div class="card p-6"><h2 class="text-xl font-black">Pedidos de triagem do site</h2><p class="mt-2 text-red-700">Acesso reservado à administração e gestão autorizadas.</p></div>';
@@ -554,7 +591,7 @@ async function editProfessional(r){const o=await loadOptions();await modal('Edit
 async function uploadProfessional(ev,id){const f=ev.target.files?.[0];if(!f)return;const path=`${id}/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const {error}=await sb.storage.from('profissionais').upload(path,f,{upsert:true});if(error)return toast(error.message);const {data}=sb.storage.from('profissionais').getPublicUrl(path);const q=await sb.from('profissionais').update({foto_url:data.publicUrl,updated_at:new Date().toISOString()}).eq('id',id);if(q.error)toast(q.error.message);else{await audit('UPLOAD','profissionais',id,{path});toast('Foto carregada');professionals()}}
 async function clinicalDocumentsHub(){
   const cards=[
-    ['Central de Documentos','Documentos clínicos, receitas, relatórios e validação.','documents()'],
+    ['📁 Documentos Clínicos','Abrir documentos clínicos, receitas, relatórios, emissão e validação.','documents()'],
     ['Formulários Clínicos','Formulários estruturados publicados no CIADI.','clinicalFormsList()'],
     ['Nova Avaliação','Iniciar uma avaliação clínica estruturada.','newClinicalEvaluation()'],
     ['Avaliações Realizadas','Consultar avaliações, resultados e conclusões.','clinicalEvaluationsList()'],
@@ -563,7 +600,7 @@ async function clinicalDocumentsHub(){
   ];
   const {data:forms}=await sb.from('ciadi_formularios_clinicos').select('id,publicado,ativo').eq('ativo',true);
   const {data:evals}=await sb.from('ciadi_avaliacoes_clinicas').select('id,estado').limit(1000);
-  tablePage('Documentos & Formulários Clínicos','Central clínica integrada: avaliação → documento → validação → Portal da Família.',`
+  tablePage('Documentos & Formulários Clínicos','Central clínica integrada. Para abrir ficheiros existentes, seleccione «Documentos Clínicos»; para modelos, formulários e avaliações, use os atalhos abaixo.',`
     <div class="grid md:grid-cols-3 gap-4 mb-6">
       <div class="card p-5"><div class="text-3xl font-black text-orange">${forms?.length||0}</div><div class="text-sm text-slate-500">Formulários activos</div></div>
       <div class="card p-5"><div class="text-3xl font-black text-orange">${forms?.filter(x=>x.publicado).length||0}</div><div class="text-sm text-slate-500">Formulários publicados</div></div>
