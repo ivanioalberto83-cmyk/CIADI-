@@ -57,6 +57,7 @@ const menu=[
   ['instituicao','Instituição & redes','admin'],
   ['empresas','🏢 Empresas & Emitente','admin'],
   ['auditoria','Auditoria','admin'],
+  ['suporte','🛠️ Centro de Suporte Técnico','support'],
   ['agente','🤖 Agente CIADI — Suporte Informática','support']
 ];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
@@ -90,8 +91,63 @@ async function go(id){
   const allowed=visibleMenu().some(item=>item[0]===id);
   if(!allowed){toast('Este perfil não tem acesso a este módulo.');return;}
   current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>';
-  if(id==='agente')return agentPanel(); if(id==='overview')return overview(); if(id==='rececao')return receptionDashboard(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='rh')return hrDashboard(); if(id==='polos')return polesAccess(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();
+  if(id==='suporte')return supportDashboard(); if(id==='agente')return agentPanel(); if(id==='overview')return overview(); if(id==='rececao')return receptionDashboard(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='rh')return hrDashboard(); if(id==='polos')return polesAccess(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();
 }
+
+async function supportDashboard(){
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="card p-6">A recolher indicadores técnicos em modo de consulta...</div>';
+  const checks=[
+    ['Base de dados — agendamentos','agendamentos'],
+    ['Assistidos','pacientes'],
+    ['Profissionais','profissionais'],
+    ['Clientes de faturação','finance_clientes'],
+    ['Registos RH','ciadi_funcionarios'],
+    ['Alertas SOS','ciadi_sos_alertas'],
+    ['Fila de notificações','ciadi_email_notificacoes_fila'],
+    ['Biblioteca institucional','ciadi_documentos_institucionais'],
+    ['Auditoria','auditoria']
+  ];
+  const results=await Promise.all(checks.map(async ([label,table])=>{
+    try{
+      const r=await sb.from(table).select('*',{count:'exact',head:true});
+      return {label,table,count:r.count,error:r.error?.message||null};
+    }catch(e){return {label,table,count:null,error:e?.message||'Falha na consulta'};}
+  }));
+  let recent=[],auditError=null;
+  try{
+    const r=await sb.from('auditoria').select('acao,tabela,created_at').order('created_at',{ascending:false}).limit(8);
+    if(r.error) auditError=r.error.message; else recent=r.data||[];
+  }catch(e){auditError=e?.message||'Falha na consulta';}
+  const available=results.filter(x=>!x.error).length;
+  const checkedAt=new Date().toLocaleString('pt-AO');
+  const metricCards=results.map(x=>`<div class="border rounded-xl p-4 bg-white"><div class="text-xs text-slate-500">${esc(x.label)}</div><div class="text-2xl font-black mt-1">${x.error?'—':Number(x.count??0).toLocaleString('pt-AO')}</div><div class="text-xs mt-2 ${x.error?'text-amber-700':'text-emerald-700'}">${x.error?'Sem confirmação de acesso':'Consulta concluída'}</div></div>`).join('');
+  const recentRows=recent.map(x=>`<tr class="border-b"><td class="p-3">${esc(x.created_at?new Date(x.created_at).toLocaleString('pt-AO'):'—')}</td><td class="p-3">${esc(x.acao||'—')}</td><td class="p-3">${esc(x.tabela||'—')}</td></tr>`).join('');
+  c.innerHTML=`<div class="space-y-5">
+    <div class="card p-6">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div><p class="text-xs font-black uppercase tracking-widest text-orange-600">Operações técnicas</p><h2 class="text-2xl font-black mt-1">Centro de Suporte Informático</h2><p class="text-slate-600 mt-1">Instantâneo de leitura do estado acessível do CIADI. Não altera registos nem executa reparações.</p></div>
+        <div class="flex gap-2"><button onclick="supportDashboard()" class="border rounded-xl px-4 py-2 font-semibold">Actualizar</button><button onclick="window.print()" class="bg-slate-900 text-white rounded-xl px-4 py-2 font-semibold">Imprimir / PDF</button></div>
+      </div>
+      <div class="grid sm:grid-cols-3 gap-3 mt-5">
+        <div class="rounded-xl bg-slate-50 p-4"><div class="text-xs text-slate-500">Fontes consultadas</div><div class="text-2xl font-black">${available}/${results.length}</div><div class="text-xs text-slate-500 mt-1">Tabelas com consulta autorizada</div></div>
+        <div class="rounded-xl bg-slate-50 p-4"><div class="text-xs text-slate-500">Eventos de auditoria recentes</div><div class="text-2xl font-black">${auditError?'—':recent.length}</div><div class="text-xs text-slate-500 mt-1">Últimos eventos devolvidos</div></div>
+        <div class="rounded-xl bg-slate-50 p-4"><div class="text-xs text-slate-500">Verificação executada</div><div class="text-sm font-bold mt-2">${esc(checkedAt)}</div><div class="text-xs text-slate-500 mt-1">Hora local deste navegador</div></div>
+      </div>
+    </div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-3">Indicadores de dados disponíveis</h3><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">${metricCards}</div></div>
+    <div class="card p-6"><h3 class="text-lg font-black mb-1">Actividade recente</h3><p class="text-sm text-slate-500 mb-3">Apenas ação, tabela e data; detalhes potencialmente sensíveis são omitidos.</p>
+      ${auditError?`<p class="text-amber-700 text-sm">A consulta de auditoria não foi confirmada: ${esc(auditError)}</p>`:recent.length?`<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Data</th><th class="p-3">Ação</th><th class="p-3">Área</th></tr></thead><tbody>${recentRows}</tbody></table></div>`:'<p class="text-slate-500 text-sm">Não foram devolvidos eventos recentes ou não existem registos.</p>'}
+    </div>
+    <div class="card p-5 border-amber-300"><h3 class="font-black text-amber-800">Limites desta primeira versão</h3><ul class="list-disc pl-5 mt-2 space-y-1 text-sm text-slate-700">
+      <li>Contagens indicam apenas os registos visíveis ao utilizador autenticado; não comprovam a integridade total da base de dados.</li>
+      <li>Este painel não verifica uptime externo, latência, logs de rede, backups nem sucesso de restauro.</li>
+      <li>Não executa testes de gravação, alterações de permissões, SQL de reparação ou comandos de IA.</li>
+      <li>As fontes sem acesso são apresentadas como não confirmadas, nunca como vazias ou operacionais.</li>
+    </ul></div>
+  </div>`;
+}
+
 async function agentPanel(){
   const c=document.getElementById('content');
   if(!canUseAgent()){ c.innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
