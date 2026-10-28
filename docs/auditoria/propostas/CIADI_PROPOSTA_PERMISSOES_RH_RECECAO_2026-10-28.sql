@@ -199,3 +199,35 @@ WITH CHECK (EXISTS (
 -- * permissões de caixa em finance_operadores.
 -- * upload de documentos ou políticas de Storage.
 -- Cada item exige revisão própria antes de tornar o módulo totalmente operacional.
+
+-- Consulta mínima da empresa emitente para o formulário de Receção.
+-- O formulário da Receção deve chamar esta RPC em vez de ler finance_empresas
+-- directamente. A função só devolve o identificador e a razão social da empresa
+-- principal activa; não expõe NIF, morada, configuração fiscal ou outros campos.
+CREATE OR REPLACE FUNCTION public.ciadi_recepcao_empresas_ativas()
+RETURNS TABLE(id uuid, razao_social text)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT e.id, e.razao_social
+  FROM public.finance_empresas e
+  WHERE e.ativo = true
+    AND e.empresa_principal = true
+    AND EXISTS (
+      SELECT 1
+      FROM public.perfis p
+      WHERE p.id = (SELECT auth.uid())
+        AND p.ativo = true
+        AND p.tipo IN ('admin', 'gestor', 'rececao')
+    );
+$function$;
+
+REVOKE ALL ON FUNCTION public.ciadi_recepcao_empresas_ativas() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.ciadi_recepcao_empresas_ativas() TO authenticated;
+
+-- A autorização desta RPC de leitura é limitada aos campos indicados.
+-- A RPC de criação/emissão de factura continua bloqueada para Receção até existir
+-- autorização própria e validada, baseada no operador e nas permissões comerciais.
+
