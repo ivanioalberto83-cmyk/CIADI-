@@ -45,3 +45,12 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - Caixa depende de `ciadi_finance_can()` e de um operador activo com permissões específicas.
 - O gerador A4 passou a usar o nome de campo `cliente_id` para o selector de `finance_clientes`; a mensagem de validação foi corrigida. A associação clínica continua opcional.
 - Nenhuma alteração de esquema, RLS, dados ou produção foi aplicada.
+
+
+## Atualização RH — 28-10-2026
+- A página inicial do RH foi expandida com atalhos para colaboradores, contratos, documentos individuais e remunerações, além de catálogos de regulamentos internos, procedimentos, assiduidade/férias, formação/avaliação, recrutamento, saúde e segurança, disciplina/confidencialidade, arquivo/modelos, declarações/recibos e saída do colaborador.
+- Os catálogos indicam expressamente que são listas de referência para preparar/reunir documentos; não afirmam que os ficheiros já existem, estão aprovados ou foram guardados.
+- A biblioteca institucional persistente ainda não foi implementada: falta confirmar/criar uma estrutura de metadados, armazenamento privado, controlo de versões, aprovação e políticas de acesso. Não se deve carregar documentos sensíveis em armazenamento público.
+- O inventário de documentos clínicos continua como tarefa separada do RH. A navegação clínica existente não foi removida nem substituída por esta alteração.
+- Validação GitHub Actions para o commit `d6d4e4deccbf84bc9cb98e54ce753c603fed6947`: workflow `Validate CIADI dashboard integration`, execução `40700674964`, resultado **success**; verificou sincronização dos dois HTML, sintaxe JavaScript inline e pontos de integração/segurança da chave pública.
+- O PR #18 continua **Draft**, sem merge e sem publicação. As alterações permanecem na branch de homologação; não foram feitas alterações à base de dados, RLS ou Setup Windows.
