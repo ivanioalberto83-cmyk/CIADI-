@@ -57,15 +57,15 @@
     const irtTaxableBase = roundKz(Math.max(0, adjustedBaseSalary + irtAllowanceBase + overtimeAmount - inssEmployee));
     if (irtGroup !== 'A') throw new Error('O cálculo automático só está configurado para IRT Grupo A; Grupo B/C requer regras próprias validadas.');
     const irt = calculateIrtGroupA2026(irtTaxableBase);
-    const grossPay = roundKz(adjustedBaseSalary + allowanceTotal + overtimeAmount);
-    const totalDeductions = roundKz(inssEmployee + irt + otherDeductions);
+    const grossPay = roundKz(baseSalary + allowanceTotal + overtimeAmount);
+    const totalDeductions = roundKz(absenceDeduction + inssEmployee + irt + otherDeductions);
     if (totalDeductions > grossPay) throw new Error('Os descontos não podem exceder o total bruto.');
     return {
       baseSalary: roundKz(baseSalary), absenceDeduction, adjustedBaseSalary,
       allowances, allowanceTotal, overtimeAmount, inssBase, inssEmployee,
       inssEmployer, irtTaxableBase, irt, otherDeductions, grossPay,
       totalDeductions, netPay: roundKz(grossPay - totalDeductions),
-      employerTotalCost: roundKz(grossPay + inssEmployer),
+      employerTotalCost: roundKz(grossPay - absenceDeduction + inssEmployer),
       ruleVersion: 'AO-IRT-A-2026-LEI-14-25',
       warnings: [
         'Confirme com a Contabilidade a incidência de IRT/INSS de cada subsídio e a regra contratual de faltas antes de aprovar a folha.',
