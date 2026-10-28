@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - agent/ciadi-dashboard-20261028
     tags:
       - 'ciadi-v*'
 
@@ -71,9 +72,51 @@ jobs:
           npm version $version --no-git-tag-version --allow-same-version
           Write-Host "Versão da aplicação definida para $version"
 
-      - name: Instalar dependências
+      - name: Verificar consistência e contexto seguro do Dashboard
+        shell: pwsh
+        run: |
+          if ((Get-Content "index.html" -Raw) -cne (Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw)) {
+            throw "index.html e CIADI_DASHBOARD_FINANCEIRO.html estão diferentes."
+          }
+          $dashboard = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
+          if ($dashboard -match "function isGlobalAdmin\(\)\{ return \['admin','suporte_informatica'\]") {
+            throw "Suporte Informático não pode ser administrador global."
+          }
+          if ($dashboard -notmatch "function canUseAgent\(\)\{ return profile\?\.tipo==='suporte_informatica' && window\.ciadiDesktop\?\.isDesktop===true; \}") {
+            throw "A autorização do agente não está limitada ao perfil de suporte na aplicação desktop."
+          }
+          node --check "ciadi-windows/main.cjs"
+          node --check "ciadi-windows/preload.cjs"
+          $installer = Get-Content "ciadi-windows/build/installer.nsh" -Raw
+          foreach ($profile in @("admin", "suporte_informatica", "rh", "rececao")) {
+            if ($installer -notmatch [regex]::Escape($profile)) {
+              throw "O seletor NSIS não contém o perfil obrigatório '$profile'."
+            }
+          }
+          if ($installer -notmatch "Page custom CIADIProfilePage CIADIProfilePageLeave") {
+            throw "O instalador não declara a página de seleção de perfil."
+          }
+          if ($installer -notmatch "WriteRegStr HKCU" -or $installer -notmatch "CreateShortCut") {
+            throw "O instalador não guarda a identificação da estação ou não cria atalhos."
+          }
+          $package = Get-Content "ciadi-windows/package.json" -Raw | ConvertFrom-Json
+          if ($package.build.nsis.include -ne "build/installer.nsh") {
+            throw "O package.json não inclui o script NSIS personalizado."
+          }
+          if ($package.build.nsis.createDesktopShortcut -ne $false -or $package.build.nsis.createStartMenuShortcut -ne $false) {
+            throw "Os atalhos padrão não foram desativados; podem duplicar os atalhos por perfil."
+          }
+          if ((Get-Content "ciadi-windows/main.cjs" -Raw) -notmatch "StationProfile") {
+            throw "A aplicação não lê a identificação da estação."
+          }
+
+      - name: Gerar lockfile a partir das versões fixadas
         working-directory: ciadi-windows
-        run: npm install --no-audit
+        run: npm install --package-lock-only --ignore-scripts --no-audit
+
+      - name: Instalar dependências de forma reproduzível
+        working-directory: ciadi-windows
+        run: npm ci --no-audit
 
       - name: Compilar Setup.exe
         working-directory: ciadi-windows
