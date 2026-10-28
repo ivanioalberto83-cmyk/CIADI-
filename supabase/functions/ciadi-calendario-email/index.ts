@@ -18,14 +18,14 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const resendKey = Deno.env.get('RESEND_API_KEY');
-  const from = Deno.env.get('RESEND_FROM');
   if (!supabaseUrl || !serviceKey) return json({ success: false, message: 'Configuração Supabase incompleta.' }, 500);
-  if (!resendKey || !from) return json({ success: false, message: 'RESEND_API_KEY e/ou RESEND_FROM não configurados. Nenhum email foi enviado.' }, 503);
-
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: valid, error: authError } = await admin.rpc('ciadi_validar_token_calendario', { p_token: cronSecret });
   if (authError || valid !== true) return json({ success: false, message: 'Token de automação inválido.' }, 401);
+
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  const from = Deno.env.get('RESEND_FROM');
+  if (!resendKey || !from) return json({ success: false, message: 'Configuração de email indisponível. Nenhum email foi enviado.' }, 503);
 
   const { data: jobs, error: readError } = await admin
     .from('ciadi_email_notificacoes_fila')
@@ -44,7 +44,6 @@ Deno.serve(async (req: Request) => {
       .eq('id', job.id).eq('estado', 'pendente')
       .select('id').maybeSingle();
     if (claimError || !claimed) { skipped++; continue; }
-
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -54,10 +53,7 @@ Deno.serve(async (req: Request) => {
           'Idempotency-Key': 'ciadi-calendar-' + job.id,
         },
         body: JSON.stringify({
-          from,
-          to: [job.recipient_email],
-          subject: job.subject,
-          html: job.html,
+          from, to: [job.recipient_email], subject: job.subject, html: job.html,
           ...(job.recipient_name ? { tags: [{ name: 'recipient_type', value: 'ciadi_internal' }] } : {}),
         }),
       });
