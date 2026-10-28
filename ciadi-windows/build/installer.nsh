@@ -77,6 +77,7 @@ Function CIADIProfilePageLeave
 FunctionEnd
 
 !macro customInstall
+  SetShellVarContext current
   WriteRegStr HKCU "Software\CIADI\Dashboard" "StationProfile" "$CIADIProfileChoice"
   WriteRegStr HKCU "Software\CIADI\Dashboard" "StationProfileLabel" "$CIADIProfileLabel"
 
@@ -107,6 +108,7 @@ FunctionEnd
 !macroend
 
 !macro customUnInstall
+  SetShellVarContext current
   Delete "$DESKTOP\CIADI - ADM.lnk"
   Delete "$DESKTOP\CIADI - Suporte Informático.lnk"
   Delete "$DESKTOP\CIADI - RH.lnk"
