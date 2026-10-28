@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - agent/ciadi-dashboard-20261028
     tags:
       - 'ciadi-v*'
 
@@ -70,6 +71,22 @@ jobs:
           $version = $Matches[1]
           npm version $version --no-git-tag-version --allow-same-version
           Write-Host "Versão da aplicação definida para $version"
+
+      - name: Verificar consistência e contexto seguro do Dashboard
+        shell: pwsh
+        run: |
+          if ((Get-Content "index.html" -Raw) -cne (Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw)) {
+            throw "index.html e CIADI_DASHBOARD_FINANCEIRO.html estão diferentes."
+          }
+          $dashboard = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
+          if ($dashboard -match "function isGlobalAdmin\(\)\{ return \['admin','suporte_informatica'\]") {
+            throw "Suporte Informático não pode ser administrador global."
+          }
+          if ($dashboard -notmatch "function canUseAgent\(\)\{ return profile\?\.tipo==='suporte_informatica' && window\.ciadiDesktop\?\.isDesktop===true; \}") {
+            throw "A autorização do agente não está limitada ao perfil de suporte na aplicação desktop."
+          }
+          node --check "ciadi-windows/main.cjs"
+          node --check "ciadi-windows/preload.cjs"
 
       - name: Instalar dependências
         working-directory: ciadi-windows
