@@ -43,6 +43,7 @@ create table if not exists public.ciadi_folha_salarial_linhas (
   irt numeric(18,2) not null default 0 check (irt >= 0),
   inss numeric(18,2) not null default 0 check (inss >= 0),
   outros_descontos numeric(18,2) not null default 0 check (outros_descontos >= 0),
+  deducao_faltas numeric(18,2) not null default 0 check (deducao_faltas >= 0),
   total_bruto numeric(18,2) not null check (total_bruto >= 0),
   total_descontos numeric(18,2) not null check (total_descontos >= 0),
   total_liquido numeric(18,2) not null check (total_liquido >= 0),
@@ -53,7 +54,7 @@ create table if not exists public.ciadi_folha_salarial_linhas (
   updated_at timestamptz not null default now(),
   unique (folha_id, funcionario_id),
   check (round(salario_base + total_subsidios + valor_horas_extra, 2) = total_bruto),
-  check (round(irt + inss + outros_descontos, 2) = total_descontos),
+  check (round(irt + inss + outros_descontos + deducao_faltas, 2) = total_descontos),
   check (round(total_bruto - total_descontos, 2) = total_liquido)
 );
 
