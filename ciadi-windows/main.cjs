@@ -10,7 +10,7 @@ function createRecoveryPoint() {
   const installPath = path.dirname(process.execPath);
   const recoveryRoot = path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'CIADI', 'Recovery');
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const pointPath = path.join(recoveryRoot, \`\${stamp}-\${app.getVersion()}\`);
+  const pointPath = path.join(recoveryRoot, stamp + '-' + app.getVersion());
   const appBackupPath = path.join(pointPath, 'app');
 
   fs.mkdirSync(recoveryRoot, { recursive: true });
@@ -94,14 +94,14 @@ app.whenReady().then(() => {
     autoUpdater.on('update-available', async info => {
       const { response } = await dialog.showMessageBox(mainWindow, {
         type: 'info', title: 'Atualização do CIADI disponível',
-        message: \`Está disponível a versão \${info.version}.\`,
+        message: 'Está disponível a versão ' + info.version + '.',
         detail: 'Antes do download será criado um ponto de recuperação dos ficheiros instalados. Pretende continuar?',
         buttons: ['Criar cópia e descarregar', 'Mais tarde'], defaultId: 0, cancelId: 1
       });
       if (response !== 0) return;
       try {
         const point = createRecoveryPoint();
-        console.log(\`Ponto de recuperação CIADI criado: \${point.pointPath}\`);
+        console.log('Ponto de recuperação CIADI criado: ' + point.pointPath);
         await autoUpdater.downloadUpdate();
       } catch (error) {
         console.error('Atualização cancelada: não foi possível criar um ponto de recuperação.', error);
@@ -109,7 +109,7 @@ app.whenReady().then(() => {
           type: 'error',
           title: 'Atualização cancelada por segurança',
           message: 'Não foi possível criar uma cópia de segurança dos ficheiros instalados.',
-          detail: \`\${error.message}\n\nA atualização não será descarregada. Verifique o espaço livre e as permissões do Windows.\`,
+          detail: error.message + '\n\nA atualização não será descarregada. Verifique o espaço livre e as permissões do Windows.',
           buttons: ['OK']
         });
       }
