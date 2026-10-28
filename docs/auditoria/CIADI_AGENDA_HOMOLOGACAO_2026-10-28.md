@@ -118,3 +118,13 @@ Novos bloqueios confirmados em leitura do esquema e das funções:
 - O painel de marketing foi actualizado para mostrar os links e o respectivo grau de confirmação. Isto não liga APIs nem autoriza acesso às contas.
 - Nota importante para o rastreio seguinte: a página inicial do site público apresentou muitos links externos não relacionados com o CIADI no conteúdo indexado. É necessário auditar a integridade do site, links injectados, CMS/plugins e registos de acesso antes de qualquer publicação/actualização do site.
 - Próximo passo: rastreio de homologação por módulos, corrigir erros priorizados, confirmar o setup.exe actual e só depois preparar novo instalador. Nenhum setup foi gerado nesta etapa.
+
+
+## Auditoria ampliada — resultados de 28-10-2026
+- Supabase read-only: 134 tabelas públicas, RLS activa em todas as tabelas públicas identificadas; 4 funções SECURITY DEFINER executáveis por anon, 79 por authenticated; protecção contra palavras-passe comprometidas desactivada; 65 alertas de políticas permissivas sobrepostas.
+- Bloqueios funcionais: tipos de perfil não aceitam suporte_informatica/rh/rececao; a interface trata suporte_informatica como administrador global; o preload Electron não expõe installProfile, pelo que o agente fica inacessível; o Dashboard consulta finance_fornecedores, tabela inexistente.
+- Dados consultados: finance_clientes=0, finance_documentos=0, finance_lancamentos=0; campanhas de marketing=2, envios=0, eventos=0; as três tabelas de marketing não estão na publicação supabase_realtime.
+- Windows Setup: workflow usa o dashboard financeiro como fonte; não existe package-lock.json na pasta ciadi-windows e o workflow usa npm install; não foi gerado nem validado um novo Setup.exe; a lista de releases consultada estava vazia.
+- A validação automática do HTML passou, mas é limitada a sincronização, sintaxe JS e verificações estáticas; não comprova testes de ponta a ponta.
+- Ver relatório completo: `docs/auditoria/CIADI_DIAGNOSTICO_CENTRO_SUPORTE_2026-10-28.md`.
+- Nenhuma alteração de produção executada. Próxima fase deve corrigir primeiro a autorização do Suporte, os endpoints privilegiados e a tabela de fornecedores, depois configurar Realtime e executar testes do instalador em ambiente Windows.
