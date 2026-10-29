@@ -16,6 +16,9 @@ on:
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
+      - 'supabase/migrations/20261029120000_ciadi_support_requests_approvals.sql'
+      - 'docs/ESPECIFICACAO-AGENTE-IA-SUPORTE-CIADI-2026-10-29.md'
+      - 'docs/AUDITORIA-RLS-SUPORTE-IA-2026-10-29.md'
       - '.github/workflows/validate-ciadi-dashboard.yml'
 
 jobs:
