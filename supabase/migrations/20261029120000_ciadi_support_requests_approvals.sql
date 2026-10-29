@@ -124,6 +124,67 @@ create policy ciadi_support_approvals_select_support
   on public.ciadi_support_approvals for select to authenticated
   using (public.ciadi_is_support_technician());
 
+create or replace function public.ciadi_create_support_proposal(
+  p_request_id uuid,
+  p_proposal jsonb,
+  p_proposal_hash text
+)
+returns table(new_proposal_id uuid, new_version integer, new_hash text)
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_request public.ciadi_support_requests%rowtype;
+  v_version integer;
+  v_proposal_id uuid;
+begin
+  if auth.uid() is null or not public.ciadi_is_support_technician() then
+    raise exception 'Apenas um técnico ativo do Suporte Informático pode criar propostas.';
+  end if;
+
+  if p_request_id is null or p_proposal is null
+     or jsonb_typeof(p_proposal) <> 'object'
+     or p_proposal_hash is null
+     or p_proposal_hash !~ '^[0-9a-f]{64}$' then
+    raise exception 'Pedido, objeto da proposta e hash SHA-256 válido são obrigatórios.';
+  end if;
+
+  select * into v_request
+  from public.ciadi_support_requests
+  where id = p_request_id
+  for update;
+
+  if not found then
+    raise exception 'Pedido de suporte não encontrado.';
+  end if;
+
+  if v_request.status not in ('open', 'diagnosed') then
+    raise exception 'O pedido não está disponível para receber uma nova proposta.';
+  end if;
+
+  select coalesce(max(p.version), 0) + 1 into v_version
+  from public.ciadi_support_proposals p
+  where p.request_id = p_request_id;
+
+  insert into public.ciadi_support_proposals (
+    request_id, version, proposal, proposal_hash, status, created_by
+  ) values (
+    p_request_id, v_version, p_proposal, p_proposal_hash, 'awaiting_approval', auth.uid()
+  )
+  returning id into v_proposal_id;
+
+  update public.ciadi_support_requests
+  set status = 'awaiting_approval', updated_at = now()
+  where id = p_request_id;
+
+  return query select v_proposal_id, v_version, p_proposal_hash;
+end;
+$$;
+
+revoke all on function public.ciadi_create_support_proposal(uuid, jsonb, text) from public;
+grant execute on function public.ciadi_create_support_proposal(uuid, jsonb, text) to authenticated;
+
 create or replace function public.ciadi_decide_support_proposal(
   p_request_id uuid,
   p_proposal_id uuid,
@@ -209,9 +270,10 @@ grant execute on function public.ciadi_decide_support_proposal(uuid, uuid, integ
 -- nem inserir decisões diretamente. A função SECURITY DEFINER faz a transação atómica.
 revoke update on public.ciadi_support_requests from authenticated;
 revoke update on public.ciadi_support_proposals from authenticated;
+revoke insert on public.ciadi_support_proposals from authenticated;
 revoke insert on public.ciadi_support_approvals from authenticated;
 grant select, insert on public.ciadi_support_requests to authenticated;
-grant select, insert on public.ciadi_support_proposals to authenticated;
+grant select on public.ciadi_support_proposals to authenticated;
 grant select on public.ciadi_support_approvals to authenticated;
 
 commit;
