@@ -9,6 +9,7 @@ on:
       - 'docs/ESPECIFICACAO-AGENTE-IA-SUPORTE-CIADI-2026-10-29.md'
       - 'docs/AUDITORIA-RLS-SUPORTE-IA-2026-10-29.md'
       - '.github/workflows/validate-ciadi-dashboard.yml'
+      - 'scripts/test_ciadi_support_executor.py'
   push:
     branches:
       - main
@@ -20,6 +21,7 @@ on:
       - 'docs/ESPECIFICACAO-AGENTE-IA-SUPORTE-CIADI-2026-10-29.md'
       - 'docs/AUDITORIA-RLS-SUPORTE-IA-2026-10-29.md'
       - '.github/workflows/validate-ciadi-dashboard.yml'
+      - 'scripts/test_ciadi_support_executor.py'
 
 jobs:
   validate:
@@ -178,3 +180,7 @@ jobs:
           if not all(checks.values()):
               raise SystemExit(1)
           PY
+
+
+      - name: Verify safe support executor contract
+        run: python scripts/test_ciadi_support_executor.py
