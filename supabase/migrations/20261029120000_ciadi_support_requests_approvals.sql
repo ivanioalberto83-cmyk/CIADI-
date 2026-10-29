@@ -153,9 +153,13 @@ grant select, insert on public.ciadi_support_requests to authenticated;
 grant select on public.ciadi_support_proposals to authenticated;
 grant select on public.ciadi_support_approvals to authenticated;
 grant select on public.ciadi_support_executions to authenticated;
-revoke update, delete on public.ciadi_support_requests from authenticated;
-revoke insert, update, delete on public.ciadi_support_proposals from authenticated;
-revoke insert, update, delete on public.ciadi_support_approvals from authenticated;
+revoke update on public.ciadi_support_requests from authenticated;
+revoke delete on public.ciadi_support_requests from authenticated;
+revoke insert on public.ciadi_support_proposals from authenticated;
+revoke update on public.ciadi_support_proposals from authenticated;
+revoke delete on public.ciadi_support_proposals from authenticated;
+revoke insert on public.ciadi_support_approvals from authenticated;
+revoke update, delete on public.ciadi_support_approvals from authenticated;
 revoke insert, update, delete on public.ciadi_support_executions from authenticated;
 
 create or replace function public.ciadi_create_support_proposal(
