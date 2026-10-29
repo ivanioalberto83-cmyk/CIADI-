@@ -100,3 +100,24 @@ jobs:
           if not all(checks.values()):
               raise SystemExit(1)
           PY
+
+      - name: Verify support centre and AI approval boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
+          checks = {
+              "support centre menu entry exists": "Centro de Suporte Informático" in dashboard,
+              "AI support menu entry exists": "Agente de IA" in dashboard,
+              "support centre route dispatch exists": "return supportCentre()" in dashboard,
+              "AI support route dispatch exists": "return aiSupport()" in dashboard,
+              "approval handler exists": "function approveSupportProposal(" in dashboard,
+              "execution handler exists": "async function executeApprovedSupportAction(" in dashboard,
+              "live executor is disabled until verified": "SUPPORT_EXECUTOR_CONFIGURED = false" in dashboard,
+              "support-only route guard remains": "if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte_informatica') return false;" in dashboard,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
