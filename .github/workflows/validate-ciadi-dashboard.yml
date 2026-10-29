@@ -121,7 +121,7 @@ jobs:
               "AI support route dispatch exists": "return aiSupport()" in dashboard,
               "approval handler exists": "function approveSupportProposal(" in dashboard,
               "execution handler exists": "async function executeApprovedSupportAction(" in dashboard,
-              "live executor is disabled until verified": "SUPPORT_EXECUTOR_CONFIGURED = false" in dashboard,
+              "test executor stays disabled until isolated DB is ready": "const SUPPORT_EXECUTOR_TEST_MODE = false" in dashboard,
               "support-only route guard remains": "if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte_informatica') return false;" in dashboard,
           }
           for label, ok in checks.items():
@@ -172,8 +172,8 @@ jobs:
               "RLS checks active support profile": "p.tipo = 'suporte_informatica'" in migration and "p.ativo is true" in migration,
               "no delete policy is granted for support records": "for delete" not in migration.lower() and "grant delete" not in migration.lower(),
               "shared staff helpers are not altered": "ciadi_finance_staff" not in migration and "is_staff()" not in migration,
-              "live action executor remains disabled": "const SUPPORT_EXECUTOR_CONFIGURED = false" in dashboard,
-              "support execution returns blocked until configured": "reason:'executor_not_configured'" in dashboard,
+              "test executor remains disabled until isolated homologation": "const SUPPORT_EXECUTOR_TEST_MODE = false" in dashboard,
+              "support execution returns blocked until test mode is enabled": "reason:'executor_test_mode_disabled'" in dashboard,
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
