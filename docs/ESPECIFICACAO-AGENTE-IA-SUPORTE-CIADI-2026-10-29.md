@@ -26,6 +26,21 @@ Dar ao técnico autorizado um local único para registar falhas, preparar uma pr
 6. O trigger impede modificar conteúdo, versão, autoria ou hash depois de criada a proposta; para corrigir conteúdo, deve ser criada nova versão. As permissões diretas de UPDATE dos pedidos/propostas e INSERT das decisões são revogadas para `authenticated`; o cliente não altera estes estados diretamente.
 7. O executor de teste tem uma única ação permitida: `readonly_validate_proposal`. Confirma aprovação exata, versão, hash recalculado no servidor e perfil ativo; valida os campos obrigatórios e regista o resultado em `ciadi_support_executions`. É idempotente por proposta e não executa comandos, SQL arbitrário, migrações, alterações de conta, deploy ou escritas em módulos de negócio. A flag `SUPPORT_EXECUTOR_TEST_MODE` permanece `false` até existir uma base de homologação isolada.
 
+## 3A. Edge Function de integração (branch-only)
+
+Foi acrescentado o código `supabase/functions/ciadi-support-agent/index.ts`; não foi publicado no projeto Supabase.
+
+A função expõe ações delimitadas:
+- `create_request`: cria pedido através do cliente autenticado e sujeito a RLS.
+- `propose_fix`: consulta o pedido, solicita ao LLM uma proposta em JSON Schema estrito e regista-a por `ciadi_create_support_proposal`. O hash devolvido é o calculado pelo servidor.
+- `approve_proposal` / `reject_proposal`: exigem `confirm_approval: true` e delegam a transição à RPC que valida a versão/hash.
+- `execute_readonly`: bloqueado por omissão por `SUPPORT_EXECUTOR_TEST_MODE`; quando configurado em ambiente isolado, chama apenas `readonly_validate_proposal`.
+- `get_system_audit_logs`: lê no máximo 50 registos através do cliente do utilizador; RLS mantém-se ativa e valores sensíveis são redigidos na resposta.
+
+A função valida JWT e perfil ativo `suporte_informatica`, usa cliente Supabase com o JWT do utilizador, não referencia nem usa `service_role`, limita origens CORS por `CIADI_ALLOWED_ORIGINS` e desativa cache. O LLM apenas propõe; não recebe ferramentas para executar SQL nem aplica o conteúdo de `migration_or_code_fix`.
+
+Variáveis a configurar apenas em ambiente de homologação: `OPENAI_API_KEY`, opcionalmente `OPENAI_MODEL`, `CIADI_ALLOWED_ORIGINS` e `SUPPORT_EXECUTOR_TEST_MODE=false`. A URL e chave pública Supabase são fornecidas pelo ambiente Edge Functions. Não colocar segredos no GitHub nem no browser.
+
 ## 4. Executor de teste implementado e limites
 
 A RPC `ciadi_execute_approved_support_action` executa apenas a validação de leitura descrita acima. Antes de ativar o modo de teste, deve confirmar-se numa base isolada:
