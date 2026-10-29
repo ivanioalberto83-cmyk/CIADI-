@@ -13,6 +13,18 @@ const STATION_PROFILES = Object.freeze({
   recepcao: 'Receção'
 });
 
+function getStationProfileId() {
+  if (!app.isPackaged || process.platform !== 'win32') return null;
+  try {
+    const profilePath = path.join(path.dirname(process.execPath), 'ciadi-install-profile.txt');
+    const profileId = fs.readFileSync(profilePath, 'utf8').trim();
+    return Object.prototype.hasOwnProperty.call(STATION_PROFILES, profileId) ? profileId : null;
+  } catch (error) {
+    console.warn('Não foi possível ler o perfil da estação CIADI:', error.message);
+    return null;
+  }
+}
+
 function getStationLabel() {
   if (!app.isPackaged || process.platform !== 'win32') return null;
   try {
@@ -48,7 +60,10 @@ function createWindow() {
       contextIsolation: true, nodeIntegration: false, sandbox: true
     }
   });
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  const stationProfile = getStationProfileId();
+  mainWindow.loadFile(path.join(__dirname, 'index.html'), {
+    query: stationProfile ? { ciadi_profile: stationProfile } : {}
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://') || url.startsWith('http://')) {
       dialog.showMessageBox(mainWindow, {
