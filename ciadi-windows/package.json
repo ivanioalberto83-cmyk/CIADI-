@@ -8,7 +8,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test station-profile.test.cjs",
+    "test": "node --test station-profile.test.cjs dashboard-syntax.test.cjs",
     "dist:win": "electron-builder --win nsis"
   },
   "dependencies": {
