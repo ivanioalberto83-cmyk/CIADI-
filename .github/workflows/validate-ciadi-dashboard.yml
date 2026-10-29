@@ -75,7 +75,7 @@ jobs:
               "direct route access is guarded": "if(!canAccessModule(id))" in dashboard,
               "installer selection does not grant Supabase permissions": "O perfil escolhido no Setup Windows identifica a estação e nunca concede permissões." in dashboard,
               "patient and responsible roles are not admitted to admin dashboard": "['admin','suporte','profissional','operador','rececao','rh'].includes(profile.tipo)" in dashboard,
-              "suppliers screen does not pretend a supplier master table exists": "não existe uma tabela mestre finance_fornecedores" in dashboard,
+              "suppliers screen does not pretend a supplier master table exists": "O Supabase não possui uma tabela mestre de fornecedores" in dashboard,
               "HR screens avoid confidential employee data": "ciadi_funcionario_confidencial" not in dashboard,
           }
           for label, ok in checks.items():
