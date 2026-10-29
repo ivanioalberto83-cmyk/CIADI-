@@ -35,7 +35,7 @@ test('AI support proposal requires explicit approval and remains blocked without
   const html = fs.readFileSync(htmlPath, 'utf8');
   assert.match(html, /function\s+approveSupportProposal\s*\(/);
   assert.match(html, /async\s+function\s+executeApprovedSupportAction\s*\(/);
-  assert.match(html, /SUPPORT_EXECUTOR_CONFIGURED\s*=\s*false/);
+  assert.match(html, /SUPPORT_EXECUTOR_TEST_MODE\s*=\s*false/);
   assert.match(html, /proposalHash/);
   assert.match(html, /status\s*[:=]\s*['"]blocked['"]/);
 });
