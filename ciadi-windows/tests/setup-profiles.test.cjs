@@ -22,17 +22,14 @@ test('Setup oferece exatamente os quatro perfis funcionais pretendidos', () => {
 });
 
 test('Cada perfil de estação tem uma lista de módulos própria na navegação', () => {
-  const start = main.indexOf('const stationMenu = {');
-  const end = main.indexOf('function visibleMenu()', start);
-  assert.ok(start >= 0 && end > start, 'Falta a configuração de navegação por perfil');
-  const config = main.slice(start, end);
-  for (const id of ['adm', 'suporte_informatica', 'rh', 'recepcao']) {
-    assert.match(config, new RegExp('\\\\b' + id + ': new Set\\\\('), 'Falta configuração para ' + id);
-  }
-  assert.match(config, /suporte_informatica: new Set\\(\\['overview','sos','utilizadores','instituicao','auditoria'\\]\\)/);
-  assert.match(config, /rh: new Set\\(\\['overview','profissionais','acompanhantes_at'\\]\\)/);
-  assert.match(config, /recepcao: new Set\\(\\['overview','pedidos_site','agendamentos','pacientes','familias'\\]\\)/);
-  assert.match(main, /new URLSearchParams\\(window\\.location\\.search\\)\\.get\\('ciadi_profile'\\)/);
+  const dashboard = fs.readFileSync(path.resolve(root, '..', 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
+  assert.ok(dashboard.includes("const stationProfile = (new URLSearchParams(window.location.search).get('ciadi_profile') || '').toLowerCase();"));
+  assert.ok(dashboard.includes("adm: new Set(['overview','sos','pedidos_site','agendamentos','financeiro'"));
+  assert.ok(dashboard.includes("suporte_informatica: new Set(['overview','sos','utilizadores','instituicao','auditoria'])"));
+  assert.ok(dashboard.includes("rh: new Set(['overview','profissionais','acompanhantes_at'])"));
+  assert.ok(dashboard.includes("recepcao: new Set(['overview','pedidos_site','agendamentos','pacientes','familias'])"));
+  assert.ok(dashboard.includes('const allowed = stationMenu[stationProfile] || stationMenu.adm;'));
+  assert.ok(main.includes("query: stationProfile ? { ciadi_profile: stationProfile } : {}"));
 });
 
 test('Perfil serve apenas para identificar a estação e não atribui permissões', () => {
