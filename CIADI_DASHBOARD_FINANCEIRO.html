@@ -31,11 +31,14 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 // Perfis de autenticação vêm exclusivamente de public.perfis no Supabase.
  // O perfil escolhido no Setup Windows identifica a estação e nunca concede permissões.
+ // Princípio de privilégio mínimo: módulos com listagens globais de pacientes,
+ // profissionais ou documentos ficam fora do perfil profissional até validar o RLS
+ // e os filtros por atribuição na base de dados. A matriz da UI não substitui RLS.
  const MODULE_ACCESS = Object.freeze({
    admin: '*',
    gestor: '*',
    operador: ['sos'],
-   profissional: ['agendamentos','especialidades','triagens','pacientes','profissionais','documentos','clinica','acompanhantes_at']
+   profissional: ['agendamentos','especialidades','triagens','clinica']
  });
  function canAccessModule(id){
    const tipo=profile?.tipo;
