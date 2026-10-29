@@ -8,7 +8,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
   select exists (
     select 1
@@ -74,7 +74,7 @@ create index if not exists ciadi_support_approvals_proposal_idx
 create or replace function public.ciadi_support_proposal_guard()
 returns trigger
 language plpgsql
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 begin
   if new.request_id is distinct from old.request_id
@@ -134,7 +134,7 @@ create or replace function public.ciadi_decide_support_proposal(
 returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_request public.ciadi_support_requests%rowtype;
