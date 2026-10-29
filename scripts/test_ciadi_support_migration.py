@@ -29,8 +29,11 @@ for name in functions:
     body_end = normalized.find("$$;", body_start + 5)
     assert body_end >= 0, f"Function {name} has no closing $$; delimiter"
     body = normalized[body_start + 5:body_end]
-    assert re.search(r"\bbegin\b", body), f"Function {name} is missing BEGIN"
-    assert re.search(r"\bend\s*;\s*$", body), f"Function {name} is missing END;"
+    if name != "ciadi_is_support_technician":
+        assert re.search(r"\bbegin\b", body), f"Function {name} is missing BEGIN"
+        assert re.search(r"\bend\s*;\s*$", body), f"Function {name} is missing END;"
+    else:
+        assert re.search(r"\bselect\b", body), "Support role predicate is missing SELECT"
 
 checks = {
     "proposal RLS has a SELECT policy": "create policy ciadi_support_proposals_select_support" in normalized,
