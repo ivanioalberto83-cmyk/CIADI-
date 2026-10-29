@@ -143,7 +143,19 @@ create policy ciadi_support_approvals_select_support
 drop policy if exists ciadi_support_approvals_insert_support on public.ciadi_support_approvals;
 create policy ciadi_support_approvals_insert_support
   on public.ciadi_support_approvals for insert to authenticated
-  with check (public.ciadi_is_support_technician() and approved_by = auth.uid());
+  with check (
+    public.ciadi_is_support_technician()
+    and approved_by = auth.uid()
+    and exists (
+      select 1
+      from public.ciadi_support_proposals p
+      where p.id = proposal_id
+        and p.request_id = request_id
+        and p.version = proposal_version
+        and p.proposal_hash = proposal_hash
+        and p.status = 'awaiting_approval'
+    )
+  );
 
 grant select, insert, update on public.ciadi_support_requests to authenticated;
 grant select, insert, update on public.ciadi_support_proposals to authenticated;
