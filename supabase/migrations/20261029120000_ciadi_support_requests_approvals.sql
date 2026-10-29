@@ -113,52 +113,105 @@ create policy ciadi_support_requests_insert_support
   on public.ciadi_support_requests for insert to authenticated
   with check (public.ciadi_is_support_technician() and created_by = auth.uid());
 
+-- Todas as decisões de estado são feitas numa única transação no servidor.
+-- O mesmo técnico pode aprovar o seu próprio pedido; não se exige um segundo aprovador.
 drop policy if exists ciadi_support_requests_update_support on public.ciadi_support_requests;
-create policy ciadi_support_requests_update_support
-  on public.ciadi_support_requests for update to authenticated
-  using (public.ciadi_is_support_technician())
-  with check (public.ciadi_is_support_technician());
-
-drop policy if exists ciadi_support_proposals_select_support on public.ciadi_support_proposals;
-create policy ciadi_support_proposals_select_support
-  on public.ciadi_support_proposals for select to authenticated
-  using (public.ciadi_is_support_technician());
-
-drop policy if exists ciadi_support_proposals_insert_support on public.ciadi_support_proposals;
-create policy ciadi_support_proposals_insert_support
-  on public.ciadi_support_proposals for insert to authenticated
-  with check (public.ciadi_is_support_technician() and created_by = auth.uid());
-
 drop policy if exists ciadi_support_proposals_update_support on public.ciadi_support_proposals;
-create policy ciadi_support_proposals_update_support
-  on public.ciadi_support_proposals for update to authenticated
-  using (public.ciadi_is_support_technician())
-  with check (public.ciadi_is_support_technician());
+drop policy if exists ciadi_support_approvals_insert_support on public.ciadi_support_approvals;
 
 drop policy if exists ciadi_support_approvals_select_support on public.ciadi_support_approvals;
 create policy ciadi_support_approvals_select_support
   on public.ciadi_support_approvals for select to authenticated
   using (public.ciadi_is_support_technician());
 
-drop policy if exists ciadi_support_approvals_insert_support on public.ciadi_support_approvals;
-create policy ciadi_support_approvals_insert_support
-  on public.ciadi_support_approvals for insert to authenticated
-  with check (
-    public.ciadi_is_support_technician()
-    and approved_by = auth.uid()
-    and exists (
-      select 1
-      from public.ciadi_support_proposals p
-      where p.id = ciadi_support_approvals.proposal_id
-        and p.request_id = ciadi_support_approvals.request_id
-        and p.version = ciadi_support_approvals.proposal_version
-        and p.proposal_hash = ciadi_support_approvals.proposal_hash
-        and p.status = 'awaiting_approval'
-    )
-  );
+create or replace function public.ciadi_decide_support_proposal(
+  p_request_id uuid,
+  p_proposal_id uuid,
+  p_proposal_version integer,
+  p_proposal_hash text,
+  p_decision text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_request public.ciadi_support_requests%rowtype;
+  v_proposal public.ciadi_support_proposals%rowtype;
+  v_approval_id uuid;
+begin
+  if auth.uid() is null or not public.ciadi_is_support_technician() then
+    raise exception 'Apenas um técnico ativo do Suporte Informático pode decidir propostas.';
+  end if;
 
-grant select, insert, update on public.ciadi_support_requests to authenticated;
-grant select, insert, update on public.ciadi_support_proposals to authenticated;
-grant select, insert on public.ciadi_support_approvals to authenticated;
+  if p_decision is null or p_decision not in ('approved', 'rejected') then
+    raise exception 'Decisão inválida.';
+  end if;
+
+  if p_request_id is null or p_proposal_id is null
+     or p_proposal_version is null or p_proposal_version < 1
+     or p_proposal_hash is null or length(trim(p_proposal_hash)) = 0 then
+    raise exception 'Pedido, proposta, versão e hash são obrigatórios.';
+  end if;
+
+  select * into v_request
+  from public.ciadi_support_requests
+  where id = p_request_id
+  for update;
+
+  if not found then
+    raise exception 'Pedido de suporte não encontrado.';
+  end if;
+
+  select * into v_proposal
+  from public.ciadi_support_proposals
+  where id = p_proposal_id
+  for update;
+
+  if not found
+     or v_proposal.request_id <> p_request_id
+     or v_proposal.version <> p_proposal_version
+     or v_proposal.proposal_hash <> p_proposal_hash
+     or v_proposal.status <> 'awaiting_approval'
+     or v_request.status <> 'awaiting_approval' then
+    raise exception 'A proposta mudou, não corresponde ao pedido ou já foi decidida.';
+  end if;
+
+  insert into public.ciadi_support_approvals (
+    request_id, proposal_id, proposal_version, proposal_hash, decision, approved_by
+  ) values (
+    p_request_id, p_proposal_id, p_proposal_version, p_proposal_hash, p_decision, auth.uid()
+  )
+  returning id into v_approval_id;
+
+  update public.ciadi_support_proposals
+  set status = p_decision
+  where id = p_proposal_id and status = 'awaiting_approval';
+
+  if not found then
+    raise exception 'A proposta já foi decidida.';
+  end if;
+
+  update public.ciadi_support_requests
+  set status = case when p_decision = 'approved' then 'approved' else 'diagnosed' end,
+      updated_at = now()
+  where id = p_request_id;
+
+  return v_approval_id;
+end;
+$$;
+
+revoke all on function public.ciadi_decide_support_proposal(uuid, uuid, integer, text, text) from public;
+grant execute on function public.ciadi_decide_support_proposal(uuid, uuid, integer, text, text) to authenticated;
+
+-- A API autenticada pode criar e consultar pedidos/propostas, mas não decidir estados
+-- nem inserir decisões diretamente. A função SECURITY DEFINER faz a transação atómica.
+revoke update on public.ciadi_support_requests from authenticated;
+revoke update on public.ciadi_support_proposals from authenticated;
+revoke insert on public.ciadi_support_approvals from authenticated;
+grant select, insert on public.ciadi_support_requests to authenticated;
+grant select, insert on public.ciadi_support_proposals to authenticated;
+grant select on public.ciadi_support_approvals to authenticated;
 
 commit;
