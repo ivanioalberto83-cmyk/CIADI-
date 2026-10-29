@@ -190,5 +190,12 @@ jobs:
         run: python scripts/test_ciadi_support_executor.py
 
 
+      - name: Check Supabase support agent TypeScript
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase support agent
+        run: deno check supabase/functions/ciadi-support-agent/index.ts
+
       - name: Verify authenticated Supabase support agent guardrails
         run: python scripts/test_ciadi_support_agent.py
