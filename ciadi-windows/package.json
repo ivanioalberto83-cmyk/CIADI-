@@ -28,6 +28,7 @@
       "index.html",
       "main.cjs",
       "preload.cjs",
+      "station-profile.cjs",
       "package.json",
       "node_modules/electron-updater/**/*",
       "biometric-k20pro.html"
@@ -52,6 +53,7 @@
       "artifactName": "CIADI-Setup-${version}.${ext}"
     },
     "nsis": {
+      "include": "installer-custom.nsh",
       "installerIcon": "ciadi.ico",
       "uninstallerIcon": "ciadi.ico",
       "installerHeaderIcon": "ciadi.ico",
