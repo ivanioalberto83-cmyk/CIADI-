@@ -192,44 +192,37 @@ async function refreshSupportProposals(){
     }).join('');
   }catch(e){list.innerHTML='<p class="text-amber-800">Não foi possível carregar propostas: '+esc(e.message||'')+'</p>';}
 }
-async function approveSupportProposal(requestId,proposalId,proposalVersion,proposalHash){
+async function decideSupportProposal(requestId,proposalId,proposalVersion,proposalHash,decision){
   if(!isSupportTechnician()){toast('Acesso não autorizado.');return {status:'blocked'};}
+  if(!['approved','rejected'].includes(decision)){toast('Decisão inválida.');return {status:'blocked'};}
   try{
-    const {data:proposal,error}=await sb.from('ciadi_support_proposals').select('id,request_id,version,proposal_hash,status').eq('id',proposalId).maybeSingle();
+    const {data:approvalId,error}=await sb.rpc('ciadi_decide_support_proposal',{
+      p_request_id:requestId,
+      p_proposal_id:proposalId,
+      p_proposal_version:proposalVersion,
+      p_proposal_hash:proposalHash,
+      p_decision:decision
+    });
     if(error)throw error;
-    if(!proposal||proposal.request_id!==requestId||Number(proposal.version)!==Number(proposalVersion)||proposal.proposal_hash!==proposalHash||proposal.status!=='awaiting_approval'){
-      toast('Aprovação recusada: a proposta mudou ou já não está pendente.');
-      return {status:'blocked'};
-    }
-    const {error:approvalError}=await sb.from('ciadi_support_approvals').insert({request_id:requestId,proposal_id:proposalId,proposal_version:proposalVersion,proposal_hash:proposalHash,decision:'approved',approved_by:me.id});
-    if(approvalError)throw approvalError;
-    const {error:updateError}=await sb.from('ciadi_support_proposals').update({status:'approved'}).eq('id',proposalId).eq('version',proposalVersion).eq('proposal_hash',proposalHash);
-    if(updateError)throw updateError;
-    const {error:requestError}=await sb.from('ciadi_support_requests').update({status:'approved',updated_at:new Date().toISOString()}).eq('id',requestId);
-    if(requestError)throw requestError;
-    await audit('support_proposal_approved','ciadi_support_approvals',proposalId,{request_id:requestId,proposal_version:proposalVersion,proposal_hash:proposalHash});
-    toast('Proposta aprovada. A execução continua bloqueada até existir executor verificado.');
+    if(!approvalId)throw new Error('O servidor não confirmou o registo da decisão.');
+    await audit(decision==='approved'?'support_proposal_approved':'support_proposal_rejected','ciadi_support_approvals',proposalId,{
+      request_id:requestId,proposal_version:proposalVersion,proposal_hash:proposalHash,decision,approval_id:approvalId
+    });
+    toast(decision==='approved'
+      ?'Proposta aprovada. A execução continua bloqueada até existir executor verificado.'
+      :'Proposta rejeitada. Nenhuma ação foi executada.');
     await refreshSupportProposals();
-    return {status:'approved'};
-  }catch(e){toast('Aprovação não registada: '+(e.message||''));return {status:'blocked'};}
+    return {status:decision,approvalId};
+  }catch(e){
+    toast((decision==='approved'?'Aprovação':'Rejeição')+' não registada: '+(e.message||'erro desconhecido'));
+    return {status:'blocked'};
+  }
+}
+async function approveSupportProposal(requestId,proposalId,proposalVersion,proposalHash){
+  return decideSupportProposal(requestId,proposalId,proposalVersion,proposalHash,'approved');
 }
 async function rejectSupportProposal(requestId,proposalId,proposalVersion,proposalHash){
-  if(!isSupportTechnician()){toast('Acesso não autorizado.');return {status:'blocked'};}
-  try{
-    const {data:proposal,error}=await sb.from('ciadi_support_proposals').select('id,request_id,version,proposal_hash,status').eq('id',proposalId).maybeSingle();
-    if(error)throw error;
-    if(!proposal||proposal.request_id!==requestId||Number(proposal.version)!==Number(proposalVersion)||proposal.proposal_hash!==proposalHash||proposal.status!=='awaiting_approval')throw new Error('A proposta mudou ou já não está pendente.');
-    const {error:approvalError}=await sb.from('ciadi_support_approvals').insert({request_id:requestId,proposal_id:proposalId,proposal_version:proposalVersion,proposal_hash:proposalHash,decision:'rejected',approved_by:me.id});
-    if(approvalError)throw approvalError;
-    const {error:updateError}=await sb.from('ciadi_support_proposals').update({status:'rejected'}).eq('id',proposalId).eq('version',proposalVersion).eq('proposal_hash',proposalHash);
-    if(updateError)throw updateError;
-    const {error:requestError}=await sb.from('ciadi_support_requests').update({status:'diagnosed',updated_at:new Date().toISOString()}).eq('id',requestId);
-    if(requestError)throw requestError;
-    await audit('support_proposal_rejected','ciadi_support_approvals',proposalId,{request_id:requestId,proposal_version:proposalVersion,proposal_hash:proposalHash});
-    toast('Proposta rejeitada. Nenhuma ação foi executada.');
-    await refreshSupportProposals();
-    return {status:'rejected'};
-  }catch(e){toast('Rejeição não registada: '+(e.message||''));return {status:'blocked'};}
+  return decideSupportProposal(requestId,proposalId,proposalVersion,proposalHash,'rejected');
 }
 async function executeApprovedSupportAction(requestId){
   const result={status:'blocked',reason:'executor_not_configured'};
