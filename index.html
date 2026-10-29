@@ -59,7 +59,7 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
 
-const SUPPORT_EXECUTOR_CONFIGURED = false;
+const SUPPORT_EXECUTOR_TEST_MODE = false;
 
 function isSupportTechnician(){
   return Boolean(me?.id && profile?.ativo===true && profile?.tipo==='suporte_informatica');
@@ -191,7 +191,7 @@ async function refreshSupportProposals(){
     if(!data?.length){list.innerHTML='<p>Ainda não existem propostas.</p>';return;}
     list.innerHTML=data.map(p=>{
       const v=p.proposal||{};
-      const approvalActions=p.status==='awaiting_approval'?'<button class="bg-orange-500 text-white rounded-lg px-3 py-2 font-semibold" onclick="approveSupportProposal(\''+esc(p.request_id)+'\',\''+esc(p.id)+'\','+Number(p.version)+',\''+esc(p.proposal_hash)+'\')">Aprovar proposta exata</button><button class="border rounded-lg px-3 py-2" onclick="rejectSupportProposal(\''+esc(p.request_id)+'\',\''+esc(p.id)+'\','+Number(p.version)+',\''+esc(p.proposal_hash)+'\')">Rejeitar</button>':''; const executionAction=p.status==='approved'?'<button class="border rounded-lg px-3 py-2" onclick="executeApprovedSupportAction(\''+esc(p.request_id)+'\')">Executar ação aprovada</button><span class="text-xs text-amber-800">Executor não homologado; execução bloqueada.</span>':''; const action=(approvalActions||executionAction)?'<div class="flex flex-wrap items-center gap-2 mt-3">'+approvalActions+executionAction+'</div>':'';
+      const approvalActions=p.status==='awaiting_approval'?'<button class="bg-orange-500 text-white rounded-lg px-3 py-2 font-semibold" onclick="approveSupportProposal(\''+esc(p.request_id)+'\',\''+esc(p.id)+'\','+Number(p.version)+',\''+esc(p.proposal_hash)+'\')">Aprovar proposta exata</button><button class="border rounded-lg px-3 py-2" onclick="rejectSupportProposal(\''+esc(p.request_id)+'\',\''+esc(p.id)+'\','+Number(p.version)+',\''+esc(p.proposal_hash)+'\')">Rejeitar</button>':''; const executionAction=p.status==='approved'?'<button class="border rounded-lg px-3 py-2" onclick="executeApprovedSupportAction(\\''+esc(p.request_id)+'\\',\\''+esc(p.id)+'\\','+Number(p.version)+',\\''+esc(p.proposal_hash)+'\\')">Validar proposta (só leitura)</button><span class="text-xs text-amber-800">Executor de teste desativado até configurar base isolada.</span>':''; const action=(approvalActions||executionAction)?'<div class="flex flex-wrap items-center gap-2 mt-3">'+approvalActions+executionAction+'</div>':'';
       return '<article class="border rounded-xl p-4 mb-3"><div class="flex flex-wrap justify-between gap-2"><b>Versão '+Number(p.version)+' · '+esc(supportStatusLabel(p.status))+'</b><span class="text-xs text-slate-500">Hash: '+esc(String(p.proposal_hash||'').slice(0,16))+'…</span></div><p class="mt-3 font-semibold">'+esc(v.summary||'')+'</p><p class="mt-2 text-sm"><b>Âmbito:</b> '+esc(v.scope||'')+'</p><p class="mt-2 text-sm"><b>Risco:</b> '+esc(v.risk||'')+'</p><p class="mt-2 text-sm"><b>Verificação:</b> '+esc(v.verification||'')+'</p><p class="mt-2 text-xs text-slate-500">Origem: '+(v.source==='manual'?'Proposta manual':'Proposta assistida')+'. '+(v.ai_status==='not_configured'?'Serviço de IA não configurado.':'')+'</p>'+action+'</article>';
     }).join('');
   }catch(e){list.innerHTML='<p class="text-amber-800">Não foi possível carregar propostas: '+esc(e.message||'')+'</p>';}
@@ -228,16 +228,37 @@ async function approveSupportProposal(requestId,proposalId,proposalVersion,propo
 async function rejectSupportProposal(requestId,proposalId,proposalVersion,proposalHash){
   return decideSupportProposal(requestId,proposalId,proposalVersion,proposalHash,'rejected');
 }
-async function executeApprovedSupportAction(requestId){
-  const result={status:'blocked',reason:'executor_not_configured'};
+async function executeApprovedSupportAction(requestId,proposalId,proposalVersion,proposalHash){
+  const result={status:'blocked',reason:'executor_test_mode_disabled'};
   if(!isSupportTechnician()){toast('Execução bloqueada: perfil não autorizado.');return result;}
-  if(!SUPPORT_EXECUTOR_CONFIGURED){
-    await audit('support_execution_blocked','ciadi_support_requests',requestId,{status:'blocked',reason:'executor_not_configured'});
-    toast('Execução bloqueada: não existe executor de servidor verificado.');
+  // Só ativar numa base de homologação isolada após aplicar e testar a migração da branch.
+  // A RPC aceita exclusivamente readonly_validate_proposal e não altera dados de negócio.
+  if(!SUPPORT_EXECUTOR_TEST_MODE){
+    await audit('support_execution_blocked','ciadi_support_requests',requestId,{status:'blocked',reason:'executor_test_mode_disabled',proposal_id:proposalId});
+    toast('Executor bloqueado: configure primeiro a base de homologação isolada. Nenhuma ação foi executada.');
     return result;
   }
-  toast('Execução bloqueada: o executor ainda não foi homologado.');
-  return result;
+  try{
+    const {data,error}=await sb.rpc('ciadi_execute_approved_support_action',{
+      p_request_id:requestId,
+      p_proposal_id:proposalId,
+      p_proposal_version:proposalVersion,
+      p_proposal_hash:proposalHash,
+      p_action_code:'readonly_validate_proposal'
+    });
+    if(error)throw error;
+    if(!data?.execution_id||!['completed','failed'].includes(data.status))throw new Error('O servidor não confirmou a validação.');
+    await audit('support_readonly_validation_'+data.status,'ciadi_support_executions',data.execution_id,{
+      request_id:requestId,proposal_id:proposalId,proposal_version:proposalVersion,
+      proposal_hash:proposalHash,replayed:Boolean(data.replayed),result:data.result
+    });
+    toast(data.status==='completed'?'Validação de leitura concluída; dados de negócio não foram alterados.':'Validação concluída com falhas; nenhum dado de negócio foi alterado.');
+    await refreshSupportProposals();
+    return data;
+  }catch(e){
+    toast('Validação não executada: '+(e.message||'erro desconhecido'));
+    return {status:'blocked',reason:'executor_rpc_failed'};
+  }
 }
 
 async function go(id){const c=document.getElementById('content');if(!canAccessModule(id)){current='';nav();c.innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b><p class="text-slate-500 mt-2">O seu perfil não tem permissão para abrir este módulo.</p></div>';return;}current=id;nav();c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='centro_suporte')return supportCentre(); if(id==='agente_ia_suporte')return aiSupport(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='aprovisionamento')return procurementHub(); if(id==='rh')return rhHub(); if(id.endsWith('_rh'))return rhTable(id); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
