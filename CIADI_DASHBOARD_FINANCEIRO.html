@@ -26,7 +26,7 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu=[['overview','Visão geral'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['clientes','Clientes'],['fornecedores','Fornecedores'],['caixa','💵 Caixa & Tesouraria'],['sos','🚨 Alertas'],['aprovisionamento','📦 Aprovisionamento'],['rh','👥 Recursos Humanos'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
+const menu=[['overview','Visão geral'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['clientes','Clientes'],['fornecedores','Fornecedores'],['caixa','💵 Caixa & Tesouraria'],['sos','🚨 Alertas'],['aprovisionamento','📦 Aprovisionamento'],['rh','👥 Recursos Humanos'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)'],['centro_suporte','🛠️ Centro de Suporte Informático'],['agente_ia_suporte','🤖 Agente de IA']];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 // Perfis de autenticação vêm exclusivamente de public.perfis no Supabase.
@@ -58,7 +58,192 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
  function visibleMenu(){ return menu.filter(([id])=>canAccessModule(id)); }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){const c=document.getElementById('content');if(!canAccessModule(id)){current='';nav();c.innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b><p class="text-slate-500 mt-2">O seu perfil não tem permissão para abrir este módulo.</p></div>';return;}current=id;nav();c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='aprovisionamento')return procurementHub(); if(id==='rh')return rhHub(); if(id.endsWith('_rh'))return rhTable(id); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+
+const SUPPORT_EXECUTOR_CONFIGURED = false;
+
+function isSupportTechnician(){
+  return Boolean(me?.id && profile?.ativo===true && profile?.tipo==='suporte_informatica');
+}
+function supportStatusLabel(status){
+  return ({open:'Aberto',diagnosed:'Diagnóstico preparado',awaiting_approval:'A aguardar aprovação',approved:'Aprovado',blocked:'Execução bloqueada',completed:'Concluído',failed:'Falhou',rejected:'Rejeitado'})[status]||status||'—';
+}
+function supportGuardMessage(){
+  return '<div class="card p-5 border border-amber-200"><b>Acesso restrito ao Suporte Informático.</b><p class="mt-2 text-sm text-slate-600">A sessão deve pertencer a um perfil ativo suporte_informatica no Supabase. O perfil do Setup não concede permissões.</p></div>';
+}
+async function supportCentre(){
+  const c=document.getElementById('content');
+  if(!isSupportTechnician()){c.innerHTML=supportGuardMessage();return;}
+  c.innerHTML=`<div class="space-y-5">
+    <div class="card p-5 md:p-6"><div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-wider text-orange-600">CIADI · Suporte Informático</p><h2 class="text-2xl font-bold mt-1">Centro de Suporte Informático</h2><p class="text-sm text-slate-500 mt-2">Registe o problema e acompanhe o diagnóstico. Ações técnicas não são executadas automaticamente.</p></div><button class="border rounded-xl px-4 py-2 font-semibold" onclick="go('agente_ia_suporte')">Abrir Agente de IA</button></div></div>
+    <form id="supportRequestForm" class="card p-5 grid md:grid-cols-2 gap-4">
+      <label class="block"><span class="text-sm font-semibold">Assunto</span><input id="supportTitle" required maxlength="160" class="mt-1 w-full border rounded-xl p-3" placeholder="Ex.: erro ao guardar cliente"></label>
+      <label class="block"><span class="text-sm font-semibold">Impacto</span><select id="supportImpact" class="mt-1 w-full border rounded-xl p-3"><option value="normal">Normal</option><option value="high">Elevado</option><option value="critical">Crítico</option></select></label>
+      <label class="block md:col-span-2"><span class="text-sm font-semibold">Descrição do problema</span><textarea id="supportDescription" required rows="4" maxlength="5000" class="mt-1 w-full border rounded-xl p-3" placeholder="Descreva os passos, o resultado esperado e a mensagem de erro. Não inclua palavras-passe, tokens ou dados clínicos desnecessários."></textarea></label>
+      <div class="md:col-span-2 flex flex-wrap items-center gap-3"><button class="bg-orange-500 text-white rounded-xl px-5 py-3 font-bold" type="submit">Registar pedido</button><span class="text-xs text-slate-500">A gravação depende da migração de suporte aprovada e das políticas RLS.</span></div>
+    </form>
+    <div class="card p-5"><div class="flex items-center justify-between gap-3"><h3 class="text-lg font-bold">Pedidos recentes</h3><button class="border rounded-lg px-3 py-2 text-sm" onclick="refreshSupportRequests()">Atualizar</button></div><div id="supportRequestList" class="mt-4 text-sm text-slate-500">A carregar pedidos…</div></div>
+  </div>`;
+  document.getElementById('supportRequestForm').addEventListener('submit',createSupportRequest);
+  await refreshSupportRequests();
+}
+async function refreshSupportRequests(){
+  const list=document.getElementById('supportRequestList');
+  if(!list||!isSupportTechnician())return;
+  list.textContent='A carregar pedidos…';
+  try{
+    const {data,error}=await sb.from('ciadi_support_requests').select('id,title,impact,status,created_at,created_by').order('created_at',{ascending:false}).limit(50);
+    if(error)throw error;
+    if(!data?.length){list.innerHTML='<p>Ainda não existem pedidos de suporte.</p>';return;}
+    list.innerHTML='<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="py-2 pr-3">Assunto</th><th class="py-2 pr-3">Impacto</th><th class="py-2 pr-3">Estado</th><th class="py-2">Ação</th></tr></thead><tbody>'+data.map(x=>'<tr class="border-b"><td class="py-3 pr-3 font-semibold">'+esc(x.title)+'</td><td class="py-3 pr-3">'+esc(x.impact)+'</td><td class="py-3 pr-3">'+esc(supportStatusLabel(x.status))+'</td><td class="py-3"><button class="text-orange-700 font-bold underline" onclick="openSupportRequest(\''+esc(x.id)+'\')">Preparar proposta</button></td></tr>').join('')+'</tbody></table></div>';
+  }catch(e){
+    list.innerHTML='<div class="rounded-xl bg-amber-50 border border-amber-200 p-4 text-amber-900"><b>Centro ainda não ligado à base de dados.</b><p class="mt-1">'+esc(e.message||'Não foi possível carregar os pedidos.')+'</p><p class="mt-2 text-sm">A estrutura de suporte está preparada apenas na branch. Não foi aplicada qualquer migração em produção.</p></div>';
+  }
+}
+async function createSupportRequest(event){
+  event.preventDefault();
+  if(!isSupportTechnician()){toast('Acesso não autorizado.');return;}
+  const title=document.getElementById('supportTitle').value.trim();
+  const description=document.getElementById('supportDescription').value.trim();
+  const impact=document.getElementById('supportImpact').value;
+  if(!title||!description){toast('Preencha o assunto e a descrição.');return;}
+  const button=document.querySelector('#supportRequestForm button[type="submit"]');
+  if(button){button.disabled=true;button.textContent='A registar…';}
+  try{
+    const {data,error}=await sb.from('ciadi_support_requests').insert({title,description,impact,status:'open',created_by:me.id}).select('id').single();
+    if(error)throw error;
+    await audit('support_request_created','ciadi_support_requests',data.id,{impact});
+    document.getElementById('supportRequestForm').reset();
+    toast('Pedido registado.');
+    await refreshSupportRequests();
+  }catch(e){toast('Pedido não registado: '+(e.message||'base de dados indisponível.'));}
+  finally{if(button){button.disabled=false;button.textContent='Registar pedido';}}
+}
+function openSupportRequest(requestId){
+  if(!isSupportTechnician()){toast('Acesso não autorizado.');return;}
+  sessionStorage.setItem('ciadi_support_request_id',requestId);
+  go('agente_ia_suporte');
+}
+async function aiSupport(){
+  const c=document.getElementById('content');
+  if(!isSupportTechnician()){c.innerHTML=supportGuardMessage();return;}
+  let requests=[];
+  try{
+    const {data,error}=await sb.from('ciadi_support_requests').select('id,title,status').order('created_at',{ascending:false}).limit(50);
+    if(error)throw error;requests=data||[];
+  }catch(e){
+    c.innerHTML='<div class="card p-6"><h2 class="text-2xl font-bold">Agente de IA — Suporte</h2><p class="mt-3 text-amber-800">A base de dados de suporte ainda não está ligada. '+esc(e.message||'')+'</p><p class="mt-2 text-sm text-slate-500">Não existe uma integração de IA/execução confirmada neste repositório. Nenhuma ação será executada nesta fase.</p><button class="mt-4 border rounded-xl px-4 py-2" onclick="go(\'centro_suporte\')">Voltar ao Centro</button></div>';return;
+  }
+  const saved=sessionStorage.getItem('ciadi_support_request_id')||'';
+  c.innerHTML=`<div class="space-y-5">
+    <div class="card p-5"><p class="text-xs font-bold uppercase tracking-wider text-orange-600">Diagnóstico e aprovação</p><h2 class="text-2xl font-bold mt-1">Agente de IA — Suporte</h2><p class="text-sm text-slate-500 mt-2">A ligação a um serviço de IA ainda não foi verificada. Por agora, o técnico pode preparar uma proposta manual; a interface não executa comandos nem alterações.</p><div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900"><b>Execução real bloqueada.</b> A proposta exige aprovação explícita, mas não há executor de servidor verificado.</div></div>
+    <form id="supportProposalForm" class="card p-5 grid md:grid-cols-2 gap-4">
+      <label class="block md:col-span-2"><span class="text-sm font-semibold">Pedido de suporte</span><select id="supportProposalRequest" required class="mt-1 w-full border rounded-xl p-3"><option value="">Selecione um pedido</option>${requests.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===saved?'selected':'')+'>'+esc(x.title)+' — '+esc(supportStatusLabel(x.status))+'</option>').join('')}</select></label>
+      <label class="block md:col-span-2"><span class="text-sm font-semibold">Diagnóstico / ação proposta</span><textarea id="supportProposalSummary" required rows="3" maxlength="3000" class="mt-1 w-full border rounded-xl p-3" placeholder="Descreva a causa provável e a ação proposta."></textarea></label>
+      <label class="block"><span class="text-sm font-semibold">Âmbito exato</span><textarea id="supportProposalScope" required rows="3" maxlength="2000" class="mt-1 w-full border rounded-xl p-3" placeholder="Módulo, ficheiros ou recursos afetados."></textarea></label>
+      <label class="block"><span class="text-sm font-semibold">Risco e impacto</span><textarea id="supportProposalRisk" required rows="3" maxlength="2000" class="mt-1 w-full border rounded-xl p-3" placeholder="Riscos, pré-condições e impacto esperado."></textarea></label>
+      <label class="block md:col-span-2"><span class="text-sm font-semibold">Passos de verificação</span><textarea id="supportProposalChecks" required rows="3" maxlength="2000" class="mt-1 w-full border rounded-xl p-3" placeholder="Como confirmar o resultado sem afetar produção."></textarea></label>
+      <div class="md:col-span-2"><button type="submit" class="bg-orange-500 text-white rounded-xl px-5 py-3 font-bold">Guardar proposta para aprovação</button></div>
+    </form>
+    <div class="card p-5"><h3 class="text-lg font-bold">Propostas existentes</h3><div id="supportProposalList" class="mt-4 text-sm text-slate-500">A carregar propostas…</div></div>
+    <button class="border rounded-xl px-4 py-2" onclick="go('centro_suporte')">Voltar ao Centro</button>
+  </div>`;
+  document.getElementById('supportProposalForm').addEventListener('submit',createSupportProposal);
+  await refreshSupportProposals();
+}
+async function supportProposalHash(proposal){
+  if(!window.crypto?.subtle||typeof TextEncoder==='undefined')throw new Error('Não é possível calcular a impressão digital da proposta neste ambiente.');
+  const bytes=new TextEncoder().encode(JSON.stringify(proposal));
+  const digest=await window.crypto.subtle.digest('SHA-256',bytes);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function createSupportProposal(event){
+  event.preventDefault();
+  if(!isSupportTechnician()){toast('Acesso não autorizado.');return;}
+  const requestId=document.getElementById('supportProposalRequest').value;
+  const proposal={summary:document.getElementById('supportProposalSummary').value.trim(),scope:document.getElementById('supportProposalScope').value.trim(),risk:document.getElementById('supportProposalRisk').value.trim(),verification:document.getElementById('supportProposalChecks').value.trim(),source:'manual',ai_status:'not_configured'};
+  if(!requestId||!proposal.summary||!proposal.scope||!proposal.risk||!proposal.verification){toast('Preencha todos os campos da proposta.');return;}
+  try{
+    const latest=await sb.from('ciadi_support_proposals').select('version').eq('request_id',requestId).order('version',{ascending:false}).limit(1).maybeSingle();
+    if(latest.error)throw latest.error;
+    const version=(latest.data?.version||0)+1;
+    const proposalHash=await supportProposalHash(proposal);
+    const {data,error}=await sb.from('ciadi_support_proposals').insert({request_id:requestId,version,proposal,proposal_hash:proposalHash,status:'awaiting_approval',created_by:me.id}).select('id').single();
+    if(error)throw error;
+    const update=await sb.from('ciadi_support_requests').update({status:'awaiting_approval',updated_at:new Date().toISOString()}).eq('id',requestId);
+    if(update.error)throw update.error;
+    await audit('support_proposal_created','ciadi_support_proposals',data.id,{request_id:requestId,version,proposal_hash:proposalHash,source:'manual'});
+    document.getElementById('supportProposalForm').reset();
+    sessionStorage.setItem('ciadi_support_request_id',requestId);
+    toast('Proposta guardada. A aprovação não executa a ação.');
+    await refreshSupportProposals();
+  }catch(e){toast('Proposta não guardada: '+(e.message||'base de dados indisponível.'));}
+}
+async function refreshSupportProposals(){
+  const list=document.getElementById('supportProposalList');
+  if(!list||!isSupportTechnician())return;
+  try{
+    const {data,error}=await sb.from('ciadi_support_proposals').select('id,request_id,version,proposal,proposal_hash,status,created_at').order('created_at',{ascending:false}).limit(50);
+    if(error)throw error;
+    if(!data?.length){list.innerHTML='<p>Ainda não existem propostas.</p>';return;}
+    list.innerHTML=data.map(p=>{
+      const v=p.proposal||{};
+      const action=p.status==='awaiting_approval'?'<div class="flex flex-wrap gap-2 mt-3"><button class="bg-orange-500 text-white rounded-lg px-3 py-2 font-semibold" onclick="approveSupportProposal(\''+esc(p.request_id)+'\',\''+esc(p.id)+'\','+Number(p.version)+',\''+esc(p.proposal_hash)+'\')">Aprovar proposta exata</button><button class="border rounded-lg px-3 py-2" onclick="rejectSupportProposal(\''+esc(p.request_id)+'\',\''+esc(p.id)+'\','+Number(p.version)+',\''+esc(p.proposal_hash)+'\')">Rejeitar</button><button class="border rounded-lg px-3 py-2" onclick="executeApprovedSupportAction(\''+esc(p.request_id)+'\')">Executar ação</button></div>':'';
+      return '<article class="border rounded-xl p-4 mb-3"><div class="flex flex-wrap justify-between gap-2"><b>Versão '+Number(p.version)+' · '+esc(supportStatusLabel(p.status))+'</b><span class="text-xs text-slate-500">Hash: '+esc(String(p.proposal_hash||'').slice(0,16))+'…</span></div><p class="mt-3 font-semibold">'+esc(v.summary||'')+'</p><p class="mt-2 text-sm"><b>Âmbito:</b> '+esc(v.scope||'')+'</p><p class="mt-2 text-sm"><b>Risco:</b> '+esc(v.risk||'')+'</p><p class="mt-2 text-sm"><b>Verificação:</b> '+esc(v.verification||'')+'</p><p class="mt-2 text-xs text-slate-500">Origem: '+(v.source==='manual'?'Proposta manual':'Proposta assistida')+'. '+(v.ai_status==='not_configured'?'Serviço de IA não configurado.':'')+'</p>'+action+'</article>';
+    }).join('');
+  }catch(e){list.innerHTML='<p class="text-amber-800">Não foi possível carregar propostas: '+esc(e.message||'')+'</p>';}
+}
+async function approveSupportProposal(requestId,proposalId,proposalVersion,proposalHash){
+  if(!isSupportTechnician()){toast('Acesso não autorizado.');return {status:'blocked'};}
+  try{
+    const {data:proposal,error}=await sb.from('ciadi_support_proposals').select('id,request_id,version,proposal_hash,status').eq('id',proposalId).maybeSingle();
+    if(error)throw error;
+    if(!proposal||proposal.request_id!==requestId||Number(proposal.version)!==Number(proposalVersion)||proposal.proposal_hash!==proposalHash||proposal.status!=='awaiting_approval'){
+      toast('Aprovação recusada: a proposta mudou ou já não está pendente.');
+      return {status:'blocked'};
+    }
+    const {error:approvalError}=await sb.from('ciadi_support_approvals').insert({request_id:requestId,proposal_id:proposalId,proposal_version:proposalVersion,proposal_hash:proposalHash,decision:'approved',approved_by:me.id});
+    if(approvalError)throw approvalError;
+    const {error:updateError}=await sb.from('ciadi_support_proposals').update({status:'approved'}).eq('id',proposalId).eq('version',proposalVersion).eq('proposal_hash',proposalHash);
+    if(updateError)throw updateError;
+    const {error:requestError}=await sb.from('ciadi_support_requests').update({status:'approved',updated_at:new Date().toISOString()}).eq('id',requestId);
+    if(requestError)throw requestError;
+    await audit('support_proposal_approved','ciadi_support_approvals',proposalId,{request_id:requestId,proposal_version:proposalVersion,proposal_hash:proposalHash});
+    toast('Proposta aprovada. A execução continua bloqueada até existir executor verificado.');
+    await refreshSupportProposals();
+    return {status:'approved'};
+  }catch(e){toast('Aprovação não registada: '+(e.message||''));return {status:'blocked'};}
+}
+async function rejectSupportProposal(requestId,proposalId,proposalVersion,proposalHash){
+  if(!isSupportTechnician()){toast('Acesso não autorizado.');return {status:'blocked'};}
+  try{
+    const {data:proposal,error}=await sb.from('ciadi_support_proposals').select('id,request_id,version,proposal_hash,status').eq('id',proposalId).maybeSingle();
+    if(error)throw error;
+    if(!proposal||proposal.request_id!==requestId||Number(proposal.version)!==Number(proposalVersion)||proposal.proposal_hash!==proposalHash||proposal.status!=='awaiting_approval')throw new Error('A proposta mudou ou já não está pendente.');
+    const {error:approvalError}=await sb.from('ciadi_support_approvals').insert({request_id:requestId,proposal_id:proposalId,proposal_version:proposalVersion,proposal_hash:proposalHash,decision:'rejected',approved_by:me.id});
+    if(approvalError)throw approvalError;
+    const {error:updateError}=await sb.from('ciadi_support_proposals').update({status:'rejected'}).eq('id',proposalId).eq('version',proposalVersion).eq('proposal_hash',proposalHash);
+    if(updateError)throw updateError;
+    const {error:requestError}=await sb.from('ciadi_support_requests').update({status:'diagnosed',updated_at:new Date().toISOString()}).eq('id',requestId);
+    if(requestError)throw requestError;
+    await audit('support_proposal_rejected','ciadi_support_approvals',proposalId,{request_id:requestId,proposal_version:proposalVersion,proposal_hash:proposalHash});
+    toast('Proposta rejeitada. Nenhuma ação foi executada.');
+    await refreshSupportProposals();
+    return {status:'rejected'};
+  }catch(e){toast('Rejeição não registada: '+(e.message||''));return {status:'blocked'};}
+}
+async function executeApprovedSupportAction(requestId){
+  const result={status:'blocked',reason:'executor_not_configured'};
+  if(!isSupportTechnician()){toast('Execução bloqueada: perfil não autorizado.');return result;}
+  if(!SUPPORT_EXECUTOR_CONFIGURED){
+    await audit('support_execution_blocked','ciadi_support_requests',requestId,{status:'blocked',reason:'executor_not_configured'});
+    toast('Execução bloqueada: não existe executor de servidor verificado.');
+    return result;
+  }
+  toast('Execução bloqueada: o executor ainda não foi homologado.');
+  return result;
+}
+
+async function go(id){const c=document.getElementById('content');if(!canAccessModule(id)){current='';nav();c.innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b><p class="text-slate-500 mt-2">O seu perfil não tem permissão para abrir este módulo.</p></div>';return;}current=id;nav();c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='centro_suporte')return supportCentre(); if(id==='agente_ia_suporte')return aiSupport(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='aprovisionamento')return procurementHub(); if(id==='rh')return rhHub(); if(id.endsWith('_rh'))return rhTable(id); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
   const isManager=profile?.tipo==='admin';
