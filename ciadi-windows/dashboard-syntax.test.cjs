@@ -18,3 +18,24 @@ test('dashboard HTML has valid inline JavaScript syntax', () => {
     );
   }
 });
+
+test('support centre and AI agent are registered as technician-only routes', () => {
+  const htmlPath = path.join(__dirname, '..', 'CIADI_DASHBOARD_FINANCEIRO.html');
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  assert.match(html, /\['centro_suporte',\s*['"][^'"]*Centro de Suporte Informático['"]\]/);
+  assert.match(html, /\['agente_ia_suporte',\s*['"][^'"]*Agente de IA['"]\]/);
+  assert.match(html, /if\s*\(id\s*===\s*['"]centro_suporte['"]\)\s*return\s+supportCentre\(\)/);
+  assert.match(html, /if\s*\(id\s*===\s*['"]agente_ia_suporte['"]\)\s*return\s+aiSupport\(\)/);
+  assert.match(html, /function\s+supportCentre\s*\(/);
+  assert.match(html, /function\s+aiSupport\s*\(/);
+});
+
+test('AI support proposal requires explicit approval and remains blocked without a verified executor', () => {
+  const htmlPath = path.join(__dirname, '..', 'CIADI_DASHBOARD_FINANCEIRO.html');
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  assert.match(html, /function\s+approveSupportProposal\s*\(/);
+  assert.match(html, /async\s+function\s+executeApprovedSupportAction\s*\(/);
+  assert.match(html, /SUPPORT_EXECUTOR_CONFIGURED\s*=\s*false/);
+  assert.match(html, /proposalHash/);
+  assert.match(html, /status\s*[:=]\s*['"]blocked['"]/);
+});
