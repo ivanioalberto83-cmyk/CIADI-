@@ -38,7 +38,7 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
  const MODULE_ACCESS = Object.freeze({
    // Admin tem gestão global do CIADI, mas nunca entra no Centro de Suporte Informático.
    admin: '*',
-   suporte: ['overview','instituicao','auditoria','centro_suporte_informatico','suporte_informatico','agente_ia_suporte'],
+   suporte: ['overview','instituicao','auditoria','centro_suporte','centro_suporte_informatico','suporte_informatico','agente_ia','agente_ia_suporte'],
    // Receção usa o perfil operador existente até a migração formal de perfis ser validada.
    rececao: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes'],
    operador: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes'],
