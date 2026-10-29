@@ -131,7 +131,7 @@ jobs:
           from pathlib import Path
           migration = Path("supabase/migrations/20261029120000_ciadi_support_requests_approvals.sql").read_text(encoding="utf-8").lower()
           dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
-          approval_handlers = dashboard[dashboard.index("async function approveSupportProposal"):dashboard.index("async function executeApprovedSupportAction")]
+          approval_handlers = dashboard[dashboard.index("async function decideSupportProposal"):dashboard.index("async function executeApprovedSupportAction")]
           checks = {
               "decision RPC is defined server-side": "create or replace function public.ciadi_decide_support_proposal(" in migration,
               "decision RPC is security definer with fixed search path": "security definer" in migration and "set search_path = pg_catalog, public" in migration,
