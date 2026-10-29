@@ -771,14 +771,23 @@ function printTriage(r){
 }
 
 async function boot(){
+  const login=document.getElementById('login');
+  const appView=document.getElementById('app');
+  const message=document.getElementById('loginMsg');
+  // A sessão local não deve manter o Dashboard aberto entre arranques,
+  // mesmo que o utilizador reinstale o Setup. A autenticação é feita de novo.
+  login.classList.remove('hiddenx');
+  appView.classList.add('hiddenx');
   try{
     initSupabase();
-    const {data,error}=await sb.auth.getSession();
+    const {error}=await sb.auth.signOut({scope:'local'});
     if(error) throw error;
-    if(data?.session) await enter(data.session.user);
+    me=null;
+    profile=null;
+    message.textContent='Introduza as suas credenciais para continuar.';
   }catch(e){
     console.error('CIADI boot',e);
-    document.getElementById('loginMsg').textContent='Não foi possível iniciar o acesso: '+(e.message||e);
+    message.textContent='A sessão anterior não pôde ser limpa localmente. Feche e volte a abrir a aplicação. Detalhe: '+(e.message||e);
   }
 }
 async function enter(u){
