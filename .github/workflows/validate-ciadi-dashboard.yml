@@ -5,14 +5,29 @@ on:
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
+      - 'supabase/migrations/20261029120000_ciadi_support_requests_approvals.sql'
+      - 'docs/ESPECIFICACAO-AGENTE-IA-SUPORTE-CIADI-2026-10-29.md'
+      - 'docs/AUDITORIA-RLS-SUPORTE-IA-2026-10-29.md'
       - '.github/workflows/validate-ciadi-dashboard.yml'
+      - 'scripts/test_ciadi_support_executor.py'
+      - 'supabase/functions/ciadi-support-agent/index.ts'
+      - 'scripts/test_ciadi_support_agent.py'
+      - 'scripts/test_ciadi_support_migration.py'
   push:
     branches:
       - main
+      - 'audit/**'
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
+      - 'supabase/migrations/20261029120000_ciadi_support_requests_approvals.sql'
+      - 'docs/ESPECIFICACAO-AGENTE-IA-SUPORTE-CIADI-2026-10-29.md'
+      - 'docs/AUDITORIA-RLS-SUPORTE-IA-2026-10-29.md'
       - '.github/workflows/validate-ciadi-dashboard.yml'
+      - 'scripts/test_ciadi_support_executor.py'
+      - 'supabase/functions/ciadi-support-agent/index.ts'
+      - 'scripts/test_ciadi_support_agent.py'
+      - 'scripts/test_ciadi_support_migration.py'
 
 jobs:
   validate:
@@ -57,6 +72,31 @@ jobs:
           Path("/tmp/ciadi-inline.js").write_text("".join(parser.parts), encoding="utf-8")
           PY
           node --check /tmp/ciadi-inline.js
+      - name: Verify centralized role permissions and route guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
+          checks = {
+              "role map is centralized": "const MODULE_ACCESS = Object.freeze({" in dashboard,
+              "admin is global but support center is explicitly blocked": "admin: '*'" in dashboard and "if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte_informatica') return false;" in dashboard,
+              "support-only modules are identified": "const SUPPORT_ONLY_MODULES = Object.freeze(" in dashboard and "'agente_ia_suporte'" in dashboard and "suporte_informatica: ['overview'" in dashboard,
+              "reception has ordered operational modules": "rececao: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes']" in dashboard,
+              "legacy operator follows reception module scope": "operador: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes']" in dashboard,
+              "RH role has dedicated HR modules and alerts": "rh: ['rh','funcionarios_rh','documentos_rh','contratos_rh','ferias_licencas_rh','assiduidade_rh','formacoes_rh','avaliacoes_rh','competencias_rh','beneficios_rh','sos']" in dashboard,
+              "professional has clinical modules and forms": "profissional: ['agendamentos','especialidades','triagens','clinica','documentos']" in dashboard,
+              "menu visibility uses role checks": "return menu.filter(([id])=>canAccessModule(id));" in dashboard,
+              "direct route access is guarded": "if(!canAccessModule(id))" in dashboard,
+              "installer selection does not grant Supabase permissions": "O perfil escolhido no Setup Windows identifica a estação e nunca concede permissões." in dashboard,
+              "patient and responsible roles are not admitted to admin dashboard": "['admin','suporte_informatica','profissional','operador','rececao','rh'].includes(profile.tipo)" in dashboard,
+              "suppliers screen does not pretend a supplier master table exists": "O Supabase não possui uma tabela mestre de fornecedores" in dashboard,
+              "HR screens avoid confidential employee data": "ciadi_funcionario_confidencial" not in dashboard,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
       - name: Verify integration entry points and public-key safety
         run: |
           python - <<'PY'
@@ -74,3 +114,95 @@ jobs:
           if not all(checks.values()):
               raise SystemExit(1)
           PY
+
+      - name: Verify support centre and AI approval boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
+          checks = {
+              "support centre menu entry exists": "Centro de Suporte Informático" in dashboard,
+              "AI support menu entry exists": "Agente de IA" in dashboard,
+              "support centre route dispatch exists": "return supportCentre()" in dashboard,
+              "AI support route dispatch exists": "return aiSupport()" in dashboard,
+              "approval handler exists": "function approveSupportProposal(" in dashboard,
+              "execution handler exists": "async function executeApprovedSupportAction(" in dashboard,
+              "test executor stays disabled until isolated DB is ready": "const SUPPORT_EXECUTOR_TEST_MODE = false" in dashboard,
+              "support-only route guard remains": "if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte_informatica') return false;" in dashboard,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
+
+      - name: Verify server-enforced support decisions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          migration = Path("supabase/migrations/20261029120000_ciadi_support_requests_approvals.sql").read_text(encoding="utf-8").lower()
+          dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
+          approval_handlers = dashboard[dashboard.index("async function decideSupportProposal"):dashboard.index("async function executeApprovedSupportAction")]
+          proposal_handler = dashboard[dashboard.index("async function createSupportProposal"):dashboard.index("async function refreshSupportProposals")]
+          checks = {
+              "proposal creation RPC is defined server-side": "create or replace function public.ciadi_create_support_proposal(" in migration,
+              "decision RPC is defined server-side": "create or replace function public.ciadi_decide_support_proposal(" in migration,
+              "decision RPC is security definer with fixed search path": "security definer" in migration and "set search_path = pg_catalog, public" in migration,
+              "direct request updates are revoked": "revoke update on public.ciadi_support_requests from authenticated" in migration,
+              "direct proposal inserts are revoked": "revoke insert on public.ciadi_support_proposals from authenticated" in migration,
+              "direct proposal updates are revoked": "revoke update on public.ciadi_support_proposals from authenticated" in migration,
+              "direct approval inserts are revoked": "revoke insert on public.ciadi_support_approvals from authenticated" in migration,
+              "same authenticated technician may decide explicitly": "approved_by" in migration and "auth.uid()" in migration and "p_decision" in migration and "created_by <> auth.uid()" not in migration,
+              "dashboard creates proposals through server RPC": "sb.rpc('ciadi_create_support_proposal'" in proposal_handler,
+              "proposal handler avoids direct inserts and request updates": "sb.from('ciadi_support_proposals').insert" not in proposal_handler and "sb.from('ciadi_support_requests').update" not in proposal_handler,
+              "dashboard uses atomic server decision RPC": "sb.rpc('ciadi_decide_support_proposal'" in approval_handlers,
+              "dashboard no longer writes approval and status in separate calls": "sb.from('ciadi_support_approvals').insert" not in approval_handlers and "sb.from('ciadi_support_proposals').update" not in approval_handlers and "sb.from('ciadi_support_requests').update" not in approval_handlers,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
+
+      - name: Verify branch-only support schema and RLS guardrails
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          migration = Path("supabase/migrations/20261029120000_ciadi_support_requests_approvals.sql").read_text(encoding="utf-8")
+          dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
+          checks = {
+              "support requests table is isolated": "create table if not exists public.ciadi_support_requests" in migration,
+              "proposal versions store immutable hash": "proposal_hash text not null" in migration and "ciadi_support_proposal_guard" in migration,
+              "approval records bind proposal version and hash": "proposal_version integer not null" in migration and "decision text not null check (decision in ('approved', 'rejected'))" in migration,
+              "RLS enabled for all support tables": migration.count("enable row level security") >= 3,
+              "RLS checks active support profile": "p.tipo = 'suporte_informatica'" in migration and "p.ativo is true" in migration,
+              "no delete policy is granted for support records": "for delete" not in migration.lower() and "grant delete" not in migration.lower(),
+              "shared staff helpers are not altered": "ciadi_finance_staff" not in migration and "is_staff()" not in migration,
+              "test executor remains disabled until isolated homologation": "const SUPPORT_EXECUTOR_TEST_MODE = false" in dashboard,
+              "support execution returns blocked until test mode is enabled": "reason:'executor_test_mode_disabled'" in dashboard,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
+
+
+      - name: Verify safe support executor contract
+        run: python scripts/test_ciadi_support_executor.py
+
+
+      - name: Check Supabase support agent TypeScript
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase support agent
+        run: deno check supabase/functions/ciadi-support-agent/index.ts
+
+      - name: Verify authenticated Supabase support agent guardrails
+        run: python scripts/test_ciadi_support_agent.py
+
+      - name: Install PostgreSQL parser for migration validation
+        run: python -m pip install --disable-pip-version-check pglast
+      - name: Parse and verify support migration
+        run: python scripts/test_ciadi_support_migration.py

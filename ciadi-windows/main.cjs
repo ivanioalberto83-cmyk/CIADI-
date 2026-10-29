@@ -1,9 +1,23 @@
 const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
+const { getStationProfile } = require('./station-profile.cjs');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let biometricWindow;
+
+function getStationTitle() {
+  try {
+    const base = process.env.LOCALAPPDATA || app.getPath('userData');
+    const configPath = path.join(base, 'CIADI', 'station-profile.ini');
+    const station = getStationProfile(fs.readFileSync(configPath, 'utf8'));
+    return station ? `CIADI Dashboard — Estação: ${station.label}` : 'CIADI Dashboard — Estação não identificada';
+  } catch {
+    return 'CIADI Dashboard — Estação não identificada';
+  }
+}
+
 function openBiometricWindow() {
   if (biometricWindow && !biometricWindow.isDestroyed()) { biometricWindow.focus(); return; }
   biometricWindow = new BrowserWindow({ width: 1120, height: 820, minWidth: 760, minHeight: 600, title: 'CIADI — Assiduidade Biométrica (K20 Pro)', backgroundColor: '#fbfdff', webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
@@ -18,7 +32,7 @@ function installApplicationMenu() {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440, height: 940, minWidth: 1024, minHeight: 700,
-    title: 'CIADI Dashboard', backgroundColor: '#fbfdff',
+    title: getStationTitle(), backgroundColor: '#fbfdff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false, sandbox: true
