@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - 'audit/**'
     tags:
       - 'ciadi-v*'
 
@@ -74,6 +75,10 @@ jobs:
       - name: Instalar dependências
         working-directory: ciadi-windows
         run: npm install --no-audit
+
+      - name: Testar perfil da estação
+        working-directory: ciadi-windows
+        run: npm test
 
       - name: Compilar Setup.exe
         working-directory: ciadi-windows
