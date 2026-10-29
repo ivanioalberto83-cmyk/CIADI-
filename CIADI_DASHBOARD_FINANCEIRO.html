@@ -42,7 +42,7 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
    // Receção usa o perfil operador existente até a migração formal de perfis ser validada.
    operador: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes'],
    // RH e Suporte são tipos de perfil previstos na aplicação; só ativar em produção após migração/RLS.
-   rh: ['rh','documentos_rh','contratos_rh','ferias_licencas_rh','assiduidade_rh','formacoes_rh','avaliacoes_rh','competencias_rh','beneficios_rh','sos'],
+   rh: ['rh','funcionarios_rh','documentos_rh','contratos_rh','ferias_licencas_rh','assiduidade_rh','formacoes_rh','avaliacoes_rh','competencias_rh','beneficios_rh','sos'],
    profissional: ['agendamentos','especialidades','triagens','clinica','documentos']
  });
  function canAccessModule(id){
@@ -158,7 +158,7 @@ async function siteTriageRequests(){
   await refresh();
 }
 async function sosAlerts(){
-  if(!['admin','operador'].includes(profile?.tipo)){ 
+  if(!['admin','operador','rh'].includes(profile?.tipo)){ 
     document.getElementById('content').innerHTML='<div class="card p-6"><h2 class="text-xl font-black">Alertas SOS</h2><p class="mt-2 text-red-700">Acesso reservado à gestão autorizada.</p></div>';
     return;
   }
@@ -295,7 +295,7 @@ async function procurementHub(){
 }
 async function rhHub(){
   const defs=[
-    ['Funcionários','ciadi_funcionarios','rh_funcionarios'],
+    ['Funcionários','ciadi_funcionarios','funcionarios_rh'],
     ['Documentos de RH','ciadi_funcionario_documentos','documentos_rh'],
     ['Contratos','ciadi_funcionario_contratos','contratos_rh'],
     ['Férias e licenças','ciadi_funcionario_ferias_licencas','ferias_licencas_rh'],
@@ -876,7 +876,7 @@ async function enter(u){
     profile=q.data;
     if(!profile){ await sb.auth.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
     if(profile.ativo!==true){ await sb.auth.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
-    if(!['admin','suporte','profissional','operador'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso ao Dashboard administrativo.'); }
+    if(!['admin','suporte','profissional','operador','rh'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso ao Dashboard administrativo.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
