@@ -149,10 +149,10 @@ create policy ciadi_support_approvals_insert_support
     and exists (
       select 1
       from public.ciadi_support_proposals p
-      where p.id = proposal_id
-        and p.request_id = request_id
-        and p.version = proposal_version
-        and p.proposal_hash = proposal_hash
+      where p.id = ciadi_support_approvals.proposal_id
+        and p.request_id = ciadi_support_approvals.request_id
+        and p.version = ciadi_support_approvals.proposal_version
+        and p.proposal_hash = ciadi_support_approvals.proposal_hash
         and p.status = 'awaiting_approval'
     )
   );
