@@ -34,12 +34,13 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
  // Princípio de privilégio mínimo: módulos com listagens globais de pacientes,
  // profissionais ou documentos ficam fora do perfil profissional até validar o RLS
  // e os filtros por atribuição na base de dados. A matriz da UI não substitui RLS.
- const SUPPORT_ONLY_MODULES = Object.freeze(['centro_suporte_informatico','suporte_informatico','agente_ia_suporte']);
+ const SUPPORT_ONLY_MODULES = Object.freeze(['centro_suporte','centro_suporte_informatico','suporte_informatico','suporte','agente_ia','agente_ia_suporte']);
  const MODULE_ACCESS = Object.freeze({
    // Admin tem gestão global do CIADI, mas nunca entra no Centro de Suporte Informático.
    admin: '*',
    suporte: ['overview','instituicao','auditoria','centro_suporte_informatico','suporte_informatico','agente_ia_suporte'],
    // Receção usa o perfil operador existente até a migração formal de perfis ser validada.
+   rececao: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes'],
    operador: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes'],
    // RH e Suporte são tipos de perfil previstos na aplicação; só ativar em produção após migração/RLS.
    rh: ['rh','funcionarios_rh','documentos_rh','contratos_rh','ferias_licencas_rh','assiduidade_rh','formacoes_rh','avaliacoes_rh','competencias_rh','beneficios_rh','sos'],
@@ -48,6 +49,7 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
  function canAccessModule(id){
    const tipo=profile?.tipo;
    if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte') return false;
+   if(/(^|_)suporte(_|$)|^agente_ia/.test(String(id)) && tipo!=='suporte') return false;
    const allowed=MODULE_ACCESS[tipo];
    return allowed==='*' || (Array.isArray(allowed) && allowed.includes(id));
  }
@@ -158,7 +160,7 @@ async function siteTriageRequests(){
   await refresh();
 }
 async function sosAlerts(){
-  if(!['admin','operador','rh'].includes(profile?.tipo)){ 
+  if(!['admin','operador','rececao','rh'].includes(profile?.tipo)){ 
     document.getElementById('content').innerHTML='<div class="card p-6"><h2 class="text-xl font-black">Alertas SOS</h2><p class="mt-2 text-red-700">Acesso reservado à gestão autorizada.</p></div>';
     return;
   }
@@ -752,7 +754,7 @@ async function janeth(){try{const {data,error}=await sb.from('ciadi_conhecimento
 async function newKnowledge(){await modal('Novo conhecimento Janeth',`<div class="grid md:grid-cols-2 gap-4">${inputField('area','Área','', 'text',true)}${inputField('titulo','Título','', 'text',true)}${inputField('nivel','Nível','normal')}${textareaField('conteudo','Conteúdo','',true)}${inputField('palavras_chave','Palavras-chave (separadas por vírgula)') }<label class="flex items-center gap-2"><input type="checkbox" name="ativo" checked> Activo</label></div>`,async fd=>{const row={area:fd.get('area'),titulo:fd.get('titulo'),conteudo:fd.get('conteudo'),nivel:fd.get('nivel')||'normal',palavras_chave:(fd.get('palavras_chave')||'').split(',').map(x=>x.trim()).filter(Boolean),ativo:fd.get('ativo')==='on'};const {data,error}=await sb.from('ciadi_conhecimentos').insert(row).select().single();if(error)throw error;await audit('INSERT','ciadi_conhecimentos',data.id,row);toast('Conhecimento criado.');janeth()})}
 async function editKnowledge(r){await modal('Editar conhecimento Janeth',`<div class="grid md:grid-cols-2 gap-4">${inputField('area','Área',r.area||'','text',true)}${inputField('titulo','Título',r.titulo||'','text',true)}${inputField('nivel','Nível',r.nivel||'normal')}${textareaField('conteudo','Conteúdo',r.conteudo||'',true)}${inputField('palavras_chave','Palavras-chave (separadas por vírgula)',Array.isArray(r.palavras_chave)?r.palavras_chave.join(', '):r.palavras_chave||'')}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={area:fd.get('area'),titulo:fd.get('titulo'),conteudo:fd.get('conteudo'),nivel:fd.get('nivel')||'normal',palavras_chave:(fd.get('palavras_chave')||'').split(',').map(x=>x.trim()).filter(Boolean),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('ciadi_conhecimentos').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','ciadi_conhecimentos',r.id,patch);toast('Conhecimento actualizado.');janeth()})}
 async function users(){try{const {data,error}=await sb.from('perfis').select('*').order('created_at',{ascending:false});if(error)throw error;tablePage('Utilizadores','Perfis de acesso existentes no CIADI.',`<div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Nome</th><th>Email</th><th>Tipo</th><th>Telefone</th><th>Estado</th><th>Acções</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4">${esc(r.nome_exibicao||r.nome_completo)}</td><td>${esc(r.email)}</td><td>${esc(r.tipo)}</td><td>${esc(r.telefone)}</td><td>${r.ativo?'Activo':'Inactivo'}</td><td><button class="border rounded-lg px-2 py-1" onclick='editUser(${JSON.stringify(r).replace(/'/g,'&#39;')})'>Editar</button></td></tr>`).join('')}</tbody></table></div>`)}catch(e){sectionError('Utilizadores',e)}}
-async function editUser(r){await modal('Editar utilizador',`<div class="grid md:grid-cols-2 gap-4">${inputField('nome_completo','Nome completo',r.nome_completo||'','text',true)}${inputField('nome_exibicao','Nome de exibição',r.nome_exibicao||'')}${inputField('email','Email',r.email||'','email')}${inputField('telefone','Telefone',r.telefone||'')}${selectField('tipo','Tipo',['admin','suporte','profissional','operador','paciente','responsavel'].map(x=>({value:x,label:x})),r.tipo,true)}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={nome_completo:fd.get('nome_completo'),nome_exibicao:fd.get('nome_exibicao')||null,email:fd.get('email')||null,telefone:fd.get('telefone')||null,tipo:fd.get('tipo'),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('perfis').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','perfis',r.id,patch);toast('Utilizador actualizado.');users()})}
+async function editUser(r){await modal('Editar utilizador',`<div class="grid md:grid-cols-2 gap-4">${inputField('nome_completo','Nome completo',r.nome_completo||'','text',true)}${inputField('nome_exibicao','Nome de exibição',r.nome_exibicao||'')}${inputField('email','Email',r.email||'','email')}${inputField('telefone','Telefone',r.telefone||'')}${selectField('tipo','Tipo',['admin','suporte','rececao','rh','profissional','operador','paciente','responsavel'].map(x=>({value:x,label:x})),r.tipo,true)}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={nome_completo:fd.get('nome_completo'),nome_exibicao:fd.get('nome_exibicao')||null,email:fd.get('email')||null,telefone:fd.get('telefone')||null,tipo:fd.get('tipo'),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('perfis').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','perfis',r.id,patch);toast('Utilizador actualizado.');users()})}
 async function financeCompanies(){
   try{
     const {data,error}=await sb.from('finance_empresas').select('*').order('empresa_principal',{ascending:false}).order('razao_social');
@@ -876,7 +878,7 @@ async function enter(u){
     profile=q.data;
     if(!profile){ await sb.auth.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
     if(profile.ativo!==true){ await sb.auth.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
-    if(!['admin','suporte','profissional','operador','rh'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso ao Dashboard administrativo.'); }
+    if(!['admin','suporte','profissional','operador','rececao','rh'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso ao Dashboard administrativo.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
