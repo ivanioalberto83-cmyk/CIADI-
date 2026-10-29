@@ -163,21 +163,25 @@ async function createSupportProposal(event){
   const proposal={summary:document.getElementById('supportProposalSummary').value.trim(),scope:document.getElementById('supportProposalScope').value.trim(),risk:document.getElementById('supportProposalRisk').value.trim(),verification:document.getElementById('supportProposalChecks').value.trim(),source:'manual',ai_status:'not_configured'};
   if(!requestId||!proposal.summary||!proposal.scope||!proposal.risk||!proposal.verification){toast('Preencha todos os campos da proposta.');return;}
   try{
-    const latest=await sb.from('ciadi_support_proposals').select('version').eq('request_id',requestId).order('version',{ascending:false}).limit(1).maybeSingle();
-    if(latest.error)throw latest.error;
-    const version=(latest.data?.version||0)+1;
     const proposalHash=await supportProposalHash(proposal);
-    const {data,error}=await sb.from('ciadi_support_proposals').insert({request_id:requestId,version,proposal,proposal_hash:proposalHash,status:'awaiting_approval',created_by:me.id}).select('id').single();
+    const {data,error}=await sb.rpc('ciadi_create_support_proposal',{
+      p_request_id:requestId,
+      p_proposal:proposal,
+      p_proposal_hash:proposalHash
+    });
     if(error)throw error;
-    const update=await sb.from('ciadi_support_requests').update({status:'awaiting_approval',updated_at:new Date().toISOString()}).eq('id',requestId);
-    if(update.error)throw update.error;
-    await audit('support_proposal_created','ciadi_support_proposals',data.id,{request_id:requestId,version,proposal_hash:proposalHash,source:'manual'});
+    const created=Array.isArray(data)?data[0]:data;
+    if(!created?.new_proposal_id||!created?.new_version||!created?.new_hash)throw new Error('O servidor não confirmou a criação da proposta.');
+    await audit('support_proposal_created','ciadi_support_proposals',created.new_proposal_id,{
+      request_id:requestId,version:created.new_version,proposal_hash:created.new_hash,source:'manual'
+    });
     document.getElementById('supportProposalForm').reset();
     sessionStorage.setItem('ciadi_support_request_id',requestId);
     toast('Proposta guardada. A aprovação não executa a ação.');
     await refreshSupportProposals();
   }catch(e){toast('Proposta não guardada: '+(e.message||'base de dados indisponível.'));}
 }
+
 async function refreshSupportProposals(){
   const list=document.getElementById('supportProposalList');
   if(!list||!isSupportTechnician())return;
