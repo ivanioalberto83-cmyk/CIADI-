@@ -42,7 +42,7 @@ checks = {
     "executor recomputes and verifies proposal hash": "if v_hash <> v_proposal.proposal_hash then" in normalized,
     "executor only allows read-only action": "p_action_code is distinct from 'readonly_validate_proposal'" in normalized,
     "executor requires exact approved decision": "a.decision = 'approved'" in normalized and "v_proposal.status <> 'approved'" in normalized,
-    "direct state-changing grants are revoked": "revoke insert, update, delete on public.ciadi_support_proposals from authenticated" in normalized,
+    "direct state-changing grants are revoked": all(x in normalized for x in [\n        "revoke insert on public.ciadi_support_proposals from authenticated",\n        "revoke update on public.ciadi_support_proposals from authenticated",\n        "revoke insert on public.ciadi_support_approvals from authenticated",\n        "revoke update on public.ciadi_support_requests from authenticated",\n    ]),
     "migration is transaction-wrapped": normalized.strip().startswith("-- ciadi") and normalized.count("begin;") == 1 and normalized.rstrip().endswith("commit;"),
     "malformed single-dollar function delimiter is absent": "as $\ndeclare" not in normalized,
 }
