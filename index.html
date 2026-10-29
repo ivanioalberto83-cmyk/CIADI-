@@ -30,7 +30,18 @@ const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_sit
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
-function visibleMenu(){ return menu.filter(([id])=> id!=='acompanhantes_at' || canAccessAT()); }
+// O perfil da estação apenas organiza a navegação local. As permissões reais continuam no login/Supabase.
+const stationProfile = (new URLSearchParams(window.location.search).get('ciadi_profile') || '').toLowerCase();
+const stationMenu = {
+  adm: new Set(['overview','sos','pedidos_site','agendamentos','financeiro','faturacao','caixa','contabilidade','saft','especialidades','triagens','pacientes','profissionais','documentos','familias','conteudos','multimedia','marketing','janeth','utilizadores','instituicao','empresas','clinica','auditoria','acompanhantes_at']),
+  suporte_informatica: new Set(['overview','sos','utilizadores','instituicao','auditoria']),
+  rh: new Set(['overview','profissionais','acompanhantes_at']),
+  recepcao: new Set(['overview','pedidos_site','agendamentos','pacientes','familias'])
+};
+function visibleMenu(){
+  const allowed = stationMenu[stationProfile] || stationMenu.adm;
+  return menu.filter(([id]) => allowed.has(id) && (id !== 'acompanhantes_at' || canAccessAT()));
+}
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
 async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
