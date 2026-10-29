@@ -10,6 +10,8 @@ on:
       - 'docs/AUDITORIA-RLS-SUPORTE-IA-2026-10-29.md'
       - '.github/workflows/validate-ciadi-dashboard.yml'
       - 'scripts/test_ciadi_support_executor.py'
+      - 'supabase/functions/ciadi-support-agent/index.ts'
+      - 'scripts/test_ciadi_support_agent.py'
   push:
     branches:
       - main
@@ -22,6 +24,8 @@ on:
       - 'docs/AUDITORIA-RLS-SUPORTE-IA-2026-10-29.md'
       - '.github/workflows/validate-ciadi-dashboard.yml'
       - 'scripts/test_ciadi_support_executor.py'
+      - 'supabase/functions/ciadi-support-agent/index.ts'
+      - 'scripts/test_ciadi_support_agent.py'
 
 jobs:
   validate:
@@ -184,3 +188,7 @@ jobs:
 
       - name: Verify safe support executor contract
         run: python scripts/test_ciadi_support_executor.py
+
+
+      - name: Verify authenticated Supabase support agent guardrails
+        run: python scripts/test_ciadi_support_agent.py
