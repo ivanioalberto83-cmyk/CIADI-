@@ -22,8 +22,8 @@ Dar ao técnico autorizado um local único para registar falhas, preparar uma pr
 2. O pedido é guardado em `ciadi_support_requests`.
 3. O técnico prepara uma proposta manual com resumo/diagnóstico, âmbito exato, riscos e passos de verificação. A integração de IA está assinalada como não configurada, sem simular uma resposta de IA.
 4. A proposta é serializada como JSON e recebe um hash SHA-256 no cliente. O registo inclui versão crescente por pedido.
-5. A proposta aguarda decisão explícita. A aprovação ou rejeição é guardada em `ciadi_support_approvals`, associada ao pedido, ID da proposta, versão, hash e utilizador autenticado.
-6. O trigger impede modificar conteúdo, versão, autoria ou hash depois de criada a proposta; para corrigir conteúdo, deve ser criada nova versão.
+5. A proposta aguarda decisão explícita. A aprovação ou rejeição é enviada à função RPC `ciadi_decide_support_proposal`, que valida no servidor o técnico ativo, o pedido, a proposta, a versão, o hash e os estados pendentes, e regista a decisão e os estados numa única transação. O mesmo técnico pode aprovar o seu próprio pedido, conforme decisão expressa do responsável do projeto.
+6. O trigger impede modificar conteúdo, versão, autoria ou hash depois de criada a proposta; para corrigir conteúdo, deve ser criada nova versão. As permissões diretas de UPDATE dos pedidos/propostas e INSERT das decisões são revogadas para `authenticated`; o cliente não altera estes estados diretamente.
 7. A ação “Executar” devolve `blocked` porque `SUPPORT_EXECUTOR_CONFIGURED` está fixado em `false`. Nenhum comando, SQL, migração, alteração de conta, deploy ou escrita em módulos de negócio é executado.
 
 ## 4. Contrato de execução futura
@@ -63,5 +63,5 @@ A inspeção do repositório não identificou um serviço de IA ou executor de a
 
 - Catálogo exato de ações que o agente pode propor para execução.
 - Serviço de servidor autorizado para IA e execução; não existe um serviço verificado neste levantamento.
-- Se a mesma pessoa pode abrir e aprovar o pedido ou se ações de risco elevado exigem segundo técnico.
+- A política aprovada permite que o mesmo técnico abra e aprove o seu próprio pedido; ações de risco elevado continuam dependentes do catálogo de ações e das futuras salvaguardas do executor.
 - Retenção dos pedidos, propostas, aprovações e registos de execução.
