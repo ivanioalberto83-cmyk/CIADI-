@@ -7,7 +7,7 @@ checks = {
     "server computes the authoritative proposal hash": "extensions.digest(convert_to(p_proposal::text, 'utf8'), 'sha256')" in migration,
     "execution log is isolated and idempotent per proposal": "create table if not exists public.ciadi_support_executions" in migration and "unique (proposal_id)" in migration,
     "executor RPC checks exact approved proposal": "function public.ciadi_execute_approved_support_action(" in migration and "v_proposal.status <> 'approved'" in migration,
-    "executor only permits read-only validation": "p_action_code <> 'readonly_validate_proposal'" in migration,
+    "executor only permits read-only validation": "p_action_code is distinct from 'readonly_validate_proposal'" in migration,
     "executor requires matching approval record": "from public.ciadi_support_approvals" in migration and "decision = 'approved'" in migration,
     "execution table uses RLS": "alter table public.ciadi_support_executions enable row level security" in migration,
     "browser calls the server executor RPC": "sb.rpc('ciadi_execute_approved_support_action'" in dashboard,
