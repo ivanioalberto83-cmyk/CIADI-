@@ -26,7 +26,7 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
+const menu=[['overview','Visão geral'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['clientes','Clientes'],['fornecedores','Fornecedores'],['caixa','💵 Caixa & Tesouraria'],['sos','🚨 Alertas'],['aprovisionamento','📦 Aprovisionamento'],['rh','👥 Recursos Humanos'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 // Perfis de autenticação vêm exclusivamente de public.perfis no Supabase.
@@ -34,17 +34,20 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
  // Princípio de privilégio mínimo: módulos com listagens globais de pacientes,
  // profissionais ou documentos ficam fora do perfil profissional até validar o RLS
  // e os filtros por atribuição na base de dados. A matriz da UI não substitui RLS.
+ const SUPPORT_ONLY_MODULES = Object.freeze(['centro_suporte_informatico','suporte_informatico','agente_ia_suporte']);
  const MODULE_ACCESS = Object.freeze({
+   // Admin tem gestão global do CIADI, mas nunca entra no Centro de Suporte Informático.
    admin: '*',
-   // Suporte Informático: administração técnica do Dashboard, sem acesso clínico/financeiro por defeito.
-   suporte: ['overview','instituicao','auditoria'],
-   operador: ['sos'],
-   // Os formulários clínicos são acessíveis ao profissional autenticado; a restrição por assistido
-   // e por atribuição tem de ser garantida também pelas políticas RLS do Supabase.
+   suporte: ['overview','instituicao','auditoria','centro_suporte_informatico','suporte_informatico','agente_ia_suporte'],
+   // Receção usa o perfil operador existente até a migração formal de perfis ser validada.
+   operador: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes'],
+   // RH e Suporte são tipos de perfil previstos na aplicação; só ativar em produção após migração/RLS.
+   rh: ['rh','documentos_rh','contratos_rh','ferias_licencas_rh','assiduidade_rh','formacoes_rh','avaliacoes_rh','competencias_rh','beneficios_rh','sos'],
    profissional: ['agendamentos','especialidades','triagens','clinica','documentos']
  });
  function canAccessModule(id){
    const tipo=profile?.tipo;
+   if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte') return false;
    const allowed=MODULE_ACCESS[tipo];
    return allowed==='*' || (Array.isArray(allowed) && allowed.includes(id));
  }
@@ -53,7 +56,7 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
  function visibleMenu(){ return menu.filter(([id])=>canAccessModule(id)); }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){const c=document.getElementById('content');if(!canAccessModule(id)){current='';nav();c.innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b><p class="text-slate-500 mt-2">O seu perfil não tem permissão para abrir este módulo.</p></div>';return;}current=id;nav();c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){const c=document.getElementById('content');if(!canAccessModule(id)){current='';nav();c.innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b><p class="text-slate-500 mt-2">O seu perfil não tem permissão para abrir este módulo.</p></div>';return;}current=id;nav();c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='aprovisionamento')return procurementHub(); if(id==='rh')return rhHub(); if(id.endsWith('_rh'))return rhTable(id); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
   const isManager=['admin','gestor'].includes(profile?.tipo);
@@ -264,6 +267,69 @@ async function cancelAppointment(r){const motivo=prompt('Motivo do cancelamento:
 
 function money(v){return new Intl.NumberFormat('pt-AO',{style:'currency',currency:'AOA',maximumFractionDigits:2}).format(Number(v||0))}
 async function financeDashboard(){try{const {data,error}=await sb.from('v_ciadi_financeiro_resumo').select('*').maybeSingle();if(error)throw error;const x=data||{};tablePage('Centro Financeiro CIADI','Faturação, tesouraria, contabilidade e fiscalidade integradas.',`<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">${[['💰','Facturação do dia',money(x.faturacao_dia)],['📈','Facturação do mês',money(x.faturacao_mes)],['💳','Recebido no mês',money(x.recebido_mes)],['💸','Despesas do mês',money(x.despesas_mes)],['🩺','Consultas hoje',x.consultas_realizadas_dia||0],['🧾','Consultas facturadas',x.consultas_faturadas_dia||0],['📥','Contas a receber','Abrir'],['📦','SAF-T(AO)','Abrir']].map((k,i)=>`<button onclick="${i===6?'financeReceivables()':i===7?'financeSaft()':''}" class="card p-5 text-left"><div class="text-2xl">${k[0]}</div><div class="text-sm text-slate-500 mt-3">${k[1]}</div><div class="text-xl font-black mt-1">${k[2]}</div></button>`).join('')}</div><div class="grid lg:grid-cols-3 gap-5 mt-5"><div class="card p-6"><h3 class="font-black">Gestão Clínica</h3><p class="text-sm text-slate-500 mt-2">A agenda existente alimenta o fluxo financeiro.</p><button onclick="go('agendamentos')" class="bg-orange text-white rounded-xl px-4 py-2 mt-4 font-bold">Agenda</button></div><div class="card p-6"><h3 class="font-black">Faturação</h3><p class="text-sm text-slate-500 mt-2">Documentos, serviços, séries e pagamentos.</p><button onclick="go('faturacao')" class="bg-orange text-white rounded-xl px-4 py-2 mt-4 font-bold">Faturar</button></div><div class="card p-6"><h3 class="font-black">Contabilidade</h3><p class="text-sm text-slate-500 mt-2">Plano de contas, lançamentos e relatórios.</p><button onclick="go('contabilidade')" class="bg-orange text-white rounded-xl px-4 py-2 mt-4 font-bold">Contabilidade</button></div></div><div class="card p-6 mt-5"><h3 class="font-black">Fluxo integrado</h3><div class="grid md:grid-cols-6 gap-2 mt-4 text-center text-sm">${['Paciente','Agendamento','Atendimento','Documento clínico','Faturação','Pagamento'].map((x,i)=>`<div class="rounded-xl ${i===5?'bg-orange text-white':'bg-orange-50'} p-4 font-bold">${i+1}. ${x}</div>`).join('')}</div></div>`)}catch(e){sectionError('Financeiro',e)}}
+async function financeClients(){
+  try{
+    const {data,error}=await sb.from('finance_clientes').select('id,nome,nome_comercial,nif,email,telefone,tipo,ativo,empresa_id').order('nome').limit(500);
+    if(error)throw error;
+    tablePage('Clientes','Cadastro de clientes existente no Supabase; esta vista não altera dados.',`<div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Cliente</th><th>NIF</th><th>Email</th><th>Telefone</th><th>Tipo</th><th>Estado</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-3">${esc(r.nome_comercial||r.nome)}</td><td>${esc(r.nif)}</td><td>${esc(r.email)}</td><td>${esc(r.telefone)}</td><td>${esc(r.tipo)}</td><td>${r.ativo?'Ativo':'Inativo'}</td></tr>`).join('')}</tbody></table></div>`);
+  }catch(e){sectionError('Clientes',e)}
+}
+async function financeSuppliers(){
+  try{
+    const {data,error}=await sb.from('finance_despesas').select('fornecedor_nome,fornecedor_nif,categoria,documento_referencia,data_documento,total,estado,empresa_id').order('fornecedor_nome').limit(500);
+    if(error)throw error;
+    const seen=new Map(); for(const r of (data||[])){const k=(r.fornecedor_nif||r.fornecedor_nome||'').trim();if(k&&!seen.has(k))seen.set(k,r);}
+    tablePage('Fornecedores','Lista provisória derivada das despesas registadas. O Supabase não possui uma tabela mestre de fornecedores; não criar/editar fornecedores nesta vista.',`<div class="mb-4 rounded-xl border p-4 text-sm">⚠️ Fonte atual: fornecedor indicado em finance_despesas. Recomenda-se criar e homologar um cadastro próprio antes de permitir manutenção de fornecedores.</div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Fornecedor</th><th>NIF</th><th>Categoria recente</th><th>Documento</th><th>Data</th><th>Total</th><th>Estado</th></tr></thead><tbody>${[...seen.values()].map(r=>`<tr class="border-b"><td class="p-3">${esc(r.fornecedor_nome)}</td><td>${esc(r.fornecedor_nif)}</td><td>${esc(r.categoria)}</td><td>${esc(r.documento_referencia)}</td><td>${esc(r.data_documento)}</td><td>${money(r.total||0)}</td><td>${esc(r.estado)}</td></tr>`).join('')}</tbody></table></div>`);
+  }catch(e){sectionError('Fornecedores',e)}
+}
+async function procurementHub(){
+  try{
+    const [m,s,h]=await Promise.all([
+      sb.from('ciadi_materiais_apoio').select('id,nome,categoria,stock,disponivel,ativo,publicado').order('nome').limit(300),
+      sb.from('ciadi_solicitacoes_materiais').select('id,material_id,quantidade,finalidade,estado,data_solicitacao,data_entrega,total,forma_entrega').order('data_solicitacao',{ascending:false}).limit(300),
+      sb.from('ciadi_solicitacoes_materiais_historico').select('id,solicitacao_id,estado_anterior,estado_novo,observacao,criado_em').order('criado_em',{ascending:false}).limit(100)
+    ]);
+    if(m.error)throw m.error;if(s.error)throw s.error;if(h.error)throw h.error;
+    tablePage('Aprovisionamento','Materiais de apoio, pedidos e histórico existentes no Supabase. Fornecedores/ordens de compra formais não estão modelados como tabelas próprias.',`<div class="grid md:grid-cols-3 gap-4 mb-5"><div class="card p-4"><div class="text-2xl font-black">${m.data?.length||0}</div><div class="text-sm text-slate-500">Materiais listados</div></div><div class="card p-4"><div class="text-2xl font-black">${s.data?.length||0}</div><div class="text-sm text-slate-500">Pedidos listados</div></div><div class="card p-4"><div class="text-2xl font-black">${h.data?.length||0}</div><div class="text-sm text-slate-500">Eventos recentes</div></div></div><h3 class="font-bold text-lg mb-2">Pedidos de materiais</h3><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-3">Data</th><th>Material</th><th>Qtd.</th><th>Finalidade</th><th>Estado</th><th>Total</th><th>Entrega</th></tr></thead><tbody>${(s.data||[]).map(r=>{const mat=(m.data||[]).find(x=>x.id===r.material_id);return `<tr class="border-b"><td class="p-3">${esc(r.data_solicitacao)}</td><td>${esc(mat?.nome||'Material não encontrado')}</td><td>${esc(r.quantidade)}</td><td>${esc(r.finalidade)}</td><td>${esc(r.estado)}</td><td>${money(r.total||0)}</td><td>${esc(r.data_entrega||'—')}</td></tr>`}).join('')}</tbody></table></div>`);
+  }catch(e){sectionError('Aprovisionamento',e)}
+}
+async function rhHub(){
+  const defs=[
+    ['Funcionários','ciadi_funcionarios','rh_funcionarios'],
+    ['Documentos de RH','ciadi_funcionario_documentos','documentos_rh'],
+    ['Contratos','ciadi_funcionario_contratos','contratos_rh'],
+    ['Férias e licenças','ciadi_funcionario_ferias_licencas','ferias_licencas_rh'],
+    ['Assiduidade','ciadi_funcionario_assiduidade','assiduidade_rh'],
+    ['Formações','ciadi_funcionario_formacoes','formacoes_rh'],
+    ['Avaliações','ciadi_funcionario_avaliacoes','avaliacoes_rh'],
+    ['Competências','ciadi_funcionario_competencias','competencias_rh'],
+    ['Benefícios','ciadi_funcionario_beneficios','beneficios_rh']
+  ];
+  try{
+    const counts=await Promise.all(defs.map(async d=>{const q=await sb.from(d[1]).select('id',{count:'exact',head:true});return {name:d[0],table:d[1],id:d[2],count:q.error?'—':(q.count||0),error:q.error?.message||null}}));
+    tablePage('Recursos Humanos','Operações e documentos de RH a partir das tabelas existentes. Dados confidenciais de remuneração e identificação não são mostrados nesta vista.',`<div class="grid md:grid-cols-3 gap-4">${counts.map(x=>`<button onclick="rhTable('${x.id}')" class="card p-5 text-left"><div class="font-bold">${esc(x.name)}</div><div class="text-3xl font-black text-orange mt-2">${x.count}</div><div class="text-xs text-slate-500 mt-2">${x.error?'Sem acesso / erro de consulta':'Registos existentes'}</div></button>`).join('')}<button onclick="go('sos')" class="card p-5 text-left"><div class="font-bold">🚨 Alertas</div><div class="text-sm text-slate-500 mt-2">Aceder à central de alertas autorizada</div></button></div><p class="text-xs text-slate-500 mt-4">A escrita e aprovação de registos só será ativada após validação de permissões RLS específicas para RH.</p>`);
+  }catch(e){sectionError('Recursos Humanos',e)}
+}
+async function rhTable(id){
+  const defs={
+    rh_funcionarios:{table:'ciadi_funcionarios',title:'Funcionários',cols:'id,codigo_funcionario,estado,tipo_vinculo,cargo,departamento,unidade_local,data_admissao,email_corporativo,telefone_corporativo'},
+    documentos_rh:{table:'ciadi_funcionario_documentos',title:'Documentos de RH',cols:'id,funcionario_id,tipo_documento,titulo,nome_ficheiro,data_documento,validade_ate,estado,verificado'},
+    contratos_rh:{table:'ciadi_funcionario_contratos',title:'Contratos',cols:'id,funcionario_id,tipo_contrato,numero_contrato,data_inicio,data_fim,estado,moeda'},
+    ferias_licencas_rh:{table:'ciadi_funcionario_ferias_licencas',title:'Férias e licenças',cols:'id,funcionario_id,tipo,data_inicio,data_fim,dias,estado,aprovado_em'},
+    assiduidade_rh:{table:'ciadi_funcionario_assiduidade',title:'Assiduidade',cols:'id,funcionario_id,data,entrada,saida_intervalo,retorno_intervalo,saida,horas_trabalhadas,estado'},
+    formacoes_rh:{table:'ciadi_funcionario_formacoes',title:'Formações',cols:'id,funcionario_id,instituicao,curso,grau,area,data_inicio,data_fim,concluida'},
+    avaliacoes_rh:{table:'ciadi_funcionario_avaliacoes',title:'Avaliações',cols:'id,funcionario_id,periodo_inicio,periodo_fim,tipo,pontuacao,resultado,estado'},
+    competencias_rh:{table:'ciadi_funcionario_competencias',title:'Competências',cols:'id,funcionario_id,competencia,categoria,nivel,validade_ate,verificada'},
+    beneficios_rh:{table:'ciadi_funcionario_beneficios',title:'Benefícios',cols:'id,funcionario_id,beneficio,tipo,data_inicio,data_fim,valor_referencia,moeda,ativo'}
+  };
+  const d=defs[id];if(!d)return toast('Submódulo RH não reconhecido.');
+  try{
+    const {data,error}=await sb.from(d.table).select(d.cols).order('created_at',{ascending:false}).limit(300);
+    if(error)throw error;
+    const cols=d.cols.split(',');
+    tablePage(d.title,'Consulta de registos existentes. Alterações estão desativadas até validar RLS e fluxos de aprovação.',`<div class="mb-4"><button onclick="go('rh')" class="border rounded-xl px-3 py-2">← Voltar a RH</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">${cols.map(c=>`<th class="p-3">${esc(c.replaceAll('_',' '))}</th>`).join('')}</tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b">${cols.map(c=>`<td class="p-3">${esc(typeof r[c]==='object'?JSON.stringify(r[c]):r[c]??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
+  }catch(e){sectionError(d.title,e)}
+}
 async function financeInvoices(){try{const {data,error}=await sb.from('finance_documentos').select('id,document_no,tipo_documento,data_emissao,total,estado_pagamento,document_status,fiscal_status,agt_validation_status,agt_submission_status,finance_clientes(nome,nif)').order('data_emissao',{ascending:false}).limit(500);if(error)throw error;tablePage('Faturação','Gerador visual A4 CIADI para FT, FR, NC, ND e RC, com validação, emissão, impressão e ligação ao fluxo contabilístico/SAF-T.',`<div class="flex flex-wrap justify-between gap-3 mb-4"><button onclick="newFinanceInvoice()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Novo documento A4</button><button onclick="financeEmitterConfig()" class="border rounded-xl px-4 py-2">Dados do emitente</button><button onclick="go('contabilidade')" class="border rounded-xl px-4 py-2">Contabilidade</button><button onclick="go('saft')" class="border rounded-xl px-4 py-2">SAF-T(AO)</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Documento</th><th>Cliente</th><th>Data</th><th>Total</th><th>Estado</th><th>Fiscal</th><th>Ações</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4 font-bold">${esc(r.document_no)}<div class="text-xs text-slate-500">${esc(r.tipo_documento)}</div></td><td>${esc(r.finance_clientes?.nome)}<div class="text-xs">${esc(r.finance_clientes?.nif||'')}</div></td><td>${esc(new Date(r.data_emissao).toLocaleDateString('pt-AO'))}</td><td>${money(r.total)}</td><td>${esc(r.document_status||'em_edicao')} · ${esc(r.estado_pagamento||'pendente')}</td><td><span class="text-xs">${esc(r.fiscal_status||r.agt_validation_status||'por validar')}</span></td><td class="p-3 whitespace-nowrap"><button class="text-orange font-bold mr-3" onclick="previewFinanceInvoice('${r.id}')">A4 / Ver</button><button class="font-bold mr-3" onclick="printFinanceInvoice('${r.id}')">Imprimir / PDF</button>${r.fiscal_status==='emitido' && r.estado_pagamento!=='pago' ? `<button class="text-emerald-700 font-bold mr-3" onclick="receiveFinanceDocument('${r.id}')">Receber</button>` : ''}${r.fiscal_status==='emitido' ? `<button class="text-blue-700 font-bold" onclick="postFinanceDocument('${r.id}')">Contabilizar</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`)}catch(e){sectionError('Faturação',e)}}
 
 function invoiceTypeLabel(t){return ({FT:'Fatura',FR:'Fatura-Recibo',NC:'Nota de Crédito',ND:'Nota de Débito',RC:'Recibo'}[t]||t||'Documento')}
