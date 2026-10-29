@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+      - 'audit/**'
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
@@ -64,14 +65,18 @@ jobs:
           dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
           checks = {
               "role map is centralized": "const MODULE_ACCESS = Object.freeze({" in dashboard,
-              "admin and manager retain full module access": "admin: '*'" in dashboard and "gestor: '*'" in dashboard,
-              "operator is restricted to SOS": "operador: ['sos']" in dashboard,
-              "professional role has clinical-only module list": "profissional: ['agendamentos','especialidades','triagens','clinica']" in dashboard,
-              "professional role excludes global patient and professional lists": "profissional: ['agendamentos','especialidades','triagens','clinica']" in dashboard and "profissional: ['agendamentos','especialidades','triagens','pacientes','profissionais'" not in dashboard,
+              "admin is global but support center is explicitly blocked": "admin: '*'" in dashboard and "if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte') return false;" in dashboard,
+              "support-only modules are identified": "const SUPPORT_ONLY_MODULES = Object.freeze(" in dashboard and "'agente_ia_suporte'" in dashboard,
+              "reception has ordered operational modules": "rececao: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes']" in dashboard,
+              "legacy operator follows reception module scope": "operador: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes']" in dashboard,
+              "RH role has dedicated HR modules and alerts": "rh: ['rh','funcionarios_rh','documentos_rh','contratos_rh','ferias_licencas_rh','assiduidade_rh','formacoes_rh','avaliacoes_rh','competencias_rh','beneficios_rh','sos']" in dashboard,
+              "professional has clinical modules and forms": "profissional: ['agendamentos','especialidades','triagens','clinica','documentos']" in dashboard,
               "menu visibility uses role checks": "return menu.filter(([id])=>canAccessModule(id));" in dashboard,
               "direct route access is guarded": "if(!canAccessModule(id))" in dashboard,
               "installer selection does not grant Supabase permissions": "O perfil escolhido no Setup Windows identifica a estação e nunca concede permissões." in dashboard,
-              "patient and responsible roles are not admitted to admin dashboard": "['admin','gestor','profissional','operador'].includes(profile.tipo)" in dashboard,
+              "patient and responsible roles are not admitted to admin dashboard": "['admin','suporte','profissional','operador','rececao','rh'].includes(profile.tipo)" in dashboard,
+              "suppliers screen does not pretend a supplier master table exists": "não existe uma tabela mestre finance_fornecedores" in dashboard,
+              "HR screens avoid confidential employee data": "ciadi_funcionario_confidencial" not in dashboard,
           }
           for label, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + label)
