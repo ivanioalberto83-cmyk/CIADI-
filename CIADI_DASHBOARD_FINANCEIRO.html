@@ -36,9 +36,9 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
  // e os filtros por atribuição na base de dados. A matriz da UI não substitui RLS.
  const SUPPORT_ONLY_MODULES = Object.freeze(['centro_suporte','centro_suporte_informatico','suporte_informatico','suporte','agente_ia','agente_ia_suporte']);
  const MODULE_ACCESS = Object.freeze({
-   // Admin tem gestão global do CIADI, mas nunca entra no Centro de Suporte Informático.
+   // Admin tem gestão global do CIADI, mas nunca entra no Suporte Informático.
    admin: '*',
-   suporte: ['overview','instituicao','auditoria','centro_suporte','centro_suporte_informatico','suporte_informatico','agente_ia','agente_ia_suporte'],
+   suporte_informatica: ['overview','instituicao','auditoria','centro_suporte','centro_suporte_informatico','suporte_informatico','suporte','agente_ia','agente_ia_suporte'],
    // Receção usa o perfil operador existente até a migração formal de perfis ser validada.
    rececao: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes'],
    operador: ['financeiro','faturacao','clientes','fornecedores','caixa','sos','aprovisionamento','pacientes'],
@@ -48,8 +48,8 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
  });
  function canAccessModule(id){
    const tipo=profile?.tipo;
-   if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte') return false;
-   if(/(^|_)suporte(_|$)|^agente_ia/.test(String(id)) && tipo!=='suporte') return false;
+   if(SUPPORT_ONLY_MODULES.includes(id) && tipo!=='suporte_informatica') return false;
+   if(/(^|_)suporte(_|$)|^agente_ia/.test(String(id)) && tipo!=='suporte_informatica') return false;
    const allowed=MODULE_ACCESS[tipo];
    return allowed==='*' || (Array.isArray(allowed) && allowed.includes(id));
  }
@@ -878,7 +878,7 @@ async function enter(u){
     profile=q.data;
     if(!profile){ await sb.auth.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
     if(profile.ativo!==true){ await sb.auth.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
-    if(!['admin','suporte','profissional','operador','rececao','rh'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso ao Dashboard administrativo.'); }
+    if(!['admin','suporte_informatica','profissional','operador','rececao','rh'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso ao Dashboard administrativo.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
