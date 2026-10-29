@@ -73,7 +73,7 @@ FunctionEnd
   ${If} $CIADIProfile == ""
     StrCpy $CIADIProfile "adm"
   ${EndIf}
-  FileOpen $0 "$INSTDIR\\ciadi-install-profile.txt" w
+  FileOpen $0 "$INSTDIR\ciadi-install-profile.txt" w
   FileWrite $0 "$CIADIProfile"
   FileClose $0
 !macroend
