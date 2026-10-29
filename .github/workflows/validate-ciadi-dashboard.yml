@@ -57,6 +57,26 @@ jobs:
           Path("/tmp/ciadi-inline.js").write_text("".join(parser.parts), encoding="utf-8")
           PY
           node --check /tmp/ciadi-inline.js
+      - name: Verify centralized role permissions and route guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          dashboard = Path("CIADI_DASHBOARD_FINANCEIRO.html").read_text(encoding="utf-8")
+          checks = {
+              "role map is centralized": "const MODULE_ACCESS = Object.freeze({" in dashboard,
+              "admin and manager retain full module access": "admin: '*'" in dashboard and "gestor: '*'" in dashboard,
+              "operator is restricted to SOS": "operador: ['sos']" in dashboard,
+              "professional role has clinical-only module list": "profissional: ['agendamentos','especialidades','triagens','pacientes','profissionais','documentos','clinica','acompanhantes_at']" in dashboard,
+              "menu visibility uses role checks": "return menu.filter(([id])=>canAccessModule(id));" in dashboard,
+              "direct route access is guarded": "if(!canAccessModule(id))" in dashboard,
+              "installer selection does not grant Supabase permissions": "O perfil escolhido no Setup Windows identifica a estação e nunca concede permissões." in dashboard,
+              "patient and responsible roles are not admitted to admin dashboard": "['admin','gestor','profissional','operador'].includes(profile.tipo)" in dashboard,
+          }
+          for label, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + label)
+          if not all(checks.values()):
+              raise SystemExit(1)
+          PY
       - name: Verify integration entry points and public-key safety
         run: |
           python - <<'PY'
