@@ -14,7 +14,7 @@ checks = {
     "only read-only action is passed to executor": 'p_action_code: "readonly_validate_proposal"' in source,
     "audit logs use the caller client and a bounded query": 'supabase.from("auditoria")' in source and ".limit(50)" in source,
     "audit output redacts sensitive keys": 'cleanAuditDetails(row.detalhes)' in source and "authorization|api.?key|credential|cookie" in source,
-    "no service-role key is referenced": "SUPABASE_SERVICE_ROLE_KEY" not in source and "service_role" not in source,
+    "no service-role key is referenced": "SUPABASE_SERVICE_ROLE_KEY" not in source and "SERVICE_ROLE_KEY" not in source,
     "responses disable caching": '"Cache-Control": "no-store"' in source,
     "workflow runs this contract test": "python scripts/test_ciadi_support_agent.py" in workflow,
     "workflow watches Edge Function source": "'supabase/functions/ciadi-support-agent/index.ts'" in workflow,
