@@ -1,0 +1,28 @@
+name: CIADI Setup Profile Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ciadi-windows/main.cjs'
+      - 'ciadi-windows/build/installer.nsh'
+      - 'ciadi-windows/tests/setup-profiles.test.cjs'
+      - '.github/workflows/ciadi-setup-profile-regression.yml'
+  push:
+    branches: ['fix/ciadi-setup-four-profiles-20261029']
+
+permissions:
+  contents: read
+
+jobs:
+  setup-profile-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Executar testes de regressão dos perfis
+        run: node --test ciadi-windows/tests/setup-profiles.test.cjs
