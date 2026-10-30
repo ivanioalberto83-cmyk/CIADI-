@@ -173,3 +173,17 @@ Prioridade P2:
 - Não existe ainda homologação end-to-end nem autorização para integrar em produção.
 
 **Conclusão:** o trabalho deve continuar em branch isolada e ambiente de testes. Os achados P0 impedem declarar o CIADI seguro para publicação até serem corrigidos, testados com identidades fictícias e aprovados. O backup existente ainda não tem restauro demonstrado.
+
+
+## 12. Testes de visibilidade com papel SQL `anon` (read-only)
+Foram executadas consultas dentro de transacções `BEGIN READ ONLY`, com `SET LOCAL ROLE anon` e `ROLLBACK`:
+- `ciadi_conhecimentos`: o papel `anon` conseguiu contar os registos activos por classificação e viu **9 `familias` + 1 `interno` + 2 `todos`**, além de 363 `publico`. Isto confirma a exposição anónima das classificações não públicas pela política actual.
+- `storage.objects` no bucket privado `documentos`: **0 linhas visíveis** para `anon`.
+- `finance_contas_bancarias`: **0 linhas visíveis** para `anon`.
+- `finance_documentos`, `finance_pagamentos` e `finance_despesas`: **0 linhas visíveis** para `anon`.
+- `v_ciadi_balancete`: **0 linhas visíveis** para `anon`.
+- `v_ciadi_financeiro_resumo`: a view devolve uma linha agregada por construção; as tabelas financeiras base acima devolvem zero linhas a `anon`, pelo que não foi demonstrada exposição de montantes reais nesta consulta. A view continua com GRANT SELECT anónimo desnecessário e deve ser restringida se não houver consumidor público legítimo.
+- `recrutamento_candidaturas`: a consulta directa de leitura por `anon` falhou com `permission denied`; o endpoint público de consulta é a Edge Function separada.
+- `agendamentos`: consulta directa por `anon` falhou por falta de GRANT SELECT.
+
+Estes testes não alteraram dados nem políticas. Confirmam que os GRANTs SQL, isoladamente, não significam leitura efectiva quando RLS ou privilégios adicionais bloqueiam o acesso. A excepção concreta nesta amostra é `ciadi_conhecimentos`, onde a política SELECT permite as classificações não públicas.
