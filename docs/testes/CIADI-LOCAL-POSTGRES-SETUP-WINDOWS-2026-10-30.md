@@ -17,6 +17,14 @@ A branch de implementação não contém actualmente `supabase/migrations`, `sup
 
 **Alternativa:** se Docker Desktop não for gratuito/licenciado para a organização, não o instalar para este trabalho. Pode usar-se PostgreSQL local para testes SQL limitados, mas isso não reproduz integralmente Auth, Storage, PostgREST e Edge Functions do Supabase.
 
+## Verificação inicial no Windows (sem ligação ao Supabase)
+Executar o script incluído no repositório:
+\`\`\`powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\\scripts\\homologacao\\preflight-ciadi-local.ps1
+\`\`\`
+O script apenas verifica se Node.js, Git, Supabase CLI e Docker estão instalados/activos. Não pede credenciais nem contacta a produção. Partilhar apenas o resumo dos resultados, nunca tokens, passwords ou connection strings.
+
 ## Fase A — Obter apenas o esquema, sem dados
 1. Abrir uma cópia local do repositório e mudar para a branch de implementação.
 2. Instalar/validar a Supabase CLI e iniciar o projecto local.
