@@ -48,3 +48,12 @@ test('AuthService preserves Supabase errors without silently converting them to 
   assert.equal((await service.signInWithPassword({ email: 'x', password: 'y' })).error, failure);
   assert.equal((await service.signOut()).error, failure);
 });
+
+
+test('Dashboard initializes AuthService and no longer calls Supabase auth directly', () => {
+  const root = path.resolve(__dirname, '..', '..');
+  const dashboard = fs.readFileSync(path.join(root, 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
+  assert.match(dashboard, /<script\s+src=["']renderer\/core\/auth-service\.js["']><\/script>/);
+  assert.match(dashboard, /authService=window\.CIADI_AUTH_SERVICE\.createAuthService\(sb\)/);
+  assert.doesNotMatch(dashboard, /sb\.auth\.(?:getSession|signInWithPassword|signOut|onAuthStateChange)/);
+});
