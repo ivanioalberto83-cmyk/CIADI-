@@ -105,3 +105,7 @@ As funções têm `search_path = public`. Antes de reutilizar ou ampliar qualque
 5. Só depois de revisão, backup com restauro demonstrado e autorização expressa, propor migrações para produção.
 
 **Conclusão:** a implementação de frontend PermissionService continua a negar por defeito sem provedor servidor. Esta auditoria confirma riscos estruturais que impedem ligar o serviço ao Dashboard ou declarar os módulos seguros. Nenhuma política ou dado de produção foi alterado.
+
+
+## 9. Nota de plataforma Supabase — 30-10-2026
+O changelog oficial informa que, a partir de 30-10-2026, a exposição automática de novas tabelas do schema `public` à Data API deixa de ser assumida nos projectos existentes; tabelas novas passam a exigir opt-in explícito por GRANT. Isto não remove os grants de tabelas já existentes. Portanto, futuras tabelas de permissões/polos terão de ter a exposição à Data API decidida deliberadamente, com RLS e grants mínimos por papel, e a aplicação deverá validar a acessibilidade real antes da integração. Não se deve adicionar GRANT amplo apenas para resolver um erro de acesso. Fonte: [Supabase — Breaking Change: Tables not exposed to Data and GraphQL API automatically](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically).
