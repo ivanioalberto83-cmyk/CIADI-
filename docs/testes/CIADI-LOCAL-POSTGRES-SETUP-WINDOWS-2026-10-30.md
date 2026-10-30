@@ -19,10 +19,10 @@ A branch de implementação não contém actualmente `supabase/migrations`, `sup
 
 ## Verificação inicial no Windows (sem ligação ao Supabase)
 Executar o script incluído no repositório:
-\`\`\`powershell
+```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\\scripts\\homologacao\\preflight-ciadi-local.ps1
-\`\`\`
+.\scripts\homologacao\preflight-ciadi-local.ps1
+```
 O script apenas verifica se Node.js, Git, Supabase CLI e Docker estão instalados/activos. Não pede credenciais nem contacta a produção. Partilhar apenas o resumo dos resultados, nunca tokens, passwords ou connection strings.
 
 ## Fase A — Obter apenas o esquema, sem dados
