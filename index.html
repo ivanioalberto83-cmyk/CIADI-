@@ -12,7 +12,7 @@
 </head>
 <body>
 <div id="login" class="min-h-screen flex items-center justify-center p-5"><div class="card w-full max-w-md p-8"><div class="flex items-center gap-3 mb-7"><div id="logoBox" class="w-14 h-14 rounded-2xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><h1 class="text-2xl font-black">CIADI</h1><p class="text-sm text-slate-500">Dashboard Administrativo</p></div></div><form id="loginForm" class="space-y-4"><input id="email" type="email" required class="w-full border rounded-xl p-3" placeholder="E-mail"><input id="password" type="password" required class="w-full border rounded-xl p-3" placeholder="Palavra-passe"><button class="w-full bg-orange text-white rounded-xl p-3 font-bold">Entrar</button><p id="loginMsg" class="text-sm"></p></form></div></div>
-<div id="app" class="hiddenx min-h-screen"><header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b"><div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between"><div class="flex items-center gap-3"><div id="appLogo" class="w-10 h-10 rounded-xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><b>CIADI</b><div class="text-xs text-slate-500">Administração</div></div></div><div class="flex items-center gap-3"><span id="who" class="text-sm text-slate-600"></span><button onclick="logout()" class="border rounded-xl px-4 py-2">Sair</button></div></div></header>
+<div id="app" class="hiddenx min-h-screen"><header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b"><div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between"><div class="flex items-center gap-3"><div id="appLogo" class="w-10 h-10 rounded-xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><b>CIADI</b><div id="stationLabel" class="text-xs text-slate-500">A identificar estação…</div></div></div><div class="flex items-center gap-3"><span id="who" class="text-sm text-slate-600"></span><button onclick="logout()" class="border rounded-xl px-4 py-2">Sair</button></div></div></header>
 <main class="max-w-7xl mx-auto p-4 md:p-6"><div class="grid lg:grid-cols-[230px_1fr] gap-5"><aside class="card p-3 h-fit sticky top-20"><nav id="nav" class="space-y-1"></nav></aside><section id="content"></section></div></main></div>
 <div id="toast" class="fixed bottom-5 right-5 hidden max-w-sm rounded-xl bg-slate-900 text-white px-5 py-3 shadow-xl"></div>
 <script>
@@ -26,25 +26,28 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
+const menu=[['support','Suporte Informático'],['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
 // O perfil da estação apenas organiza a navegação local. As permissões reais continuam no login/Supabase.
-const stationProfile = (new URLSearchParams(window.location.search).get('ciadi_profile') || '').toLowerCase();
+const stationParams = new URLSearchParams(window.location.search);
+const stationMode = stationParams.has('ciadi_profile');
+const stationProfile = (stationParams.get('ciadi_profile') || '').toLowerCase();
 const stationMenu = {
   adm: new Set(['overview','sos','pedidos_site','agendamentos','financeiro','faturacao','caixa','contabilidade','saft','especialidades','triagens','pacientes','profissionais','documentos','familias','conteudos','multimedia','marketing','janeth','utilizadores','instituicao','empresas','clinica','auditoria','acompanhantes_at']),
-  suporte_informatica: new Set(['overview','sos','utilizadores','instituicao','auditoria']),
+  suporte_informatica: new Set(['support','sos','utilizadores','instituicao','auditoria']),
   rh: new Set(['overview','profissionais','acompanhantes_at']),
   recepcao: new Set(['overview','pedidos_site','agendamentos','pacientes','familias'])
 };
 function visibleMenu(){
-  const allowed = stationMenu[stationProfile] || stationMenu.adm;
+  const allowed = stationMode ? stationMenu[stationProfile] : stationMenu.adm;
+  if (!allowed) return [];
   return menu.filter(([id]) => allowed.has(id) && (id !== 'acompanhantes_at' || canAccessAT()));
 }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='support')return supportDashboard(); if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
   const isManager=['admin','gestor'].includes(profile?.tipo);
@@ -181,6 +184,27 @@ async function sosAlerts(){
     catch(e){console.warn('CIADI SOS Realtime não disponível:',e);}
   }
 }
+
+async function supportDashboard(){
+  const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+  const session = sessionData?.session;
+  const stationNames = {adm:'Administração',suporte_informatica:'Suporte Informático',rh:'Recursos Humanos',recepcao:'Receção'};
+  const userEmail = esc(session?.user?.email || 'Sem utilizador');
+  const sessionStatus = sessionError ? 'Não foi possível consultar a sessão.' : session?.user ? 'Sessão autenticada no Supabase.' : 'Sessão não encontrada.';
+  document.getElementById('content').innerHTML =
+    '<div class="flex flex-wrap justify-between items-start gap-4 mb-5"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Tecnologia e Sistemas</span><h2 class="text-3xl font-black mt-1">Centro de Suporte Informático</h2><p class="text-slate-500">Apoio técnico, monitorização operacional e acompanhamento dos sistemas CIADI.</p></div><span class="rounded-full px-3 py-2 text-sm font-bold bg-orange-50 text-orange-700">Estação: '+esc(stationNames[stationProfile]||'Não identificada')+'</span></div>'+
+    '<div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">'+
+    '<article class="card p-5"><div class="text-2xl">🖥️</div><h3 class="font-black text-lg mt-3">Sessão da aplicação</h3><p class="text-sm text-slate-500 mt-1">'+esc(sessionStatus)+'</p><p class="text-xs text-slate-400 mt-3 break-all">'+userEmail+'</p></article>'+
+    '<article class="card p-5"><div class="text-2xl">🧩</div><h3 class="font-black text-lg mt-3">Perfil desta estação</h3><p class="text-sm text-slate-500 mt-1">A navegação está configurada para Suporte Informático.</p><p class="text-xs text-slate-400 mt-3">O perfil da estação não concede permissões de dados.</p></article>'+
+    '<article class="card p-5"><div class="text-2xl">🔐</div><h3 class="font-black text-lg mt-3">Controlo de acesso</h3><p class="text-sm text-slate-500 mt-1">A autenticação e as políticas RLS do Supabase continuam a controlar o acesso efectivo.</p><p class="text-xs text-slate-400 mt-3">Nenhuma permissão foi alterada.</p></article></div>'+
+    '<div class="card p-6 mt-5"><h3 class="text-xl font-black">Ferramentas de suporte</h3><p class="text-sm text-slate-500 mt-1">Aceda às áreas de acompanhamento técnico disponíveis para esta estação.</p><div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">'+
+    '<button onclick="go(\'sos\')" class="border rounded-xl p-4 text-left hover:border-orange-400"><b>🚨 Alertas SOS</b><p class="text-xs text-slate-500 mt-1">Consultar alertas e estado de resposta.</p></button>'+
+    '<button onclick="go(\'utilizadores\')" class="border rounded-xl p-4 text-left hover:border-orange-400"><b>👥 Utilizadores</b><p class="text-xs text-slate-500 mt-1">Consultar contas e perfis autorizados.</p></button>'+
+    '<button onclick="go(\'instituicao\')" class="border rounded-xl p-4 text-left hover:border-orange-400"><b>🌐 Instituição & redes</b><p class="text-xs text-slate-500 mt-1">Consultar configuração institucional.</p></button>'+
+    '<button onclick="go(\'auditoria\')" class="border rounded-xl p-4 text-left hover:border-orange-400"><b>📋 Auditoria</b><p class="text-xs text-slate-500 mt-1">Consultar registos de actividade.</p></button>'+
+    '</div></div>';
+}
+
 async function overview(){
   const [a,p,pr,t,d,m,c,mk]=await Promise.all(['agendamentos','pacientes','profissionais','ficha_pre_atendimento','documentos_clinicos','ciadi_materiais_apoio','conteudos_site','ciadi_campanhas_marketing'].map(count));
   document.getElementById('content').innerHTML=`<div class="flex flex-wrap justify-between items-center mb-5"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Centro de Gestão</span><h2 class="text-3xl font-black mt-1">Dashboard Clínico & Administrativo</h2><p class="text-slate-500">Visão operacional baseada nos dados reais do Supabase.</p></div><div class="flex gap-2"><button onclick="go('pacientes')" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Paciente</button><button onclick="go('profissionais')" class="border rounded-xl px-4 py-2 font-bold">+ Especialista</button><button onclick="go('documentos')" class="border rounded-xl px-4 py-2 font-bold">+ Documento</button></div></div>
@@ -800,12 +824,14 @@ async function enter(u){
     if(q.error) throw new Error('Não foi possível validar o perfil administrativo: '+q.error.message);
     profile=q.data;
     if(!profile){ await sb.auth.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
+    if(stationMode && !stationMenu[stationProfile]) throw new Error('Perfil desta estação não identificado. Reinstale ou configure o perfil CIADI antes de continuar.');
     if(profile.ativo!==true){ await sb.auth.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
     if(!['admin','gestor','profissional'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso administrativo.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
-    nav(); await go('overview');
+    document.getElementById('stationLabel').textContent = stationMode ? ({adm:'Administração',suporte_informatica:'Suporte Informático',rh:'Recursos Humanos',recepcao:'Receção'}[stationProfile] || 'Estação não configurada') : 'Administração';
+    nav(); await go(stationMode && stationProfile==='suporte_informatica' ? 'support' : 'overview');
   }catch(e){
     console.error('CIADI perfil',e);
     document.getElementById('login').classList.remove('hiddenx');
