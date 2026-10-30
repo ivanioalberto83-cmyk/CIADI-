@@ -23,13 +23,19 @@ test('Setup oferece exatamente os quatro perfis funcionais pretendidos', () => {
 
 test('Cada perfil de estação tem uma lista de módulos própria na navegação', () => {
   const dashboard = fs.readFileSync(path.resolve(root, '..', 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
-  assert.ok(dashboard.includes("const stationProfile = (new URLSearchParams(window.location.search).get('ciadi_profile') || '').toLowerCase();"));
+  assert.ok(dashboard.includes("const stationMode = stationParams.has('ciadi_profile');"));
+  assert.ok(dashboard.includes("suporte_informatica: new Set(['support','sos','utilizadores','instituicao','auditoria'])"));
+  assert.ok(dashboard.includes('async function supportDashboard()'));
+  assert.ok(dashboard.includes("go(stationMode && stationProfile==='suporte_informatica' ? 'support' : 'overview')"));
   assert.ok(dashboard.includes("adm: new Set(['overview','sos','pedidos_site','agendamentos','financeiro'"));
-  assert.ok(dashboard.includes("suporte_informatica: new Set(['overview','sos','utilizadores','instituicao','auditoria'])"));
+  
   assert.ok(dashboard.includes("rh: new Set(['overview','profissionais','acompanhantes_at'])"));
   assert.ok(dashboard.includes("recepcao: new Set(['overview','pedidos_site','agendamentos','pacientes','familias'])"));
-  assert.ok(dashboard.includes('const allowed = stationMenu[stationProfile] || stationMenu.adm;'));
-  assert.ok(main.includes("query: stationProfile ? { ciadi_profile: stationProfile } : {}"));
+  assert.ok(dashboard.includes('const allowed = stationMode ? stationMenu[stationProfile] : stationMenu.adm;'));
+  assert.ok(dashboard.includes('if (!allowed) return [];'));
+  assert.ok(dashboard.includes('Centro de Suporte Informático'));
+  assert.ok(dashboard.includes('stationLabel'));
+  assert.ok(main.includes("query: { ciadi_profile: stationProfile || 'unconfigured' }"));
 });
 
 test('Perfil serve apenas para identificar a estação e não atribui permissões', () => {
