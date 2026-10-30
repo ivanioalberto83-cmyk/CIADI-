@@ -40,3 +40,13 @@ test('ProfileService preserves Supabase query errors', async () => {
 
   assert.equal((await service.getCurrentProfile('user-42')).error, failure);
 });
+
+
+test('Dashboard uses ProfileService for the authenticated profile lookup', () => {
+  const root = path.resolve(__dirname, '..', '..');
+  const dashboard = fs.readFileSync(path.join(root, 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
+  assert.match(dashboard, /<script\s+src=["']renderer\/core\/profile-service\.js["']><\/script>/);
+  assert.match(dashboard, /profileService=window\.CIADI_PROFILE_SERVICE\.createProfileService\(sb\)/);
+  assert.match(dashboard, /profileService\.getCurrentProfile\(u\.id\)/);
+  assert.doesNotMatch(dashboard, /sb\.from\('perfis'\)\.select\('id,email,nome_completo,nome_exibicao,tipo,ativo,telefone'\)/);
+});
