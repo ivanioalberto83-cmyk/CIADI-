@@ -3,9 +3,9 @@
 Este diretório empacota o dashboard existente como aplicação Windows (Electron/NSIS). O objetivo é preservar a estrutura e o funcionamento do dashboard: a camada Electron serve para instalar e atualizar a aplicação; não reescreve os módulos nem migra automaticamente o Supabase.
 
 ## Fonte da aplicação
-- A raiz do repositório deve conter `CIADI_DASHBOARD_FINANCEIRO(1).html`.
-- A compilação copia esse ficheiro para `ciadi-windows/index.html` sem editar o original.
-- Não substitua nem reorganize a estrutura do dashboard para publicar uma atualização. Faça alterações funcionais no ficheiro original, teste-as e mantenha uma cópia/commit da versão anterior.
+- A fonte canónica do Dashboard é `CIADI_DASHBOARD_FINANCEIRO.html`, na raiz do repositório.
+- O workflow `CIADI Windows Setup` copia essa fonte para `ciadi-windows/index.html` antes da compilação; o ficheiro de origem não é editado durante o build.
+- `index.html` na raiz é actualmente uma cópia byte-a-byte da fonte canónica (mesmo blob SHA na revisão auditada), mas não é consumido pelo workflow Windows. Não edite as duas cópias em separado: alterações funcionais devem ser feitas na fonte canónica e a duplicação deverá ser tratada numa etapa própria, depois de confirmar os consumidores do `index.html` raiz.
 
 ## Gerar um instalador de teste
 1. Abra **Actions → CIADI Windows Setup → Run workflow**.
@@ -29,7 +29,7 @@ A versão tem de aumentar em cada release. Não publique novamente a mesma vers�
 A assinatura de produção do executável requer um certificado de assinatura de código válido. Configure os secrets `CSC_LINK` e `CSC_KEY_PASSWORD` somente depois de obter o certificado. Sem esse certificado, o Windows poderá apresentar avisos de editor desconhecido.
 
 ## Limitação atual
-O Setup.exe e as atualizações automáticas só ficam validados após uma compilação Windows bem-sucedida e uma release publicada. A fonte `CIADI_DASHBOARD_FINANCEIRO(1).html` ainda tem de estar na raiz do repositório para o workflow concluir.
+O Setup.exe e as atualizações automáticas só ficam validados após uma compilação Windows bem-sucedida e uma release publicada. A fonte `CIADI_DASHBOARD_FINANCEIRO.html` tem de estar na raiz do repositório para o workflow concluir.
 
 
 ## Módulo de homologação biométrica — ZKTeco K20 Pro
