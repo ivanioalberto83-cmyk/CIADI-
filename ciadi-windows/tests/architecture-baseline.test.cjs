@@ -42,7 +42,7 @@ test('preload exposes only the non-privileged application identity', () => {
 });
 
 test('dashboard requires an active Supabase profile from the allowed account types', () => {
-  assert.match(dashboard, /sb\.from\('perfis'\)\.select\([^;]+\)\.eq\('id',u\.id\)\.maybeSingle\(\)/);
+  assert.match(dashboard, /profileService\.getCurrentProfile\(u\.id\)/);
   assert.match(dashboard, /if\(!profile\)[\s\S]{0,180}signOut/);
   assert.match(dashboard, /if\(profile\.ativo!==true\)[\s\S]{0,180}signOut/);
   assert.match(dashboard, /!\['admin','gestor','profissional'\]\.includes\(profile\.tipo\)/);
