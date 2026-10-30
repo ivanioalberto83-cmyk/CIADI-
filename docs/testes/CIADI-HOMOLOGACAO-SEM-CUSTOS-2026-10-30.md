@@ -19,6 +19,8 @@ O ambiente de execução disponível tem Node.js v22.16.0, mas não tem Docker, 
 4. Revisão estática de SQL, políticas, funções, grants, Storage e Edge Functions.
 5. Testes negativos com providers simulados que falham de forma fechada.
 
+**Execução local efectuada nesta sessão:** 11 testes unitários isolados (AuthService, ProfileService e PermissionService) passaram: 11/11. Estes testes foram executados com Node.js sobre cópias locais dos módulos e testes da PR; não incluem os testes de caracterização que dependem do HTML completo do Dashboard e não constituem prova de RLS real.
+
 Comando no repositório:
 ```bash
 cd ciadi-windows
