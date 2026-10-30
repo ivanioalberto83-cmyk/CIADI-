@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="renderer/core/module-registry.js"></script>
 <script src="renderer/core/auth-service.js"></script>
+<script src="renderer/core/profile-service.js"></script>
 <style>body{background:#fbfdff;color:#6f351f} .orange{color:#f58200}.bg-orange{background:#f58200}.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 8px 28px rgba(245,130,0,.08)} input,select,textarea{outline:none} input:focus,select:focus,textarea:focus{border-color:#f58200;box-shadow:0 0 0 3px #ffe7bf}.hiddenx{display:none!important}
 .invoice-ciadi{font-family:Arial,sans-serif;color:#1f2937;max-width:900px;margin:auto}.invoice-ciadi header{display:flex;justify-content:space-between;gap:24px;border-bottom:3px solid #f58200;padding-bottom:18px}.invoice-ciadi .brand{font-size:34px;font-weight:900;color:#f58200}.invoice-ciadi .muted{color:#64748b;font-size:11px}.invoice-ciadi .docbox{border:1px solid #cbd5e1;padding:14px;min-width:180px;text-align:right;display:grid;gap:5px}.invoice-ciadi .docbox strong{font-size:18px}.invoice-ciadi .party{display:grid;grid-template-columns:1fr 1fr;gap:24px;background:#f8fafc;padding:16px;margin:18px 0}.invoice-ciadi table{width:100%;border-collapse:collapse;font-size:12px}.invoice-ciadi th,.invoice-ciadi td{border-bottom:1px solid #e2e8f0;padding:9px}.invoice-ciadi th{text-align:left;background:#f1f5f9}.invoice-ciadi .num{text-align:right}.invoice-ciadi .totals{margin:18px 0 18px auto;width:320px}.invoice-ciadi .totals>div{display:flex;justify-content:space-between;padding:6px}.invoice-ciadi .grand{font-size:18px;border-top:2px solid #0f172a;margin-top:6px;padding-top:10px}.invoice-ciadi footer{border-top:1px solid #cbd5e1;padding-top:14px;font-size:11px;display:grid;gap:5px}@media print{.invoice-ciadi{max-width:none}.invoice-ciadi header{break-inside:avoid}}
 .invoice-a4{background:#fff;color:#1f2937;width:210mm;min-height:297mm;margin:0 auto;padding:16mm 15mm;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;box-shadow:0 8px 30px rgba(15,23,42,.12);font-size:11px}.invoice-a4 header{display:flex;justify-content:space-between;gap:18px;border-bottom:3px solid #f58200;padding-bottom:12px}.invoice-brand{display:flex;gap:12px;align-items:flex-start}.invoice-logo{font-size:25px;font-weight:900;color:#f58200;letter-spacing:-1px}.invoice-org{font-weight:800;font-size:13px}.invoice-small{font-size:9px;color:#64748b;margin-top:3px}.invoice-doc{text-align:right;border:1px solid #cbd5e1;border-radius:8px;padding:9px;min-width:175px}.invoice-type{font-size:13px;font-weight:800}.invoice-number{font-size:17px;font-weight:900;margin:3px 0}.invoice-parties{display:grid;grid-template-columns:1fr 1fr;gap:15px;background:#f8fafc;border:1px solid #e2e8f0;padding:11px;margin:13px 0}.invoice-parties>div{display:grid;gap:3px}.invoice-label{font-size:8px;letter-spacing:.08em;color:#f58200;font-weight:900}.invoice-a4 table{width:100%;border-collapse:collapse}.invoice-a4 th,.invoice-a4 td{border-bottom:1px solid #e2e8f0;padding:7px}.invoice-a4 th{background:#f1f5f9;text-align:left;font-size:9px}.invoice-a4 .num{text-align:right}.invoice-totals{width:290px;margin:14px 0 14px auto}.invoice-totals>div{display:flex;justify-content:space-between;padding:5px;border-bottom:1px solid #e2e8f0}.invoice-grand{font-size:15px;border-top:2px solid #0f172a!important;border-bottom:0!important;margin-top:4px;padding-top:8px!important}.invoice-notes{border:1px solid #e2e8f0;border-radius:8px;padding:9px;display:grid;gap:4px}.invoice-a4 footer{border-top:1px solid #cbd5e1;margin-top:22px;padding-top:10px;color:#64748b;font-size:8px;display:grid;gap:3px}.invoice-sign{margin-top:16px;color:#1f2937}.a4-preview-shell{background:#e2e8f0;padding:15px;overflow:auto}@media(max-width:900px){.invoice-a4{width:100%;min-height:auto;padding:8mm}.invoice-parties{grid-template-columns:1fr}.invoice-totals{width:100%}}@media print{body{background:#fff!important}.invoice-a4{box-shadow:none;width:210mm;min-height:297mm;margin:0;padding:12mm}.a4-preview-shell{padding:0;background:#fff}.invoice-a4{page-break-after:always}}
@@ -20,12 +21,13 @@
 <script>
 const SUPABASE_URL='https://egpkkttbcaukqnnxyhjv.supabase.co';
 const SUPABASE_KEY='sb_publishable_SSA6B6gfnaUxKhOzReE6HQ_utqQRebz';
-let sb=null, authService=null, me=null, profile=null, current='overview', sosChannel=null;
+let sb=null, authService=null, profileService=null, me=null, profile=null, current='overview', sosChannel=null;
 function initSupabase(){
   if(sb) return sb;
   if(!window.supabase || typeof window.supabase.createClient!=='function') throw new Error('A biblioteca do Supabase não foi carregada. Verifique a ligação à Internet.');
   sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'ciadi-admin-auth'}});
   authService=window.CIADI_AUTH_SERVICE.createAuthService(sb);
+  profileService=window.CIADI_PROFILE_SERVICE.createProfileService(sb);
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
@@ -788,7 +790,7 @@ async function enter(u){
   try{
     initSupabase();
     me=u;
-    const q=await sb.from('perfis').select('id,email,nome_completo,nome_exibicao,tipo,ativo,telefone').eq('id',u.id).maybeSingle();
+    const q=await profileService.getCurrentProfile(u.id);
     if(q.error) throw new Error('Não foi possível validar o perfil administrativo: '+q.error.message);
     profile=q.data;
     if(!profile){ await authService.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
