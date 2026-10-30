@@ -1,8 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createAuthService } = require('../../renderer/core/auth-service.js');
+const fs = require('node:fs');
+const path = require('node:path');
 
 test('AuthService delegates session, login, logout and auth-state subscription to Supabase', async () => {
+  const servicePath = path.resolve(__dirname, '..', '..', 'renderer', 'core', 'auth-service.js');
+  assert.ok(fs.existsSync(servicePath), 'AuthService module has not been extracted yet');
+  const { createAuthService } = require(servicePath);
   const calls = [];
   const subscription = { unsubscribe() {} };
   const client = {
@@ -27,6 +31,9 @@ test('AuthService delegates session, login, logout and auth-state subscription t
 });
 
 test('AuthService preserves Supabase errors without silently converting them to success', async () => {
+  const servicePath = path.resolve(__dirname, '..', '..', 'renderer', 'core', 'auth-service.js');
+  assert.ok(fs.existsSync(servicePath), 'AuthService module has not been extracted yet');
+  const { createAuthService } = require(servicePath);
   const failure = new Error('auth unavailable');
   const service = createAuthService({
     auth: {
