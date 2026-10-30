@@ -1,0 +1,32 @@
+name: CIADI Architecture Tests
+
+on:
+  pull_request:
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-architecture-tests.yml'
+  push:
+    branches:
+      - 'implementation/**'
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-architecture-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run CIADI architecture characterization tests
+        working-directory: ciadi-windows
+        run: npm run test:architecture
