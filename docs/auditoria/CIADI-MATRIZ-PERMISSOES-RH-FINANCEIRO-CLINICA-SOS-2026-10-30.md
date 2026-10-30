@@ -109,3 +109,15 @@ As funções têm `search_path = public`. Antes de reutilizar ou ampliar qualque
 
 ## 9. Nota de plataforma Supabase — 30-10-2026
 O changelog oficial informa que, a partir de 30-10-2026, a exposição automática de novas tabelas do schema `public` à Data API deixa de ser assumida nos projectos existentes; tabelas novas passam a exigir opt-in explícito por GRANT. Isto não remove os grants de tabelas já existentes. Portanto, futuras tabelas de permissões/polos terão de ter a exposição à Data API decidida deliberadamente, com RLS e grants mínimos por papel, e a aplicação deverá validar a acessibilidade real antes da integração. Não se deve adicionar GRANT amplo apenas para resolver um erro de acesso. Fonte: [Supabase — Breaking Change: Tables not exposed to Data and GraphQL API automatically](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically).
+
+
+## 10. Grants SQL observados (verificação adicional)
+A consulta de privilégios efectivos `has_table_privilege` revelou que o papel SQL `anon` tem privilégios SELECT, INSERT, UPDATE e DELETE (ALL) em várias tabelas sensíveis analisadas, incluindo:
+- `ciadi_funcionarios`, `ciadi_funcionario_confidencial`;
+- `ciadi_folhas_salariais`, `ciadi_folha_salarial_linhas`;
+- `finance_contas_bancarias`, `finance_extratos_bancarios`, `finance_movimentos_bancarios`;
+- `ciadi_sos_alertas` e `ciadi_sos_denuncias`.
+
+O papel `authenticated` também tem os privilégios SQL CRUD nessas tabelas; o RLS é que deve limitar as linhas/operações. **A concessão SQL ao papel anon não prova, por si só, que linhas estão actualmente legíveis**, porque o RLS continua a aplicar-se e as políticas relevantes observadas são, em geral, dirigidas a authenticated. Contudo, é uma concessão excessiva para dados sensíveis e aumenta o risco de exposição futura se uma política pública permissiva for adicionada ou o RLS for desactivado. Deve ser revisto em conjunto com políticas, views, RPCs e Data API; não revogar agora sem uma análise completa de dependências e autorização.
+
+Nas sete funções SECURITY DEFINER acima listadas, a verificação encontrou `EXECUTE` para `authenticated` e não encontrou `EXECUTE` para `anon`. Isto reduz a exposição anónima directa destas funções específicas, mas não substitui a revisão de todas as funções SECURITY DEFINER, dos seus owners, search_path e grants.
