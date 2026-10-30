@@ -17,8 +17,8 @@ test('Windows build copies the canonical dashboard source into the packaged entr
 });
 
 test('all inline dashboard JavaScript blocks parse', () => {
-  const scripts = [...dashboard.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)]
-    .filter(([, attrs, body]) => !/\\bsrc\\s*=/.test(attrs) && body.trim());
+  const scripts = [...dashboard.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+    .filter(([, attrs, body]) => !/\bsrc\s*=/.test(attrs) && body.trim());
   assert.ok(scripts.length > 0, 'expected inline JavaScript in the dashboard');
   scripts.forEach(([, , body], index) => {
     assert.doesNotThrow(
@@ -29,22 +29,22 @@ test('all inline dashboard JavaScript blocks parse', () => {
 });
 
 test('Electron renderer keeps context isolation, sandbox and Node integration disabled', () => {
-  assert.match(main, /contextIsolation:\\s*true/);
-  assert.match(main, /nodeIntegration:\\s*false/);
-  assert.match(main, /sandbox:\\s*true/);
-  assert.match(main, /preload:\\s*path\\.join\\(__dirname, 'preload\\.cjs'\\)/);
+  assert.match(main, /contextIsolation:\s*true/);
+  assert.match(main, /nodeIntegration:\s*false/);
+  assert.match(main, /sandbox:\s*true/);
+  assert.match(main, /preload:\s*path\.join\(__dirname, 'preload\.cjs'\)/);
 });
 
 test('preload exposes only the non-privileged application identity', () => {
-  assert.match(preload, /contextBridge\\.exposeInMainWorld\\('ciadiDesktop'/);
-  assert.match(preload, /appName:\\s*'CIADI Dashboard'/);
-  assert.doesNotMatch(preload, /require\\(['"](?:fs|child_process|electron-store|node:fs|node:child_process)['"]\\)/);
+  assert.match(preload, /contextBridge\.exposeInMainWorld\('ciadiDesktop'/);
+  assert.match(preload, /appName:\s*'CIADI Dashboard'/);
+  assert.doesNotMatch(preload, /require\(['"](?:fs|child_process|electron-store|node:fs|node:child_process)['"]\)/);
 });
 
 test('dashboard requires an active Supabase profile from the allowed account types', () => {
-  assert.match(dashboard, /sb\\.from\\('perfis'\\)\\.select\\([^;]+\\)\\.eq\\('id',u\\.id\\)\\.maybeSingle\\(\\)/);
-  assert.match(dashboard, /if\\(!profile\\)[\\s\\S]{0,180}signOut/);
-  assert.match(dashboard, /if\\(profile\\.ativo!==true\\)[\\s\\S]{0,180}signOut/);
-  assert.match(dashboard, /!\\['admin','gestor','profissional'\\]\\.includes\\(profile\\.tipo\\)/);
+  assert.match(dashboard, /sb\.from\('perfis'\)\.select\([^;]+\)\.eq\('id',u\.id\)\.maybeSingle\(\)/);
+  assert.match(dashboard, /if\(!profile\)[\s\S]{0,180}signOut/);
+  assert.match(dashboard, /if\(profile\.ativo!==true\)[\s\S]{0,180}signOut/);
+  assert.match(dashboard, /!\['admin','gestor','profissional'\]\.includes\(profile\.tipo\)/);
   assert.ok(dashboard.indexOf("if(profile.ativo!==true)") < dashboard.indexOf("document.getElementById('app').classList.remove('hiddenx')"));
 });
