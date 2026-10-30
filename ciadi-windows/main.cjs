@@ -62,7 +62,7 @@ function createWindow() {
   });
   const stationProfile = getStationProfileId();
   mainWindow.loadFile(path.join(__dirname, 'index.html'), {
-    query: stationProfile ? { ciadi_profile: stationProfile } : {}
+    query: { ciadi_profile: stationProfile || 'unconfigured' }
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://') || url.startsWith('http://')) {
