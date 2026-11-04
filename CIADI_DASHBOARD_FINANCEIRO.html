@@ -43,6 +43,17 @@ function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gesto
 const stationParams = new URLSearchParams(window.location.search);
 const stationMode = stationParams.has('ciadi_profile');
 const stationProfile = (stationParams.get('ciadi_profile') || '').toLowerCase();
+const stationPolo = (stationParams.get('ciadi_polo') || '').toLowerCase();
+const stationProfileLabels = Object.freeze({
+  adm: 'Administração',
+  suporte_informatica: 'Suporte Informático',
+  rh: 'Recursos Humanos',
+  recepcao: 'Receção'
+});
+const stationPoloLabels = Object.freeze({
+  talatona: 'Talatona — Polo 001',
+  jardim_de_rosas: 'Jardim de Rosas — Polo 002'
+});
 function visibleMenu(){
   return window.CIADI_STATION_PROFILE_SERVICE.getVisibleEntries(
     stationMode ? stationProfile : 'adm',
@@ -838,13 +849,14 @@ async function enter(u){
     if(q.error) throw new Error('Não foi possível validar o perfil administrativo: '+q.error.message);
     profile=q.data;
     if(!profile){ await authService.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
-    if(stationMode && !stationMenu[stationProfile]) throw new Error('Perfil desta estação não identificado. Reinstale ou configure o perfil CIADI antes de continuar.');
+    if(stationMode && !Object.prototype.hasOwnProperty.call(stationProfileLabels,stationProfile)) throw new Error('Perfil desta estação não identificado. Reinstale o CIADI e seleccione um perfil válido.');
+    if(stationMode && !Object.prototype.hasOwnProperty.call(stationPoloLabels,stationPolo)) throw new Error('Polo desta estação não identificado. Reinstale o CIADI e seleccione um polo válido.');
     if(profile.ativo!==true){ await authService.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
     if(!['admin','gestor','profissional'].includes(profile.tipo)){ await authService.signOut(); throw new Error('Este utilizador não possui acesso administrativo.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
-    document.getElementById('stationLabel').textContent = stationMode ? ({adm:'Administração',suporte_informatica:'Suporte Informático',rh:'Recursos Humanos',recepcao:'Receção'}[stationProfile] || 'Estação não configurada') : 'Administração';
+    document.getElementById('stationLabel').textContent = stationMode ? (stationProfileLabels[stationProfile] + ' · ' + stationPoloLabels[stationPolo]) : 'Administração';
     nav(); await go(stationMode && stationProfile==='suporte_informatica' ? 'support' : 'overview');
   }catch(e){
     console.error('CIADI perfil',e);
