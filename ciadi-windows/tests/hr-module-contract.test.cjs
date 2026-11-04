@@ -33,6 +33,7 @@ test('HR module hides payroll and confidential data from non-management accounts
   assert.match(source, /profile\.tipo\s*===\s*['"]admin['"]/);
   assert.match(source, /profile\.tipo\s*===\s*['"]gestor['"]/);
   assert.match(source, /Acesso reservado à Administração e Gestão/);
+  assert.match(source, /canManagePayroll \? FIELDS\.contracts : FIELDS\.contracts\.replace\(',salario_referencia'/);
   assert.match(source, /ciadi_funcionario_confidencial/);
 });
 
