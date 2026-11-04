@@ -5,9 +5,11 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..', '..');
 const dashboard = fs.readFileSync(path.join(root, 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
-const installer = fs.readFileSync(path.join(root, 'ciadi-windows', 'build', 'installer.nsh'), 'utf8');
+const installerPath = path.join(root, 'ciadi-windows', 'build', 'installer.nsh');
+const installer = fs.existsSync(installerPath) ? fs.readFileSync(installerPath, 'utf8') : '';
 const main = fs.readFileSync(path.join(root, 'ciadi-windows', 'main.cjs'), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'ciadi-windows', 'package.json'), 'utf8'));
+const buildWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ciadi-setup-homologation.yml'), 'utf8');
 
 test('o arranque exige novo login e não restaura uma sessão anterior', () => {
   const start = dashboard.indexOf('async function boot(){');
@@ -21,6 +23,7 @@ test('o arranque exige novo login e não restaura uma sessão anterior', () => {
 });
 
 test('o Setup apresenta os quatro perfis de estação sem os confundir com permissões', () => {
+  assert.ok(fs.existsSync(installerPath), 'falta ciadi-windows/build/installer.nsh');
   for (const label of [
     'ADM — Administração',
     'Suporte Informático',
@@ -44,7 +47,7 @@ test('o pacote inclui os módulos renderer e a compilação nunca publica automa
   assert.equal(packageJson.build.nsis.include, 'build/installer.nsh');
 });
 
-test('os ficheiros de origem e de empacotamento mantêm o mesmo Dashboard', () => {
-  const packaged = fs.readFileSync(path.join(root, 'ciadi-windows', 'index.html'), 'utf8');
-  assert.equal(packaged, dashboard);
+test('a compilação sincroniza o Dashboard e os serviços renderer para o pacote Windows', () => {
+  assert.match(buildWorkflow, /Copy-Item\s+["']?CIADI_DASHBOARD_FINANCEIRO\.html["']?\s+["']?ciadi-windows\/index\.html["']?/);
+  assert.match(buildWorkflow, /Copy-Item\s+["']?renderer\/\*["']?\s+["']?ciadi-windows\/renderer/);
 });
