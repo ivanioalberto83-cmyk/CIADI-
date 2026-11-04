@@ -12,7 +12,7 @@ const setupWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'c
 const expectedIds = [
   'overview', 'sos', 'pedidos_site', 'agendamentos', 'financeiro',
   'faturacao', 'caixa', 'contabilidade', 'saft', 'especialidades',
-  'triagens', 'pacientes', 'profissionais', 'documentos', 'familias',
+  'triagens', 'pacientes', 'profissionais', 'rh', 'documentos', 'familias',
   'conteudos', 'multimedia', 'marketing', 'janeth', 'utilizadores',
   'instituicao', 'empresas', 'clinica', 'auditoria', 'acompanhantes_at'
 ];
