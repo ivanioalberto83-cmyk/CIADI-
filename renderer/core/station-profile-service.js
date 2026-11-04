@@ -44,8 +44,7 @@
       return unique;
     }
 
-    const allowed = new Set(PROFILE_ROUTES[profileId]);
-    return unique.filter(entry => allowed.has(entry.id));
+    return PROFILE_ROUTES[profileId].map(id => unique.find(entry => entry.id === id)).filter(Boolean);
   }
 
   return Object.freeze({ getVisibleEntries, getProfileLabel, isKnownProfile });
