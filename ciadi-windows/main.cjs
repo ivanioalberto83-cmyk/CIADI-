@@ -13,6 +13,11 @@ const STATION_PROFILES = Object.freeze({
   recepcao: 'Receção'
 });
 
+const STATION_POLOS = Object.freeze({
+  talatona: 'Talatona — Polo 001',
+  jardim_de_rosas: 'Jardim de Rosas — Polo 002'
+});
+
 function getStationProfileId() {
   if (!app.isPackaged || process.platform !== 'win32') return null;
   const argument = process.argv.find(value => value.startsWith('--ciadi-profile='));
@@ -26,6 +31,23 @@ function getStationProfileId() {
     return Object.prototype.hasOwnProperty.call(STATION_PROFILES, profileId) ? profileId : null;
   } catch (error) {
     console.warn('Não foi possível ler o perfil da estação CIADI:', error.message);
+    return null;
+  }
+}
+
+function getStationPoloId() {
+  if (!app.isPackaged || process.platform !== 'win32') return null;
+  const argument = process.argv.find(value => value.startsWith('--ciadi-polo='));
+  if (argument) {
+    const requestedPolo = argument.slice('--ciadi-polo='.length).trim();
+    return Object.prototype.hasOwnProperty.call(STATION_POLOS, requestedPolo) ? requestedPolo : null;
+  }
+  try {
+    const poloPath = path.join(path.dirname(process.execPath), 'ciadi-install-polo.txt');
+    const poloId = fs.readFileSync(poloPath, 'utf8').trim();
+    return Object.prototype.hasOwnProperty.call(STATION_POLOS, poloId) ? poloId : null;
+  } catch (error) {
+    console.warn('Não foi possível ler o polo da estação CIADI:', error.message);
     return null;
   }
 }
@@ -59,8 +81,12 @@ function createWindow() {
     }
   });
   const stationProfile = getStationProfileId();
+  const stationPolo = getStationPoloId();
   mainWindow.loadFile(path.join(__dirname, 'index.html'), {
-    query: { ciadi_profile: stationProfile || 'unconfigured' }
+    query: {
+      ciadi_profile: stationProfile || 'unconfigured',
+      ciadi_polo: stationPolo || 'unconfigured'
+    }
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://') || url.startsWith('http://')) {
