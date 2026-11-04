@@ -16,7 +16,7 @@ test('o arranque exige novo login e não restaura uma sessão anterior', () => {
   const end = dashboard.indexOf('async function enter(u){', start);
   assert.ok(start >= 0 && end > start, 'boot e enter devem existir');
   const boot = dashboard.slice(start, end);
-  assert.match(boot, /sb\.auth\.signOut\(\{scope:'local'\}\)/);
+  assert.match(boot, /authService\.signOut\(\{scope:'local'\}\)/);
   assert.match(boot, /login\.classList\.remove\('hiddenx'\)/);
   assert.match(boot, /appView\.classList\.add\('hiddenx'\)/);
   assert.doesNotMatch(boot, /sb\.auth\.getSession\(\)/);
