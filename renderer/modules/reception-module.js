@@ -36,13 +36,16 @@
         </section>`;
     }
 
-    container.addEventListener('click', event => {
-      const button = event.target.closest('[data-reception-route]');
-      if (!button) return;
-      const route = ROUTES.find(item => item.id === button.getAttribute('data-reception-route'));
-      if (!route) return notify('Área de Recepção não reconhecida.');
-      navigate(route.id);
-    });
+    if (!container.__ciadiReceptionClickBound) {
+      container.__ciadiReceptionClickBound = true;
+      container.addEventListener('click', event => {
+        const button = event.target.closest('[data-reception-route]');
+        if (!button) return;
+        const route = ROUTES.find(item => item.id === button.getAttribute('data-reception-route'));
+        if (!route) return notify('Área de Recepção não reconhecida.');
+        navigate(route.id);
+      });
+    }
 
     return Object.freeze({ renderHome });
   }
