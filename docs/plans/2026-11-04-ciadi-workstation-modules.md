@@ -74,6 +74,17 @@
 - [ ] Run: cd ciadi-windows && npm run test:architecture, then run the Windows NSIS workflow. Expected: all tests pass and a new homologation artifact is uploaded; no release or production database change occurs.
 - [ ] Commit: feat: create CIADI workstation shortcuts.
 
+## Verified implementation and access findings (4 November 2026)
+
+- The first station-navigation increment is implemented: ADM and Support list all registered Dashboard modules; RH and Reception use explicit workspace routes. Unknown profiles fail closed.
+- The HR workspace now has real data views for employees, attendance, contracts, leave/licences, employee documents and payroll headers. It is currently a read/consultation interface; create/edit/approval flows and Angola payroll calculation are not yet implemented.
+- The Reception workspace is a landing page linking to existing triage, appointments, patient and family handlers. It does not duplicate patient data.
+- The database profile constraint includes admin, gestor, profissional, paciente, responsavel and operador. The Dashboard login gate currently admits only admin, gestor and profissional.
+- The current is_staff() function grants staff access to admin, gestor and active A.T. professionals only. It does not include operador, RH or Reception-specific accounts.
+- Existing patient and appointment RLS policies rely on is_staff() for staff access. Therefore, merely allowing operador to log in would not make Reception data access work safely.
+- Payroll and employee-confidential RLS policies currently restrict those tables to admin/gestor. The HR interface keeps those views gated and does not change production policy.
+- The current automated CI run for the workstation modules passed after the HR and Reception workspace additions. The latest Windows installer build is still running and has not yet been verified.
+
 ## Open decisions
 
 - Whether RH operators need a new Supabase account type and dedicated RLS policies. Production currently accepts admin, gestor, profissional, paciente, responsavel and operador; payroll/confidential records are restricted to admin/gestor. This plan does not change those controls.
