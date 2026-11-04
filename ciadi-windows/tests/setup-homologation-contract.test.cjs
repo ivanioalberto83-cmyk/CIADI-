@@ -48,6 +48,7 @@ test('o pacote inclui os módulos renderer e a compilação nunca publica automa
 });
 
 test('a compilação sincroniza o Dashboard e os serviços renderer para o pacote Windows', () => {
-  assert.match(buildWorkflow, /Copy-Item\s+["']?CIADI_DASHBOARD_FINANCEIRO\.html["']?\s+["']?ciadi-windows\/index\.html["']?/);
-  assert.match(buildWorkflow, /Copy-Item\s+["']?renderer\/\*["']?\s+["']?ciadi-windows\/renderer/);
+  assert.match(buildWorkflow, /\$source\s*=\s*["']CIADI_DASHBOARD_FINANCEIRO\.html["']/);
+  assert.match(buildWorkflow, /Copy-Item\s+\$source\s+["']ciadi-windows\/index\.html["']\s+-Force/);
+  assert.match(buildWorkflow, /Copy-Item\s+["']renderer\/\*["']\s+["']ciadi-windows\/renderer\/["']\s+-Recurse\s+-Force/);
 });
