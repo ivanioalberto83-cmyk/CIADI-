@@ -1,0 +1,29 @@
+name: CIADI Setup Homologation Contract
+
+on:
+  push:
+    branches: ['integration/ciadi-setup-homologacao-20261104']
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-setup-homologation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-setup-homologation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  setup-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Teste do contrato de homologação do Setup
+        run: node --test ciadi-windows/tests/setup-homologation-contract.test.cjs
