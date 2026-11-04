@@ -16,7 +16,7 @@ test('Reception and RH receive only their explicitly assigned existing routes', 
   const service = require('../../renderer/core/station-profile-service.js');
   const entries = registry.listNavigationEntries();
   assert.deepEqual(service.getVisibleEntries('rh', entries).map(entry => entry.id), ['rh']);
-  assert.deepEqual(service.getVisibleEntries('recepcao', entries).map(entry => entry.id), ['overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias']);
+  assert.deepEqual(service.getVisibleEntries('recepcao', entries).map(entry => entry.id), ['reception', 'overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias', 'triagens']);
 });
 
 test('unknown profiles fail closed and duplicate entries are removed without mutation', () => {
