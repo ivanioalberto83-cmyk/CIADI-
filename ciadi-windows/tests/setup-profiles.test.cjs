@@ -6,7 +6,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const installer = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf8');
 const main = fs.readFileSync(path.join(root, 'main.cjs'), 'utf8');
-const dashboard = fs.readFileSync(path.resolve(root, '..', '..', 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
+const dashboard = fs.readFileSync(path.resolve(root, '..', 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
 
 test('Setup oferece os quatro perfis e exige uma escolha explícita', () => {
   for (const label of [
