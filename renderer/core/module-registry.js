@@ -17,6 +17,7 @@
     ['triagens', 'Triagens'],
     ['pacientes', 'Pacientes & famílias'],
     ['profissionais', 'Profissionais'],
+    ['rh', 'Recursos Humanos'],
     ['documentos', 'Documentos & Formulários Clínicos'],
     ['familias', 'Portal & famílias'],
     ['conteudos', 'Conteúdos do site'],
