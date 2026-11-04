@@ -22,30 +22,30 @@ Function CIADIProfilePageCreate
   StrCpy $CIADIPolo ""
   nsDialogs::Create 1018
   Pop $CIADIProfileDialog
-  \${If} $CIADIProfileDialog == error
+  ${If} $CIADIProfileDialog == error
     Abort
-  \${EndIf}
+  ${EndIf}
 
-  \${NSD_CreateLabel} 0 0 100% 20u "Selecione o perfil desta estação CIADI:"
+  ${NSD_CreateLabel} 0 0 100% 20u "Selecione o perfil desta estação CIADI:"
   Pop $0
-  \${NSD_CreateLabel} 0 20u 100% 28u "Escolha apenas um perfil. Esta opção não concede permissões nem substitui o login CIADI."
+  ${NSD_CreateLabel} 0 20u 100% 28u "Escolha apenas um perfil. Esta opção não concede permissões nem substitui o login CIADI."
   Pop $0
 
-  \${NSD_CreateRadioButton} 0 54u 100% 16u "ADM — Administração"
+  ${NSD_CreateRadioButton} 0 54u 100% 16u "ADM — Administração"
   Pop $CIADIProfileRadioADM
-  \${NSD_CreateRadioButton} 0 76u 100% 16u "Suporte Informático"
+  ${NSD_CreateRadioButton} 0 76u 100% 16u "Suporte Informático"
   Pop $CIADIProfileRadioSupport
-  \${NSD_CreateRadioButton} 0 98u 100% 16u "Recursos Humanos (RH)"
+  ${NSD_CreateRadioButton} 0 98u 100% 16u "Recursos Humanos (RH)"
   Pop $CIADIProfileRadioRH
-  \${NSD_CreateRadioButton} 0 120u 100% 16u "Receção"
+  ${NSD_CreateRadioButton} 0 120u 100% 16u "Receção"
   Pop $CIADIProfileRadioReception
 
-  \${NSD_CreateLabel} 0 150u 100% 20u "Selecione o polo de referência desta instalação:"
+  ${NSD_CreateLabel} 0 150u 100% 20u "Selecione o polo de referência desta instalação:"
   Pop $0
-  \${NSD_CreateRadioButton} 0 176u 100% 16u "Talatona — Polo 001"
+  ${NSD_CreateRadioButton} 0 176u 100% 16u "Talatona — Polo 001"
   Pop $CIADIPoloRadioTalatona
-  SendMessage $CIADIPoloRadioTalatona \${BM_SETSTYLE} 0x00020009 1
-  \${NSD_CreateRadioButton} 0 198u 100% 16u "Jardim de Rosas — Polo 002"
+  SendMessage $CIADIPoloRadioTalatona ${BM_SETSTYLE} 0x00020009 1
+  ${NSD_CreateRadioButton} 0 198u 100% 16u "Jardim de Rosas — Polo 002"
   Pop $CIADIPoloRadioRosas
 
   nsDialogs::Show
@@ -53,68 +53,68 @@ FunctionEnd
 
 Function CIADIProfilePageLeave
   StrCpy $CIADIProfile ""
-  \${NSD_GetState} $CIADIProfileRadioADM $0
-  \${If} $0 == \${BST_CHECKED}
+  ${NSD_GetState} $CIADIProfileRadioADM $0
+  ${If} $0 == ${BST_CHECKED}
     StrCpy $CIADIProfile "adm"
-  \${EndIf}
-  \${NSD_GetState} $CIADIProfileRadioSupport $0
-  \${If} $0 == \${BST_CHECKED}
-    \${If} $CIADIProfile != ""
+  ${EndIf}
+  ${NSD_GetState} $CIADIProfileRadioSupport $0
+  ${If} $0 == ${BST_CHECKED}
+    ${If} $CIADIProfile != ""
       MessageBox MB_ICONEXCLAMATION|MB_OK "Selecione apenas um perfil."
       Abort
-    \${EndIf}
+    ${EndIf}
     StrCpy $CIADIProfile "suporte_informatica"
-  \${EndIf}
-  \${NSD_GetState} $CIADIProfileRadioRH $0
-  \${If} $0 == \${BST_CHECKED}
-    \${If} $CIADIProfile != ""
+  ${EndIf}
+  ${NSD_GetState} $CIADIProfileRadioRH $0
+  ${If} $0 == ${BST_CHECKED}
+    ${If} $CIADIProfile != ""
       MessageBox MB_ICONEXCLAMATION|MB_OK "Selecione apenas um perfil."
       Abort
-    \${EndIf}
+    ${EndIf}
     StrCpy $CIADIProfile "rh"
-  \${EndIf}
-  \${NSD_GetState} $CIADIProfileRadioReception $0
-  \${If} $0 == \${BST_CHECKED}
-    \${If} $CIADIProfile != ""
+  ${EndIf}
+  ${NSD_GetState} $CIADIProfileRadioReception $0
+  ${If} $0 == ${BST_CHECKED}
+    ${If} $CIADIProfile != ""
       MessageBox MB_ICONEXCLAMATION|MB_OK "Selecione apenas um perfil."
       Abort
-    \${EndIf}
+    ${EndIf}
     StrCpy $CIADIProfile "recepcao"
-  \${EndIf}
-  \${If} $CIADIProfile == ""
+  ${EndIf}
+  ${If} $CIADIProfile == ""
     MessageBox MB_ICONEXCLAMATION|MB_OK "Selecione um perfil para continuar."
     Abort
-  \${EndIf}
+  ${EndIf}
 
   StrCpy $CIADIPolo ""
-  \${NSD_GetState} $CIADIPoloRadioTalatona $0
-  \${If} $0 == \${BST_CHECKED}
+  ${NSD_GetState} $CIADIPoloRadioTalatona $0
+  ${If} $0 == ${BST_CHECKED}
     StrCpy $CIADIPolo "talatona"
-  \${EndIf}
-  \${NSD_GetState} $CIADIPoloRadioRosas $0
-  \${If} $0 == \${BST_CHECKED}
-    \${If} $CIADIPolo != ""
+  ${EndIf}
+  ${NSD_GetState} $CIADIPoloRadioRosas $0
+  ${If} $0 == ${BST_CHECKED}
+    ${If} $CIADIPolo != ""
       MessageBox MB_ICONEXCLAMATION|MB_OK "Selecione apenas um polo."
       Abort
-    \${EndIf}
+    ${EndIf}
     StrCpy $CIADIPolo "jardim_de_rosas"
-  \${EndIf}
-  \${If} $CIADIPolo == ""
+  ${EndIf}
+  ${If} $CIADIPolo == ""
     MessageBox MB_ICONEXCLAMATION|MB_OK "Selecione o polo para continuar."
     Abort
-  \${EndIf}
+  ${EndIf}
 FunctionEnd
 !endif
 
 !macro customInstall
-  \${If} $CIADIProfile == ""
+  ${If} $CIADIProfile == ""
     MessageBox MB_ICONSTOP|MB_OK "Perfil CIADI não seleccionado. A instalação será interrompida."
     Abort
-  \${EndIf}
-  \${If} $CIADIPolo == ""
+  ${EndIf}
+  ${If} $CIADIPolo == ""
     MessageBox MB_ICONSTOP|MB_OK "Polo CIADI não seleccionado. A instalação será interrompida."
     Abort
-  \${EndIf}
+  ${EndIf}
 
   FileOpen $0 "$INSTDIR\ciadi-install-profile.txt" w
   FileWrite $0 "$CIADIProfile"
@@ -125,22 +125,22 @@ FunctionEnd
 
   SetShellVarContext current
   CreateDirectory "$SMPROGRAMS\CIADI"
-  \${If} $CIADIProfile == "adm"
+  ${If} $CIADIProfile == "adm"
     CreateShortCut "$DESKTOP\CIADI - ADM.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=adm --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
     CreateShortCut "$SMPROGRAMS\CIADI\CIADI - ADM.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=adm --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
-  \${ElseIf} $CIADIProfile == "suporte_informatica"
+  ${ElseIf} $CIADIProfile == "suporte_informatica"
     CreateShortCut "$DESKTOP\CIADI - Suporte Informático.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=suporte_informatica --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
     CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Suporte Informático.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=suporte_informatica --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
-  \${ElseIf} $CIADIProfile == "rh"
+  ${ElseIf} $CIADIProfile == "rh"
     CreateShortCut "$DESKTOP\CIADI - Recursos Humanos.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=rh --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
     CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Recursos Humanos.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=rh --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
-  \${ElseIf} $CIADIProfile == "recepcao"
+  ${ElseIf} $CIADIProfile == "recepcao"
     CreateShortCut "$DESKTOP\CIADI - Receção.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=recepcao --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
     CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Receção.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=recepcao --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
-  \${Else}
+  ${Else}
     MessageBox MB_ICONSTOP|MB_OK "Perfil CIADI inválido. A instalação será interrompida."
     Abort
-  \${EndIf}
+  ${EndIf}
 !macroend
 
 !macro customUnInstall
