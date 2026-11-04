@@ -14,7 +14,7 @@
     adm: null,
     suporte_informatica: null,
     // Until the dedicated HR workspace is implemented, retain only real legacy routes.
-    rh: Object.freeze(['overview', 'profissionais', 'acompanhantes_at']),
+    rh: Object.freeze(['rh']),
     recepcao: Object.freeze(['overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias'])
   });
 
