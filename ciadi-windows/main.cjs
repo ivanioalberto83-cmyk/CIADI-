@@ -15,6 +15,11 @@ const STATION_PROFILES = Object.freeze({
 
 function getStationProfileId() {
   if (!app.isPackaged || process.platform !== 'win32') return null;
+  const argument = process.argv.find(value => value.startsWith('--ciadi-profile='));
+  if (argument) {
+    const requestedProfile = argument.slice('--ciadi-profile='.length).trim();
+    return Object.prototype.hasOwnProperty.call(STATION_PROFILES, requestedProfile) ? requestedProfile : null;
+  }
   try {
     const profilePath = path.join(path.dirname(process.execPath), 'ciadi-install-profile.txt');
     const profileId = fs.readFileSync(profilePath, 'utf8').trim();
@@ -26,15 +31,8 @@ function getStationProfileId() {
 }
 
 function getStationLabel() {
-  if (!app.isPackaged || process.platform !== 'win32') return null;
-  try {
-    const profilePath = path.join(path.dirname(process.execPath), 'ciadi-install-profile.txt');
-    const profileId = fs.readFileSync(profilePath, 'utf8').trim();
-    return STATION_PROFILES[profileId] || null;
-  } catch (error) {
-    console.warn('Não foi possível ler a identificação da estação CIADI:', error.message);
-    return null;
-  }
+  const profileId = getStationProfileId();
+  return profileId ? STATION_PROFILES[profileId] : null;
 }
 
 function openBiometricWindow() {
