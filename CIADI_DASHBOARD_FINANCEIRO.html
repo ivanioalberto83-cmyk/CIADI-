@@ -6,6 +6,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="renderer/core/module-registry.js"></script>
+<script src="renderer/core/station-profile-service.js"></script>
 <script src="renderer/core/auth-service.js"></script>
 <script src="renderer/core/profile-service.js"></script>
 <style>body{background:#fbfdff;color:#6f351f} .orange{color:#f58200}.bg-orange{background:#f58200}.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 8px 28px rgba(245,130,0,.08)} input,select,textarea{outline:none} input:focus,select:focus,textarea:focus{border-color:#f58200;box-shadow:0 0 0 3px #ffe7bf}.hiddenx{display:none!important}
@@ -40,16 +41,12 @@ function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gesto
 const stationParams = new URLSearchParams(window.location.search);
 const stationMode = stationParams.has('ciadi_profile');
 const stationProfile = (stationParams.get('ciadi_profile') || '').toLowerCase();
-const stationMenu = {
-  adm: new Set(['overview','sos','pedidos_site','agendamentos','financeiro','faturacao','caixa','contabilidade','saft','especialidades','triagens','pacientes','profissionais','documentos','familias','conteudos','multimedia','marketing','janeth','utilizadores','instituicao','empresas','clinica','auditoria','acompanhantes_at']),
-  suporte_informatica: new Set(['support','sos','utilizadores','instituicao','auditoria']),
-  rh: new Set(['overview','profissionais','acompanhantes_at']),
-  recepcao: new Set(['overview','pedidos_site','agendamentos','pacientes','familias'])
-};
 function visibleMenu(){
-  const allowed = stationMode ? stationMenu[stationProfile] : stationMenu.adm;
-  if (!allowed) return [];
-  return menu.filter(([id]) => allowed.has(id) && (id !== 'acompanhantes_at' || canAccessAT()));
+  return window.CIADI_STATION_PROFILE_SERVICE.getVisibleEntries(
+    stationMode ? stationProfile : 'adm',
+    menu,
+    { account: profile }
+  ).filter(([id]) => id !== 'acompanhantes_at' || canAccessAT());
 }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
