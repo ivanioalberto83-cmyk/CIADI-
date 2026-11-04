@@ -53,7 +53,7 @@
 
   function create({ supabase, profile, root: container, notify = () => {}, audit = async () => {} }) {
     if (!supabase || !container) throw new Error('O módulo RH necessita do Supabase e do contentor de apresentação.');
-    const canManagePayroll = profile?.tipo === 'admin' || profile?.tipo === 'gestor';
+    const canManagePayroll = profile && (profile.tipo === 'admin' || profile.tipo === 'gestor');
     let currentView = 'home';
 
     function shell(title, body) {
