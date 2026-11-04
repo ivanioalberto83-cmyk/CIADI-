@@ -165,7 +165,8 @@
     async function renderContracts() {
       currentView = 'contracts';
       try {
-        const rows = await queryRows(TABLES.contracts, FIELDS.contracts);
+        const contractFields = canManagePayroll ? FIELDS.contracts : FIELDS.contracts.replace(',salario_referencia', '');
+        const rows = await queryRows(TABLES.contracts, contractFields);
         const data = rows.map(row=>[row.funcionario_id,row.tipo_contrato,row.numero_contrato || '—',formatDate(row.data_inicio),formatDate(row.data_fim),row.estado,canManagePayroll?formatMoney(row.salario_referencia,row.moeda||'AOA'):'Reservado']);
         shell('Contratos',tablePanel(['ID do funcionário','Tipo','N.º contrato','Início','Fim','Estado','Salário de referência'],data));
       } catch (error) { errorPanel(error, 'Contratos'); }
@@ -209,10 +210,13 @@
       if (view !== 'home') await audit('RH_VIEW', TABLES[view] || 'ciadi_funcionarios', null, { view });
     }
 
-    container.addEventListener('click', event => {
-      const button = event.target.closest('[data-rh-view]');
-      if (button) navigate(button.getAttribute('data-rh-view'));
-    });
+    if (!container.__ciadiHrClickBound) {
+      container.__ciadiHrClickBound = true;
+      container.addEventListener('click', event => {
+        const button = event.target.closest('[data-rh-view]');
+        if (button) navigate(button.getAttribute('data-rh-view'));
+      });
+    }
 
     return Object.freeze({
       renderHome,
