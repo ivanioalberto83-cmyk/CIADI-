@@ -76,4 +76,29 @@ FunctionEnd
   FileOpen $0 "$INSTDIR\ciadi-install-profile.txt" w
   FileWrite $0 "$CIADIProfile"
   FileClose $0
+
+  SetShellVarContext current
+  CreateDirectory "$SMPROGRAMS\CIADI"
+  CreateShortCut "$DESKTOP\CIADI - ADM.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=adm" "$INSTDIR\ciadi.ico"
+  CreateShortCut "$DESKTOP\CIADI - Suporte Informático.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=suporte_informatica" "$INSTDIR\ciadi.ico"
+  CreateShortCut "$DESKTOP\CIADI - Recursos Humanos.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=rh" "$INSTDIR\ciadi.ico"
+  CreateShortCut "$DESKTOP\CIADI - Receção.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=recepcao" "$INSTDIR\ciadi.ico"
+
+  CreateShortCut "$SMPROGRAMS\CIADI\CIADI - ADM.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=adm" "$INSTDIR\ciadi.ico"
+  CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Suporte Informático.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=suporte_informatica" "$INSTDIR\ciadi.ico"
+  CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Recursos Humanos.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=rh" "$INSTDIR\ciadi.ico"
+  CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Receção.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=recepcao" "$INSTDIR\ciadi.ico"
+!macroend
+
+!macro customUnInstall
+  SetShellVarContext current
+  Delete "$DESKTOP\CIADI - ADM.lnk"
+  Delete "$DESKTOP\CIADI - Suporte Informático.lnk"
+  Delete "$DESKTOP\CIADI - Recursos Humanos.lnk"
+  Delete "$DESKTOP\CIADI - Receção.lnk"
+  Delete "$SMPROGRAMS\CIADI\CIADI - ADM.lnk"
+  Delete "$SMPROGRAMS\CIADI\CIADI - Suporte Informático.lnk"
+  Delete "$SMPROGRAMS\CIADI\CIADI - Recursos Humanos.lnk"
+  Delete "$SMPROGRAMS\CIADI\CIADI - Receção.lnk"
+  RMDir "$SMPROGRAMS\CIADI"
 !macroend
