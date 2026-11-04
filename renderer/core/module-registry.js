@@ -18,6 +18,7 @@
     ['pacientes', 'Pacientes & famílias'],
     ['profissionais', 'Profissionais'],
     ['rh', 'Recursos Humanos'],
+    ['reception', 'Acolhimento e Recepção'],
     ['documentos', 'Documentos & Formulários Clínicos'],
     ['familias', 'Portal & famílias'],
     ['conteudos', 'Conteúdos do site'],
