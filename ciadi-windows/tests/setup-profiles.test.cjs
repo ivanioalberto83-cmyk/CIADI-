@@ -39,7 +39,7 @@ test('Setup exige a escolha do polo e guarda o polo sem o converter em autoriza�
 
 test('Os controlos de selecção do polo ficam dentro da área visível da página NSIS', () => {
   assert.match(installer, /NSD_CreateRadioButton\} 0 138u 100% 16u "Talatona/);
-  assert.match(installer, /NSD_CreateRadioButton\} 0 148u 100% 16u "Jardim de Rosas/);
+  assert.match(installer, /NSD_CreateRadioButton\} 0 156u 100% 16u "Jardim de Rosas/);
   assert.doesNotMatch(installer, /NSD_CreateRadioButton\} 0 (17[6-9]|18[0-9]|19[0-9]|2[0-9][0-9])u 100%/);
 });
 
