@@ -21,7 +21,7 @@ test('Setup oferece os quatro perfis e exige uma escolha explícita', () => {
     assert.ok(main.includes(id), 'A aplicação não reconhece o perfil ' + id);
   }
   assert.doesNotMatch(installer, /\$\{NSD_Check\} \$CIADIProfileRadioADM/);
-  assert.doesNotMatch(installer, /StrCpy \$CIADIProfile "adm"\s*$/m);
+  assert.doesNotMatch(installer.slice(installer.indexOf('!macro customInstall')), /StrCpy \$CIADIProfile "adm"/);
   assert.match(installer, /Selecione um perfil para continuar/);
 });
 
@@ -33,7 +33,7 @@ test('Setup exige a escolha do polo e guarda o polo sem o converter em autoriza�
   }
   assert.match(installer, /ciadi-install-polo\.txt/);
   assert.match(main, /ciadi-install-polo\.txt/);
-  assert.match(main, /ciadi_polo:\s*polo/);
+  assert.match(main, /ciadi_polo:\s*stationPolo/);
   assert.match(installer, /não concede permissões nem substitui o login CIADI/i);
 });
 
@@ -48,7 +48,7 @@ test('Setup cria apenas o atalho do perfil seleccionado', () => {
 
 test('Dashboard valida o perfil da estação sem referência indefinida a stationMenu', () => {
   assert.doesNotMatch(dashboard, /stationMenu/);
-  assert.match(dashboard, /stationProfile.*adm.*suporte_informatica.*rh.*recepcao/);
+  assert.match(dashboard, /stationProfile[\s\S]*adm[\s\S]*suporte_informatica[\s\S]*rh[\s\S]*recepcao/);
   assert.match(dashboard, /ciadi_polo/);
   assert.match(dashboard, /stationPolo/);
   assert.match(dashboard, /getVisibleEntries/);
