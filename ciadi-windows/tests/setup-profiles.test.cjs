@@ -37,6 +37,12 @@ test('Setup exige a escolha do polo e guarda o polo sem o converter em autoriza�
   assert.match(installer, /não concede permissões nem substitui o login CIADI/i);
 });
 
+test('Os controlos de selecção do polo ficam dentro da área visível da página NSIS', () => {
+  assert.match(installer, /NSD_CreateRadioButton\} 0 128u 100% 16u "Talatona/);
+  assert.match(installer, /NSD_CreateRadioButton\} 0 148u 100% 16u "Jardim de Rosas/);
+  assert.doesNotMatch(installer, /NSD_CreateRadioButton\} 0 (17[6-9]|18[0-9]|19[0-9]|2[0-9][0-9])u 100%/);
+});
+
 test('Setup cria apenas o atalho do perfil seleccionado', () => {
   for (const id of ['adm', 'suporte_informatica', 'rh', 'recepcao']) {
     assert.match(installer, new RegExp('CIADIProfile == "' + id + '"'));
