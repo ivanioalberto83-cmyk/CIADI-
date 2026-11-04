@@ -6,6 +6,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="renderer/core/module-registry.js"></script>
+<script src="renderer/core/station-profile-service.js"></script>
 <script src="renderer/core/auth-service.js"></script>
 <script src="renderer/core/profile-service.js"></script>
 <style>body{background:#fbfdff;color:#6f351f} .orange{color:#f58200}.bg-orange{background:#f58200}.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 8px 28px rgba(245,130,0,.08)} input,select,textarea{outline:none} input:focus,select:focus,textarea:focus{border-color:#f58200;box-shadow:0 0 0 3px #ffe7bf}.hiddenx{display:none!important}
@@ -31,8 +32,8 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu = window.CIADI_MODULE_REGISTRY.listNavigationEntries().map(entry => [entry.id, entry.label]);
-menu.unshift(['support','Suporte Informático']);
+const menu = window.CIADI_MODULE_REGISTRY.listNavigationEntries();
+menu.unshift({ id: 'support', label: 'Suporte Informático', route: 'support', moduleId: 'support' });
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
@@ -40,18 +41,14 @@ function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gesto
 const stationParams = new URLSearchParams(window.location.search);
 const stationMode = stationParams.has('ciadi_profile');
 const stationProfile = (stationParams.get('ciadi_profile') || '').toLowerCase();
-const stationMenu = {
-  adm: new Set(['overview','sos','pedidos_site','agendamentos','financeiro','faturacao','caixa','contabilidade','saft','especialidades','triagens','pacientes','profissionais','documentos','familias','conteudos','multimedia','marketing','janeth','utilizadores','instituicao','empresas','clinica','auditoria','acompanhantes_at']),
-  suporte_informatica: new Set(['support','sos','utilizadores','instituicao','auditoria']),
-  rh: new Set(['overview','profissionais','acompanhantes_at']),
-  recepcao: new Set(['overview','pedidos_site','agendamentos','pacientes','familias'])
-};
 function visibleMenu(){
-  const allowed = stationMode ? stationMenu[stationProfile] : stationMenu.adm;
-  if (!allowed) return [];
-  return menu.filter(([id]) => allowed.has(id) && (id !== 'acompanhantes_at' || canAccessAT()));
+  return window.CIADI_STATION_PROFILE_SERVICE.getVisibleEntries(
+    stationMode ? stationProfile : 'adm',
+    menu,
+    { account: profile }
+  ).filter(entry => entry.id !== 'acompanhantes_at' || canAccessAT());
 }
-function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
+function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(entry=>`<button onclick="go('${entry.id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===entry.id?'bg-orange/10 text-orange':''}">${entry.label}</button>`).join('')}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
 async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='support')return supportDashboard(); if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 async function acompanhantesAT(){
