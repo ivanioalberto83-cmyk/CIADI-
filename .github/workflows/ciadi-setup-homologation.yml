@@ -10,7 +10,7 @@ on:
       - 'ciadi-windows/**'
       - '.github/workflows/ciadi-setup-homologation.yml'
   pull_request:
-    branches: [main]
+    branches: [main, 'integration/ciadi-setup-homologacao-20261104']
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'renderer/**'
