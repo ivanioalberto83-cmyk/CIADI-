@@ -1,30 +1,69 @@
 const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let biometricWindow;
+
+const STATION_PROFILES = Object.freeze({
+  adm: 'ADM — Administração',
+  suporte_informatica: 'Suporte Informático',
+  rh: 'Recursos Humanos (RH)',
+  recepcao: 'Receção'
+});
+
+function getStationProfileId() {
+  if (!app.isPackaged || process.platform !== 'win32') return null;
+  try {
+    const profilePath = path.join(path.dirname(process.execPath), 'ciadi-install-profile.txt');
+    const profileId = fs.readFileSync(profilePath, 'utf8').trim();
+    return Object.prototype.hasOwnProperty.call(STATION_PROFILES, profileId) ? profileId : null;
+  } catch (error) {
+    console.warn('Não foi possível ler o perfil da estação CIADI:', error.message);
+    return null;
+  }
+}
+
+function getStationLabel() {
+  if (!app.isPackaged || process.platform !== 'win32') return null;
+  try {
+    const profilePath = path.join(path.dirname(process.execPath), 'ciadi-install-profile.txt');
+    const profileId = fs.readFileSync(profilePath, 'utf8').trim();
+    return STATION_PROFILES[profileId] || null;
+  } catch (error) {
+    console.warn('Não foi possível ler a identificação da estação CIADI:', error.message);
+    return null;
+  }
+}
+
 function openBiometricWindow() {
   if (biometricWindow && !biometricWindow.isDestroyed()) { biometricWindow.focus(); return; }
   biometricWindow = new BrowserWindow({ width: 1120, height: 820, minWidth: 760, minHeight: 600, title: 'CIADI — Assiduidade Biométrica (K20 Pro)', backgroundColor: '#fbfdff', webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
   biometricWindow.loadFile(path.join(__dirname, 'biometric-k20pro.html'));
   biometricWindow.on('closed', () => { biometricWindow = null; });
 }
+
 function installApplicationMenu() {
   const menu = Menu.buildFromTemplate([{ label: 'CIADI', submenu: [{ label: 'Assiduidade Biométrica (ZKTeco K20 Pro) — Homologação', click: openBiometricWindow }, { type: 'separator' }, { role: 'quit', label: 'Sair' }] }]);
   Menu.setApplicationMenu(menu);
 }
 
 function createWindow() {
+  const stationLabel = getStationLabel();
+  const windowTitle = stationLabel ? `CIADI Dashboard — Estação: ${stationLabel}` : 'CIADI Dashboard';
   mainWindow = new BrowserWindow({
     width: 1440, height: 940, minWidth: 1024, minHeight: 700,
-    title: 'CIADI Dashboard', backgroundColor: '#fbfdff',
+    title: windowTitle, backgroundColor: '#fbfdff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false, sandbox: true
     }
   });
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  const stationProfile = getStationProfileId();
+  mainWindow.loadFile(path.join(__dirname, 'index.html'), {
+    query: { ciadi_profile: stationProfile || 'unconfigured' }
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://') || url.startsWith('http://')) {
       dialog.showMessageBox(mainWindow, {
