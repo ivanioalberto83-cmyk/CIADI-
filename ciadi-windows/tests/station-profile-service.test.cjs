@@ -15,7 +15,7 @@ test('ADM and Support receive every implemented Dashboard module', () => {
 test('Reception and RH receive only their explicitly assigned existing routes', () => {
   const service = require('../../renderer/core/station-profile-service.js');
   const entries = registry.listNavigationEntries();
-  assert.deepEqual(service.getVisibleEntries('rh', entries).map(entry => entry.id), ['overview', 'profissionais', 'acompanhantes_at']);
+  assert.deepEqual(service.getVisibleEntries('rh', entries).map(entry => entry.id), ['rh']);
   assert.deepEqual(service.getVisibleEntries('recepcao', entries).map(entry => entry.id), ['overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias']);
 });
 
