@@ -33,6 +33,8 @@ test('Cada perfil de estação tem uma lista de módulos própria na navegação
   assert.ok(dashboard.includes("window.CIADI_STATION_PROFILE_SERVICE.getVisibleEntries"));
   assert.ok(dashboard.includes('function visibleMenu(){'));
   assert.ok(dashboard.includes('station-profile-service.js'));
+  assert.ok(dashboard.includes('renderer/modules/hr-module.js'));
+  assert.ok(dashboard.includes("if(id==='rh')return window.CIADI_HR_MODULE.create"));
   assert.ok(dashboard.includes('Centro de Suporte Informático'));
   assert.ok(dashboard.includes('stationLabel'));
   assert.ok(main.includes("query: { ciadi_profile: stationProfile || 'unconfigured' }"));
