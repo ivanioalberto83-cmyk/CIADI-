@@ -17,7 +17,9 @@ test('ADM and Support skip the polo page; RH and Reception must select a polo', 
 
 test('installer requires a polo only for RH and Reception profiles', () => {
   const customInstall = installer.slice(installer.indexOf('!macro customInstall'), installer.indexOf('!macroend', installer.indexOf('!macro customInstall')));
-  assert.doesNotMatch(customInstall.slice(0, customInstall.indexOf('StrCpy $CIADIPolo')), /Polo CIADI não seleccionado/);
+  const validationBlock = customInstall.slice(0, customInstall.indexOf('FileOpen $0'));
+  const firstLocalProfileCheck = validationBlock.indexOf('CIADIProfile == "rh"');
+  assert.doesNotMatch(validationBlock.slice(0, firstLocalProfileCheck), /Polo CIADI não seleccionado/);
   assert.match(customInstall, /CIADIProfile == "rh"[\s\S]*CIADIPolo == ""[\s\S]*Polo CIADI não seleccionado/);
   assert.match(customInstall, /CIADIProfile == "recepcao"[\s\S]*CIADIPolo == ""[\s\S]*Polo CIADI não seleccionado/);
 });
