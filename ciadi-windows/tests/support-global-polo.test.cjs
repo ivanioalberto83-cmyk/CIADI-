@@ -10,7 +10,7 @@ const dashboard = fs.readFileSync(path.resolve(root, '..', 'CIADI_DASHBOARD_FINA
 test('Suporte Informático e ADM não dependem de um polo da estação', () => {
   assert.match(dashboard, /!\['adm', 'suporte_informatica'\]\.includes\(stationProfile\)/);
   assert.match(dashboard, /const stationRequiresPolo/);
-  assert.match(dashboard, /stationRequiresPolo && !Object\.prototype\.hasOwnProperty\.call\(stationPoloLabels, stationPolo\)/);
+  assert.match(dashboard, /stationRequiresPolo && !Object\.prototype\.hasOwnProperty\.call\(stationPoloLabels,stationPolo\)/);
   assert.match(dashboard, /stationRequiresPolo \? \(stationProfileLabels\[stationProfile\] \+ ' · ' \+ stationPoloLabels\[stationPolo\]\) : stationProfileLabels\[stationProfile\]/);
   assert.match(main, /ciadi_polo:\s*stationPolo \|\| ''/);
 });
