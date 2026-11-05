@@ -85,7 +85,7 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'index.html'), {
     query: {
       ciadi_profile: stationProfile || 'unconfigured',
-      ciadi_polo: stationPolo || 'unconfigured'
+      ciadi_polo: stationPolo || ''
     }
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
