@@ -26,29 +26,29 @@ Function CIADIProfilePageCreate
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 20u "Selecione o perfil desta estação CIADI:"
+  ${NSD_CreateLabel} 0 0 100% 16u "Selecione o perfil desta estação CIADI:"
   Pop $0
-  ${NSD_CreateLabel} 0 16u 100% 22u "Escolha um perfil e um polo. A selecção não concede permissões nem substitui o login CIADI."
+  ${NSD_CreateLabel} 0 18u 100% 14u "Escolha um perfil e um polo. A selecção não concede permissões nem substitui o login CIADI."
   Pop $0
 
   ; Grupo independente de perfis de estação
-  ${NSD_CreateRadioButton} 0 40u 100% 16u "ADM — Administração"
+  ${NSD_CreateRadioButton} 0 34u 100% 12u "ADM — Administração"
   Pop $CIADIProfileRadioADM
   SendMessage $CIADIProfileRadioADM ${BM_SETSTYLE} 0x00020009 1
-  ${NSD_CreateRadioButton} 0 58u 100% 16u "Suporte Informático"
+  ${NSD_CreateRadioButton} 0 48u 100% 12u "Suporte Informático"
   Pop $CIADIProfileRadioSupport
-  ${NSD_CreateRadioButton} 0 76u 100% 16u "Recursos Humanos (RH)"
+  ${NSD_CreateRadioButton} 0 62u 100% 12u "Recursos Humanos (RH)"
   Pop $CIADIProfileRadioRH
-  ${NSD_CreateRadioButton} 0 94u 100% 16u "Receção"
+  ${NSD_CreateRadioButton} 0 76u 100% 12u "Receção"
   Pop $CIADIProfileRadioReception
 
   ; Grupo independente de polos, posicionado dentro da área visível da página
-  ${NSD_CreateLabel} 0 116u 100% 18u "Selecione o polo desta instalação:"
+  ${NSD_CreateLabel} 0 94u 100% 14u "Selecione o polo desta instalação:"
   Pop $0
-  ${NSD_CreateRadioButton} 0 138u 100% 16u "Talatona — Polo 001"
+  ${NSD_CreateRadioButton} 0 112u 100% 12u "Talatona — Polo 001"
   Pop $CIADIPoloRadioTalatona
   SendMessage $CIADIPoloRadioTalatona ${BM_SETSTYLE} 0x00020009 1
-  ${NSD_CreateRadioButton} 0 156u 100% 16u "Jardim de Rosas — Polo 002"
+  ${NSD_CreateRadioButton} 0 128u 100% 12u "Jardim de Rosas — Polo 002"
   Pop $CIADIPoloRadioRosas
 
   nsDialogs::Show
