@@ -1,6 +1,6 @@
 {
   "name": "ciadi-dashboard-windows",
-  "version": "1.0.1",
+  "version": "1.0.4",
   "description": "Aplicação Windows do Dashboard CIADI com módulo isolado de homologação de assiduidade biométrica",
   "main": "main.cjs",
   "author": "CIADI",
@@ -59,8 +59,8 @@
       "installerHeaderIcon": "ciadi.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
       "shortcutName": "CIADI Dashboard",
       "deleteAppDataOnUninstall": false,
       "include": "build/installer.nsh"

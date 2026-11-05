@@ -6,8 +6,9 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const installer = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf8');
 const main = fs.readFileSync(path.join(root, 'main.cjs'), 'utf8');
+const dashboard = fs.readFileSync(path.resolve(root, '..', 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
 
-test('Setup oferece exatamente os quatro perfis funcionais pretendidos', () => {
+test('Setup oferece os quatro perfis e exige uma escolha explícita', () => {
   for (const label of [
     'ADM — Administração',
     'Suporte Informático',
@@ -19,28 +20,53 @@ test('Setup oferece exatamente os quatro perfis funcionais pretendidos', () => {
     assert.match(installer, new RegExp('StrCpy \\$CIADIProfile "' + id + '"'));
     assert.ok(main.includes(id), 'A aplicação não reconhece o perfil ' + id);
   }
+  assert.doesNotMatch(installer, /\$\{NSD_Check\} \$CIADIProfileRadioADM/);
+  assert.doesNotMatch(installer.slice(installer.indexOf('!macro customInstall')), /StrCpy \$CIADIProfile "adm"/);
+  assert.match(installer, /Selecione um perfil para continuar/);
 });
 
-test('Cada perfil de estação tem uma lista de módulos própria na navegação', () => {
-  const dashboard = fs.readFileSync(path.resolve(root, '..', 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
-  assert.ok(dashboard.includes("const stationMode = stationParams.has('ciadi_profile');"));
-  assert.ok(dashboard.includes("suporte_informatica: new Set(['support','sos','utilizadores','instituicao','auditoria'])"));
-  assert.ok(dashboard.includes('async function supportDashboard()'));
-  assert.ok(dashboard.includes("go(stationMode && stationProfile==='suporte_informatica' ? 'support' : 'overview')"));
-  assert.ok(dashboard.includes("adm: new Set(['overview','sos','pedidos_site','agendamentos','financeiro'"));
-  
-  assert.ok(dashboard.includes("rh: new Set(['overview','profissionais','acompanhantes_at'])"));
-  assert.ok(dashboard.includes("recepcao: new Set(['overview','pedidos_site','agendamentos','pacientes','familias'])"));
-  assert.ok(dashboard.includes('const allowed = stationMode ? stationMenu[stationProfile] : stationMenu.adm;'));
-  assert.ok(dashboard.includes('if (!allowed) return [];'));
-  assert.ok(dashboard.includes('Centro de Suporte Informático'));
-  assert.ok(dashboard.includes('stationLabel'));
-  assert.ok(main.includes("query: { ciadi_profile: stationProfile || 'unconfigured' }"));
+test('Setup apresenta os polos numa página separada e apenas para perfis locais', () => {
+  for (const label of ['Talatona', 'Jardim de Rosas']) assert.ok(installer.includes(label), 'Falta polo: ' + label);
+  for (const id of ['talatona', 'jardim_de_rosas']) {
+    assert.ok(installer.includes('"' + id + '"'), 'Falta identificador do polo: ' + id);
+    assert.ok(main.includes(id), 'Electron não reconhece o polo ' + id);
+  }
+  assert.match(installer, /Page custom CIADIPoloPageCreate CIADIPoloPageLeave/);
+  assert.match(installer, /ciadi-install-polo\.txt/);
+  assert.match(main, /ciadi-install-polo\.txt/);
+  assert.match(main, /ciadi_polo:\s*stationPolo/);
+  assert.match(installer, /não concede permissões/i);
 });
 
-test('Perfil serve apenas para identificar a estação e não atribui permissões', () => {
-  assert.match(installer, /não concede permissões nem substitui o login CIADI/i);
+test('Página do perfil não contém controlos de polo e a página de polo é compacta', () => {
+  const profilePage = installer.slice(installer.indexOf('Function CIADIProfilePageCreate'), installer.indexOf('Function CIADIProfilePageLeave'));
+  const poloPage = installer.slice(installer.indexOf('Function CIADIPoloPageCreate'), installer.indexOf('Function CIADIPoloPageLeave'));
+  assert.doesNotMatch(profilePage, /CIADIPoloRadio/);
+  assert.match(poloPage, /NSD_CreateRadioButton\} 0 42u 100% 16u "Talatona/);
+  assert.match(poloPage, /NSD_CreateRadioButton\} 0 64u 100% 16u "Jardim de Rosas/);
+  assert.doesNotMatch(poloPage, /NSD_CreateRadioButton\} 0 (1[0-9][0-9]|[2-9][0-9]{2})u 100%/);
+});
+
+test('Setup cria apenas o atalho do perfil seleccionado', () => {
+  for (const id of ['adm', 'suporte_informatica', 'rh', 'recepcao']) {
+    assert.match(installer, new RegExp('CIADIProfile == "' + id + '"'));
+    assert.match(installer, new RegExp('--ciadi-profile=' + id));
+  }
+  assert.match(installer, /--ciadi-polo=/);
+  assert.doesNotMatch(installer, /CreateShortCut[^\n]*--ciadi-profile=adm[^\n]*\n\s*CreateShortCut[^\n]*--ciadi-profile=suporte_informatica[^\n]*\n\s*CreateShortCut[^\n]*--ciadi-profile=rh[^\n]*\n\s*CreateShortCut[^\n]*--ciadi-profile=recepcao/);
+});
+
+test('Dashboard valida o perfil da estação sem referência indefinida a stationMenu', () => {
+  assert.doesNotMatch(dashboard, /stationMenu/);
+  assert.match(dashboard, /stationProfile[\s\S]*adm[\s\S]*suporte_informatica[\s\S]*rh[\s\S]*recepcao/);
+  assert.match(dashboard, /ciadi_polo/);
+  assert.match(dashboard, /stationPolo/);
+  assert.match(dashboard, /getVisibleEntries/);
+});
+
+test('Perfil e polo da estação apenas identificam a estação e não atribuem permissões', () => {
   assert.match(main, /CIADI Dashboard — Estação:/);
   assert.match(main, /getStationLabel/);
-  assert.doesNotMatch(main, /ciadi-install-profile\.txt[\s\S]{0,500}(role|permission|grant)/i);
+  assert.match(dashboard, /profileService\.getCurrentProfile\(u\.id\)/);
+  assert.match(dashboard, /!\['admin','gestor','profissional'\]\.includes\(profile\.tipo\)/);
 });

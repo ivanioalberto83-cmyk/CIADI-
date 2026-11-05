@@ -3,7 +3,7 @@ name: CIADI Setup Homologation
 on:
   workflow_dispatch:
   push:
-    branches: ['integration/ciadi-setup-homologacao-20261104']
+    branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104']
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'renderer/**'
@@ -75,7 +75,7 @@ jobs:
       - name: Guardar Setup para homologação
         uses: actions/upload-artifact@v4
         with:
-          name: CIADI-Setup-1.0.1-Homologacao
+          name: CIADI-Setup-1.0.4-Homologacao
           path: ciadi-windows/release/CIADI-Setup-*.exe
           if-no-files-found: error
           retention-days: 14
