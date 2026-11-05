@@ -54,6 +54,7 @@ const stationPoloLabels = Object.freeze({
   talatona: 'Talatona — Polo 001',
   jardim_de_rosas: 'Jardim de Rosas — Polo 002'
 });
+const stationRequiresPolo = stationMode && !['adm', 'suporte_informatica'].includes(stationProfile);
 function visibleMenu(){
   return window.CIADI_STATION_PROFILE_SERVICE.getVisibleEntries(
     stationMode ? stationProfile : 'adm',
@@ -850,13 +851,13 @@ async function enter(u){
     profile=q.data;
     if(!profile){ await authService.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
     if(stationMode && !Object.prototype.hasOwnProperty.call(stationProfileLabels,stationProfile)) throw new Error('Perfil desta estação não identificado. Reinstale o CIADI e seleccione um perfil válido.');
-    if(stationMode && !Object.prototype.hasOwnProperty.call(stationPoloLabels,stationPolo)) throw new Error('Polo desta estação não identificado. Reinstale o CIADI e seleccione um polo válido.');
+    if(stationRequiresPolo && !Object.prototype.hasOwnProperty.call(stationPoloLabels,stationPolo)) throw new Error('Polo desta estação não identificado. Reinstale o CIADI e seleccione um polo válido.');
     if(profile.ativo!==true){ await authService.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
     if(!['admin','gestor','profissional'].includes(profile.tipo)){ await authService.signOut(); throw new Error('Este utilizador não possui acesso administrativo.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
-    document.getElementById('stationLabel').textContent = stationMode ? (stationProfileLabels[stationProfile] + ' · ' + stationPoloLabels[stationPolo]) : 'Administração';
+    document.getElementById('stationLabel').textContent = stationMode ? (stationRequiresPolo ? (stationProfileLabels[stationProfile] + ' · ' + stationPoloLabels[stationPolo]) : stationProfileLabels[stationProfile]) : 'Administração';
     nav(); await go(stationMode && stationProfile==='suporte_informatica' ? 'support' : 'overview');
   }catch(e){
     console.error('CIADI perfil',e);
