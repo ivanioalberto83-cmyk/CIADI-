@@ -3,7 +3,7 @@ name: CIADI Setup Homologation
 on:
   workflow_dispatch:
   push:
-    branches: ['integration/ciadi-setup-homologacao-20261104']
+    branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104']
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'renderer/**'
