@@ -151,30 +151,30 @@ FunctionEnd
     StrCpy $CIADIPolo ""
   ${EndIf}
 
-  FileOpen $0 "$INSTDIR\\ciadi-install-profile.txt" w
+  FileOpen $0 "$INSTDIR\ciadi-install-profile.txt" w
   FileWrite $0 "$CIADIProfile"
   FileClose $0
-  Delete "$INSTDIR\\ciadi-install-polo.txt"
+  Delete "$INSTDIR\ciadi-install-polo.txt"
   ${If} $CIADIPolo != ""
-    FileOpen $0 "$INSTDIR\\ciadi-install-polo.txt" w
+    FileOpen $0 "$INSTDIR\ciadi-install-polo.txt" w
     FileWrite $0 "$CIADIPolo"
     FileClose $0
   ${EndIf}
 
   SetShellVarContext current
-  CreateDirectory "$SMPROGRAMS\\CIADI"
+  CreateDirectory "$SMPROGRAMS\CIADI"
   ${If} $CIADIProfile == "adm"
-    CreateShortCut "$DESKTOP\\CIADI - ADM.lnk" "$INSTDIR\\CIADI Dashboard.exe" "--ciadi-profile=adm --ciadi-polo=$CIADIPolo" "$INSTDIR\\ciadi.ico"
-    CreateShortCut "$SMPROGRAMS\\CIADI\\CIADI - ADM.lnk" "$INSTDIR\\CIADI Dashboard.exe" "--ciadi-profile=adm --ciadi-polo=$CIADIPolo" "$INSTDIR\\ciadi.ico"
+    CreateShortCut "$DESKTOP\CIADI - ADM.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=adm --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
+    CreateShortCut "$SMPROGRAMS\CIADI\CIADI - ADM.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=adm --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
   ${ElseIf} $CIADIProfile == "suporte_informatica"
-    CreateShortCut "$DESKTOP\\CIADI - Suporte Informático.lnk" "$INSTDIR\\CIADI Dashboard.exe" "--ciadi-profile=suporte_informatica --ciadi-polo=$CIADIPolo" "$INSTDIR\\ciadi.ico"
-    CreateShortCut "$SMPROGRAMS\\CIADI\\CIADI - Suporte Informático.lnk" "$INSTDIR\\CIADI Dashboard.exe" "--ciadi-profile=suporte_informatica --ciadi-polo=$CIADIPolo" "$INSTDIR\\ciadi.ico"
+    CreateShortCut "$DESKTOP\CIADI - Suporte Informático.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=suporte_informatica --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
+    CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Suporte Informático.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=suporte_informatica --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
   ${ElseIf} $CIADIProfile == "rh"
-    CreateShortCut "$DESKTOP\\CIADI - Recursos Humanos.lnk" "$INSTDIR\\CIADI Dashboard.exe" "--ciadi-profile=rh --ciadi-polo=$CIADIPolo" "$INSTDIR\\ciadi.ico"
-    CreateShortCut "$SMPROGRAMS\\CIADI\\CIADI - Recursos Humanos.lnk" "$INSTDIR\\CIADI Dashboard.exe" "--ciadi-profile=rh --ciadi-polo=$CIADIPolo" "$INSTDIR\\ciadi.ico"
+    CreateShortCut "$DESKTOP\CIADI - Recursos Humanos.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=rh --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
+    CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Recursos Humanos.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=rh --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
   ${ElseIf} $CIADIProfile == "recepcao"
-    CreateShortCut "$DESKTOP\\CIADI - Receção.lnk" "$INSTDIR\\CIADI Dashboard.exe" "--ciadi-profile=recepcao --ciadi-polo=$CIADIPolo" "$INSTDIR\\ciadi.ico"
-    CreateShortCut "$SMPROGRAMS\\CIADI\\CIADI - Receção.lnk" "$INSTDIR\\CIADI Dashboard.exe" "--ciadi-profile=recepcao --ciadi-polo=$CIADIPolo" "$INSTDIR\\ciadi.ico"
+    CreateShortCut "$DESKTOP\CIADI - Receção.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=recepcao --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
+    CreateShortCut "$SMPROGRAMS\CIADI\CIADI - Receção.lnk" "$INSTDIR\CIADI Dashboard.exe" "--ciadi-profile=recepcao --ciadi-polo=$CIADIPolo" "$INSTDIR\ciadi.ico"
   ${Else}
     MessageBox MB_ICONSTOP|MB_OK "Perfil CIADI inválido. A instalação será interrompida."
     Abort
@@ -183,13 +183,13 @@ FunctionEnd
 
 !macro customUnInstall
   SetShellVarContext current
-  Delete "$DESKTOP\\CIADI - ADM.lnk"
-  Delete "$DESKTOP\\CIADI - Suporte Informático.lnk"
-  Delete "$DESKTOP\\CIADI - Recursos Humanos.lnk"
-  Delete "$DESKTOP\\CIADI - Receção.lnk"
-  Delete "$SMPROGRAMS\\CIADI\\CIADI - ADM.lnk"
-  Delete "$SMPROGRAMS\\CIADI\\CIADI - Suporte Informático.lnk"
-  Delete "$SMPROGRAMS\\CIADI\\CIADI - Recursos Humanos.lnk"
-  Delete "$SMPROGRAMS\\CIADI\\CIADI - Receção.lnk"
-  RMDir "$SMPROGRAMS\\CIADI"
+  Delete "$DESKTOP\CIADI - ADM.lnk"
+  Delete "$DESKTOP\CIADI - Suporte Informático.lnk"
+  Delete "$DESKTOP\CIADI - Recursos Humanos.lnk"
+  Delete "$DESKTOP\CIADI - Receção.lnk"
+  Delete "$SMPROGRAMS\CIADI\CIADI - ADM.lnk"
+  Delete "$SMPROGRAMS\CIADI\CIADI - Suporte Informático.lnk"
+  Delete "$SMPROGRAMS\CIADI\CIADI - Recursos Humanos.lnk"
+  Delete "$SMPROGRAMS\CIADI\CIADI - Receção.lnk"
+  RMDir "$SMPROGRAMS\CIADI"
 !macroend
