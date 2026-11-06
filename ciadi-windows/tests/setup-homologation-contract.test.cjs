@@ -22,33 +22,30 @@ test('o arranque exige novo login e não restaura uma sessão anterior', () => {
   assert.doesNotMatch(boot, /sb\.auth\.getSession\(\)/);
 });
 
-test('o Setup apresenta os quatro perfis de estação sem os confundir com permissões', () => {
+test('o Setup apresenta quatro estações e múltipla selecção independente', () => {
   assert.ok(fs.existsSync(installerPath), 'falta ciadi-windows/build/installer.nsh');
-  for (const label of [
-    'ADM — Administração',
-    'Suporte Informático',
-    'Recursos Humanos (RH)',
-    'Receção'
-  ]) assert.ok(installer.includes(label), 'Falta opção no instalador: ' + label);
-  assert.match(installer, /não concede permissões|Não concede permissões/i);
+  for (const label of ['ADM — Administração','Suporte Informático','Recursos Humanos (RH)','Receção']) assert.ok(installer.includes(label));
+  assert.equal((installer.match(/\$\{NSD_CreateCheckbox\}/g) || []).length, 4);
+  assert.match(installer, /não concede permissões/i);
 });
 
-test('o processo Electron lê o perfil instalado e transmite-o ao Dashboard', () => {
-  for (const id of ['adm', 'suporte_informatica', 'rh', 'recepcao']) {
-    assert.ok(main.includes(id), 'O processo Electron não reconhece ' + id);
-  }
-  assert.match(main, /ciadi-install-profile\.txt/);
+test('o Electron obtém o perfil pelo argumento específico do atalho', () => {
+  for (const id of ['adm','suporte_informatica','rh','recepcao']) assert.ok(main.includes(id));
+  assert.match(main, /--ciadi-profile=/);
+  assert.doesNotMatch(main, /ciadi-install-profile\.txt/);
   assert.match(main, /query:\s*\{\s*ciadi_profile:/);
 });
 
-test('o pacote inclui os módulos renderer e a compilação nunca publica automaticamente', () => {
+test('o pacote inclui renderer e não publica automaticamente', () => {
   assert.match(packageJson.scripts['dist:win'], /--publish\s+never/);
-  assert.ok(packageJson.build.files.includes('renderer/**/*'), 'renderer/**/* tem de entrar no pacote');
+  assert.ok(packageJson.build.files.includes('renderer/**/*'));
   assert.equal(packageJson.build.nsis.include, 'build/installer.nsh');
 });
 
-test('a compilação sincroniza o Dashboard e os serviços renderer para o pacote Windows', () => {
-  assert.match(buildWorkflow, /\$source\s*=\s*["']CIADI_DASHBOARD_FINANCEIRO\.html["']/);
+test('a compilação sincroniza o Dashboard, renderer e gera o ícone CIADI a partir do PNG incorporado', () => {
   assert.match(buildWorkflow, /Copy-Item\s+\$source\s+["']ciadi-windows\/index\.html["']\s+-Force/);
   assert.match(buildWorkflow, /Copy-Item\s+["']renderer\/\*["']\s+["']ciadi-windows\/renderer\/["']\s+-Recurse\s+-Force/);
+  assert.match(buildWorkflow, /Gerar ícone Windows a partir do logótipo CIADI/);
+  assert.match(buildWorkflow, /data:image\/png;base64/);
+  assert.match(buildWorkflow, /ciadi-windows\/ciadi\.ico/);
 });
