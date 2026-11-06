@@ -20,6 +20,17 @@ test('Setup apresenta quatro caixas de selecção independentes e exige pelo men
   assert.match(installer, /Seleccione pelo menos uma estação/);
 });
 
+test('A página preserva as caixas assinaladas quando o utilizador regressa ao passo anterior', () => {
+  const profilePage = installer.slice(installer.indexOf('Function CIADIProfilePageCreate'), installer.indexOf('Function CIADIProfilePageLeave'));
+  for (const flag of ['ADM','Support','RH','Reception']) {
+    assert.match(profilePage, new RegExp('CIADISelect' + flag + ' == "1"'));
+    assert.match(profilePage, new RegExp('BM_SETCHECK.*CIADIProfileCheck' + flag));
+  }
+  const poloPage = installer.slice(installer.indexOf('Function CIADIPoloPageCreate'), installer.indexOf('Function CIADIPoloPageLeave'));
+  assert.match(poloPage, /CIADIPolo == "talatona"/);
+  assert.match(poloPage, /CIADIPolo == "jardim_de_rosas"/);
+});
+
 test('A página de polo só aparece quando RH ou Receção estão seleccionados', () => {
   const page = installer.slice(installer.indexOf('Function CIADIPoloPageCreate'), installer.indexOf('Function CIADIPoloPageLeave'));
   assert.match(page, /CIADISelectRH != "1"/);
