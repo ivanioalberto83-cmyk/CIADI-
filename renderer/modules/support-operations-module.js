@@ -53,12 +53,15 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
     ['audit_events','id,table_name,record_id,action,actor_id,occurred_at','occurred_at']
   ];
   const results=await Promise.all(specs.map(async([table,columns,order])=>{try{const q=await db.from(table).select(columns).order(order,{ascending:false}).limit(100);return{table,rows:q.data||[],error:q.error};}catch(error){return{table,rows:[],error};}}));
+  let balances={rows:[],error:null};
+  try{const q=await db.from('stock_balances').select('*').limit(100);balances={rows:q.data||[],error:q.error||null};}catch(error){balances={rows:[],error};}
   const by=Object.fromEntries(results.map(x=>[x.table,x]));
-  const errors=results.filter(x=>x.error);
+  const errors=[...results.filter(x=>x.error),...(balances.error?[{table:'stock_balances',error:balances.error}]:[])];
   const items=by.items.rows,assets=by.assets.rows,requests=by.purchase_requests.rows,movements=by.stock_movements.rows;
   const metrics=summarizeProcurement(requests),movementStats=summarizeStockMovements(movements);
   const count=(name)=>by[name].rows.length;
   const table=(title,rows,cols)=>'<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">'+title+'</h3>'+(rows.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">'+cols.map(x=>'<th class="p-2">'+x[1]+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr class="border-b">'+cols.map(x=>'<td class="p-2">'+esc(row[x[0]]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem registos disponíveis.</p>')+'</section>';
+  const dynamicTable=(title,rows)=>{const cols=rows.length?Object.keys(rows[0]):[];return '<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">'+title+'</h3>'+(rows.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">'+cols.map(x=>'<th class="p-2">'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr class="border-b">'+cols.map(x=>'<td class="p-2">'+esc(row[x]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem saldos disponíveis na vista stock_balances.</p>')+'</section>';};
   const forms=canManage
     ? '<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">Registar no catálogo</h3><div class="grid xl:grid-cols-3 gap-4">'+
       '<form data-proc-form="item" class="border rounded-xl p-4 space-y-2"><b>Novo artigo</b><input name="sku" required placeholder="Referência / SKU" class="w-full border rounded-lg p-2"><input name="name" required placeholder="Designação" class="w-full border rounded-lg p-2"><select name="item_type" required class="w-full border rounded-lg p-2"><option value="equipamento">Equipamento</option><option value="peca">Peça</option><option value="consumivel">Consumível</option><option value="licenca">Licença</option><option value="servico">Serviço</option></select><select name="tracking_mode" required class="w-full border rounded-lg p-2"><option value="quantity">Por quantidade</option><option value="serialized">Por número de série</option><option value="lot">Por lote</option></select><input name="minimum_stock" type="number" min="0" step="0.01" value="0" required placeholder="Stock mínimo" class="w-full border rounded-lg p-2"><button class="bg-orange text-white rounded-lg px-3 py-2 font-bold" type="submit">Guardar artigo</button></form>'+
@@ -72,6 +75,7 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
   table('Equipamentos individualizados',assets,[['asset_tag','Património'],['serial_number','N.º série'],['item_id','Artigo (ID)'],['status','Estado'],['warranty_until','Garantia até']])+
   table('Fornecedores',by.suppliers.rows,[['name','Fornecedor'],['nif','NIF'],['email','Email'],['phone','Telefone'],['active','Activo']])+
   table('Armazéns',by.warehouses.rows,[['code','Código'],['name','Armazém'],['polo','Polo'],['active','Activo']])+
+  dynamicTable('Saldos de stock por artigo e armazém',balances.rows)+
   table('Movimentos de stock',movements,[['created_at','Data'],['movement_type','Movimento'],['item_id','Artigo (ID)'],['warehouse_id','Armazém (ID)'],['quantity_delta','Variação'],['reference','Referência']])+
   table('Contagens de inventário',by.inventory_counts.rows,[['created_at','Criada em'],['warehouse_id','Armazém (ID)'],['status','Estado'],['counted_at','Contada em'],['reconciled_at','Reconciliada em']])+
   table('Eventos de auditoria do inventário',by.audit_events.rows,[['occurred_at','Data'],['table_name','Tabela'],['action','Acção'],['record_id','Registo']])+
