@@ -44,7 +44,7 @@ test('emissão usa operação atómica do repositório e QR recebe apenas URL de
   const calls=[];
   const repository={
     save:async doc=>({...doc,id:'doc-1'}),
-    issue:async id=>{calls.push(['issue',id]);return {document:{id,number:'SUP-INC/2026/000001',status:'issued'},verificationUrl:'https://ciadi.ao/validar-documento/doc-1?token=abcdefghijklmnopqrstuvwxyz123456'};}
+    issueDraft:async id=>{calls.push(['issue',id]);return {document:{id,number:'SUP-INC/2026/000001',status:'issued'},verificationUrl:'https://ciadi.ao/validar-documento/doc-1?token=abcdefghijklmnopqrstuvwxyz123456'};}
   };
   const qrEncoder=async url=>{calls.push(['qr',url]);return 'data:image/png;base64,QR';};
   const pdfExporter=async ({html,filename})=>({filename,bytes:html.length});
