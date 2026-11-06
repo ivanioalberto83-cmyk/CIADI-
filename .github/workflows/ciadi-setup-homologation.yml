@@ -55,7 +55,7 @@ jobs:
           $sourceStream = [IO.MemoryStream]::new($png)
           $sourceImage = [System.Drawing.Image]::FromStream($sourceStream)
 
-          $iconBitmap = New-Object System.Drawing.Bitmap 256, 256, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+          $iconBitmap = [System.Drawing.Bitmap]::new(256, 256, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
           $iconGraphics = [System.Drawing.Graphics]::FromImage($iconBitmap)
           $iconGraphics.Clear([System.Drawing.Color]::White)
           $iconGraphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
@@ -73,7 +73,7 @@ jobs:
           [Buffer]::BlockCopy($iconPng, 0, $ico, 22, $iconPng.Length)
           [IO.File]::WriteAllBytes("ciadi-windows/ciadi.ico", $ico)
 
-          $sidebarBitmap = New-Object System.Drawing.Bitmap 164, 314, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+          $sidebarBitmap = [System.Drawing.Bitmap]::new(164, 314, [System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
           $sidebarGraphics = [System.Drawing.Graphics]::FromImage($sidebarBitmap)
           $sidebarGraphics.Clear([System.Drawing.Color]::White)
           $sidebarGraphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
