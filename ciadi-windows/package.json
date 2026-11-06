@@ -32,7 +32,8 @@
       "package.json",
       "node_modules/electron-updater/**/*",
       "biometric-k20pro.html",
-      "renderer/**/*"
+      "renderer/**/*",
+      "ciadi.ico"
     ],
     "publish": [
       {
