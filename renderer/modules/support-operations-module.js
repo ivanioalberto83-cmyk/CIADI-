@@ -18,7 +18,7 @@ function summarizeProcurement(rows){const a=Array.isArray(rows)?rows:[];return{t
 
 function createProcurementService({db,role}={}){
   if(!db?.from)throw new Error('Cliente de dados do aprovisionamento obrigatório.');
-  const allowedRoles=new Set(['suporte_informatica','admin','gestor']);
+  const allowedRoles=new Set(['suporte_informatica']);
   function ensureRole(){if(!allowedRoles.has(String(role||'').toLowerCase()))throw new Error('Perfil sem autorização para gerir o aprovisionamento.');}
   function pick(source,keys){const out={};for(const key of keys)if(source&&source[key]!==undefined)out[key]=source[key];return out;}
   async function insertOne(table,payload){const result=await db.from(table).insert(payload).select().single();if(result?.error)throw result.error;if(!result?.data)throw new Error('A base de dados não devolveu o registo criado.');return result;}
@@ -40,7 +40,7 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
     const user=auth?.data?.user;
     if(user?.id){const profile=await supabase.from('perfis').select('tipo').eq('id',user.id).maybeSingle();if(!profile.error)actorRole=profile.data?.tipo||null;}
   }catch(_error){actorRole=null;}
-  const canManage=['suporte_informatica','admin','gestor'].includes(String(actorRole||'').toLowerCase());
+  const canManage=String(actorRole||'').toLowerCase()==='suporte_informatica';
   const procurementService=canManage?createProcurementService({db,role:actorRole}):null;
   const specs=[
     ['items','id,sku,name,item_type,tracking_mode,minimum_stock,active','name'],
