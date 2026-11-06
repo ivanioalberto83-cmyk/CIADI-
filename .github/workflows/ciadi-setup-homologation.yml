@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Executar testes de contrato, login, perfis e arquitectura
+      - name: Executar contratos de multi-estação, login, perfis, polo e identidade visual
         run: node --test ciadi-windows/tests/*.test.cjs
 
   build-windows:
