@@ -29,3 +29,10 @@ test('gráficos e painéis são definidos como saídas analíticas, não formul�
   assert.ok(chart.dataSources.length > 0);
   assert.equal(catalog.validateCatalog().valid, true);
 });
+
+test('identifica os dez modelos-base já ligados ao motor de rascunhos sem declarar os restantes concluídos', () => {
+  const ready = catalog.listDocuments().filter(x => x.implementationStatus === 'draft-template-available');
+  assert.equal(ready.length, 10);
+  assert.ok(ready.every(x => x.legacyTemplateCode));
+  assert.ok(catalog.listDocuments().filter(x => x.implementationStatus === 'catalogued').length > 100);
+});
