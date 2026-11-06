@@ -75,7 +75,7 @@ jobs:
       - name: Guardar Setup para homologação
         uses: actions/upload-artifact@v4
         with:
-          name: CIADI-Setup-1.0.4-Homologacao
+          name: CIADI-Setup-1.0.5-Homologacao
           path: ciadi-windows/release/CIADI-Setup-*.exe
           if-no-files-found: error
           retention-days: 14
