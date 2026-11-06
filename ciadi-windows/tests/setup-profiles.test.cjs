@@ -22,8 +22,8 @@ test('Setup apresenta quatro caixas de selecção independentes e exige pelo men
 
 test('A página de polo só aparece quando RH ou Receção estão seleccionados', () => {
   const page = installer.slice(installer.indexOf('Function CIADIPoloPageCreate'), installer.indexOf('Function CIADIPoloPageLeave'));
-  assert.match(page, /CIADISelectRH == "1"/);
-  assert.match(page, /CIADISelectReception == "1"/);
+  assert.match(page, /CIADISelectRH != "1"/);
+  assert.match(page, /CIADISelectReception != "1"/);
   assert.match(page, /Abort/);
   for (const label of ['Talatona — Polo 001', 'Jardim de Rosas — Polo 002']) assert.ok(page.includes(label));
   assert.match(installer, /Polo CIADI não seleccionado/);
