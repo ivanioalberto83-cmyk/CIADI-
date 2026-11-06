@@ -123,3 +123,15 @@ test('ignora quantidades inválidas na soma e agrupa datas desconhecidas', () =>
   assert.equal(result.knownQuantities, 1);
   assert.equal(result.byDay.find(x => x.label === 'Data desconhecida').value, 2);
 });
+
+
+test('estação Suporte Informática não concede gestão de aprovisionamento a perfis administrativos ou de gestão', async () => {
+  const db = { from() { throw new Error('A base de dados não deve ser chamada.'); } };
+  for (const role of ['admin', 'gestor', 'operador', null]) {
+    const service = support.createProcurementService({ db, role });
+    await assert.rejects(
+      () => service.createItem({ sku: 'TI-SEC-01', name: 'Equipamento', item_type: 'equipamento', tracking_mode: 'quantity' }),
+      /Perfil sem autorização/
+    );
+  }
+});
