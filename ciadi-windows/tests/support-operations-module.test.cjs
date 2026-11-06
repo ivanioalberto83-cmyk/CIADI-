@@ -89,7 +89,7 @@ test('serviço de aprovisionamento rejeita perfis sem capacidade e payloads inv�
 test('serviço cria fornecedores e armazéns apenas com os campos permitidos', async () => {
   const calls = [];
   const db = { from(table) { return { insert(payload) { calls.push({ table, payload }); return { select() { return { single: async () => ({ data: payload, error: null }) }; } }; } }; } };
-  const service = support.createProcurementService({ db, role: 'admin' });
+  const service = support.createProcurementService({ db, role: 'suporte_informatica' });
   await service.createSupplier({ name: 'Fornecedor TI', nif: '5000000000', email: 'vendas@example.ao', active: true, unexpected: 'não gravar' });
   await service.createWarehouse({ code: 'AR-01', name: 'Armazém TI', polo: 'Talatona', active: true, unexpected: 'não gravar' });
   assert.deepEqual(calls.map(x => x.table), ['suppliers', 'warehouses']);
