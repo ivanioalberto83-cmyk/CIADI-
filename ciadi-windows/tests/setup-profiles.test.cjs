@@ -12,7 +12,7 @@ test('Setup apresenta quatro caixas de selecção independentes e exige pelo men
   for (const label of ['ADM — Administração', 'Suporte Informático', 'Recursos Humanos (RH)', 'Receção']) {
     assert.ok(installer.includes(label), 'Falta opção: ' + label);
   }
-  assert.equal((installer.match(/\$\{NSD_CreateCheckBox\}/g) || []).length, 4);
+  assert.equal((installer.match(/\$\{NSD_CreateCheckbox\}/g) || []).length, 4);
   assert.match(installer, /NSD_GetState\} \$CIADIProfileCheckADM/);
   assert.match(installer, /NSD_GetState\} \$CIADIProfileCheckSupport/);
   assert.match(installer, /NSD_GetState\} \$CIADIProfileCheckRH/);
