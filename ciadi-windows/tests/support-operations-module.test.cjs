@@ -48,3 +48,19 @@ test('trata datas inválidas na auditoria sem interromper a agregação', () => 
   assert.equal(result.byDay.find(x => x.label === 'Data desconhecida').value, 1);
   assert.equal(result.byDay.find(x => x.label === '2026-11-06').value, 1);
 });
+
+test('resume os estados reais do aprovisionamento sem misturar aprovação e recepção', () => {
+  const result = support.summarizeProcurement([
+    { status: 'draft' },
+    { status: 'submitted' },
+    { status: 'returned' },
+    { status: 'approved' },
+    { status: 'rejected' },
+    { status: 'received' },
+    { status: 'cancelled' }
+  ]);
+  assert.deepEqual(result, {
+    total: 7, pending: 2, submitted: 1, returned: 1,
+    approved: 1, rejected: 1, received: 1
+  });
+});
