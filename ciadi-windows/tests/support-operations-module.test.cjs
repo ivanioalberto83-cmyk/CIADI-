@@ -36,3 +36,14 @@ test('calcula indicadores de aprovisionamento sem aprovar compras', () => {
   assert.equal(result.pending, 2);
   assert.equal(result.approved, 1);
 });
+
+
+test('trata datas inválidas na auditoria sem interromper a agregação', () => {
+  const result = support.aggregateAudit([
+    { acao: 'LOGIN', created_at: 'data-inválida' },
+    { acao: 'UPDATE', created_at: '2026-11-06T09:00:00Z' }
+  ]);
+  assert.equal(result.total, 2);
+  assert.equal(result.byDay.find(x => x.label === 'Data desconhecida').value, 1);
+  assert.equal(result.byDay.find(x => x.label === '2026-11-06').value, 1);
+});
