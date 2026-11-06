@@ -63,7 +63,9 @@
       "createStartMenuShortcut": false,
       "shortcutName": "CIADI Dashboard",
       "deleteAppDataOnUninstall": false,
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "installerSidebar": "ciadi-installer-sidebar.bmp",
+      "uninstallerSidebar": "ciadi-installer-sidebar.bmp"
     }
   }
 }
