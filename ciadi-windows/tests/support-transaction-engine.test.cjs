@@ -73,7 +73,7 @@ test('propaga erros devolvidos pelo Supabase sem os converter em sucesso', async
   const service = engine.createSupportTransactionService({ db, role: 'suporte_informatica' });
   await assert.rejects(() => service.postStockMovement({
     item_id: item, warehouse_id: warehouseA, movement_type: 'saida', quantity: 9
-  }), /Stock insuficiente/);
+  }), error => error && error.message === 'Stock insuficiente');
 });
 
 test('não permite textos acima dos limites definidos', async () => {
