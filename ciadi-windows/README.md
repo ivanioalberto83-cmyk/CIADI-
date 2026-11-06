@@ -3,14 +3,21 @@
 Este diretório empacota o dashboard existente como aplicação Windows (Electron/NSIS). O objetivo é preservar a estrutura e o funcionamento do dashboard: a camada Electron serve para instalar e atualizar a aplicação; não reescreve os módulos nem migra automaticamente o Supabase.
 
 ## Fonte da aplicação
-- A raiz do repositório deve conter `CIADI_DASHBOARD_FINANCEIRO(1).html`.
+- A raiz do repositório deve conter `CIADI_DASHBOARD_FINANCEIRO.html`.
 - A compilação copia esse ficheiro para `ciadi-windows/index.html` sem editar o original.
 - Não substitua nem reorganize a estrutura do dashboard para publicar uma atualização. Faça alterações funcionais no ficheiro original, teste-as e mantenha uma cópia/commit da versão anterior.
 
-## Gerar um instalador de teste
-1. Abra **Actions → CIADI Windows Setup → Run workflow**.
-2. Aguarde o job terminar com sucesso.
-3. Descarregue o artefacto **CIADI-Windows-Setup**. Esse artefacto é de teste e fica disponível durante 14 dias.
+## Estações e identidade visual do Setup
+- O instalador permite seleccionar, de forma independente, uma ou várias estações: CIADI ADM, CIADI Suporte Informático, CIADI Recursos Humanos e CIADI Receção.
+- É criada uma ligação própria no Ambiente de Trabalho e no menu Iniciar para cada estação seleccionada.
+- ADM e Suporte Informático não exigem escolha de polo. RH e/ou Receção exigem a escolha inicial de Talatona ou Jardim de Rosas.
+- O perfil passado pelo atalho identifica o contexto de entrada; não concede permissões. O login é obrigatório e as permissões continuam dependentes da conta autenticada.
+- O workflow extrai o logótipo PNG incorporado no Dashboard e gera `ciadi.ico`, utilizado no executável, instalador e atalhos.
+
+## Gerar um instalador de homologação
+1. Abra **Actions → CIADI Setup Homologation → Run workflow** ou envie alterações para a branch de correcção.
+2. Aguarde os testes de contrato e a compilação Windows terminarem com sucesso.
+3. Descarregue o artefacto **CIADI-Setup-1.0.5-Homologacao**. O artefacto é de teste, não uma release, e fica disponível durante 14 dias.
 
 ## Publicar uma atualização automática
 1. Confirme que o HTML atualizado está na raiz e que foi testado.
