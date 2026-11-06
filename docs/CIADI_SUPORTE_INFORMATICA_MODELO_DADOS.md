@@ -4,33 +4,39 @@
 **Aplicação:** exclusivamente aos sistemas, equipamentos e serviços internos do CIADI.  
 **Não aplicado:** este documento não cria tabelas, não altera RLS, políticas, permissões, contas, dados ou produção.
 
-## 1. Resultado da auditoria do esquema actual
+## 1. Estado observado do domínio `ciadi_ti`
 
-Foram consultados o catálogo de tabelas/colunas, constraints, políticas RLS, privilégios e migrações do projecto Supabase `egpkkttbcaukqnnxyhjv`.
+A verificação do projecto Supabase confirmou 11 tabelas com RLS activo, 24 políticas e a vista `stock_balances`. As tabelas encontradas são:
 
-| Estrutura existente | Estado observado | Decisão |
-|---|---|---|
-| `ciadi_materiais_apoio` | RLS activo; 0 registos; publicação e disponibilidade de materiais de apoio | Não reutilizar para inventário de TI |
-| `ciadi_solicitacoes_materiais` | RLS activo; 0 registos; pedidos associados a pacientes, responsáveis e profissionais | Não reutilizar para requisições informáticas |
-| `ciadi_solicitacoes_materiais_historico` | RLS activo; histórico do circuito clínico de materiais | Não reutilizar |
-| `finance_despesas` | RLS activo; 0 registos; política `ciadi_finance_staff()` | Manter no domínio financeiro |
-| `finance_imobilizados` | RLS activo; 0 registos; política `is_staff()`; campos de aquisição e depreciação | Manter como registo contabilístico; eventual ligação por referência, sem duplicar lançamentos |
-| `ciadi_modelos_documentos` | RLS activo; 10 modelos; ligado a documentos clínicos e campos de modelos | Não misturar documentos técnicos com modelos clínicos |
-| `ciadi_campos_modelos_documentos` | RLS activo; 113 campos | Não alterar no âmbito do Suporte |
-| `ciadi_documentos_institucionais` | RLS activo; 2 registos; escrita reservada à gestão | Não assumir que o Suporte pode arquivar aqui documentos técnicos |
-| `documentos_clinicos` | RLS activo; circuito clínico, validação, assinatura, publicação e histórico | Não reutilizar para documentação de TI |
+| Estrutura | Finalidade |
+|---|---|
+| `warehouses` | Armazéns e localização/polo |
+| `item_categories` | Categorias do catálogo |
+| `suppliers` | Fornecedores |
+| `items` | Artigos, consumíveis e serviços |
+| `assets` | Equipamentos individualizados |
+| `stock_movements` | Ledger de entradas, saídas, ajustes e transferências |
+| `purchase_requests` | Pedidos de aquisição e decisão financeira |
+| `purchase_request_lines` | Linhas dos pedidos |
+| `inventory_counts` | Contagens físicas |
+| `inventory_count_lines` | Linhas e diferenças de contagem |
+| `audit_events` | Eventos de auditoria do domínio |
 
-### 1.1 Limites de autorização observados
+A vista `stock_balances` apresenta os saldos derivados dos movimentos. Os movimentos não devem ser inseridos directamente no ledger: as operações transaccionais devem usar as rotinas controladas existentes.
 
-- A constraint de `perfis.tipo` aceita actualmente `admin`, `gestor`, `profissional`, `paciente`, `responsavel` e `operador`; não inclui `suporte_informatica`.
-- `is_staff()` reconhece Administração/Gestão e profissionais AT activos; não reconhece uma estação Suporte autónoma.
-- `ciadi_finance_staff()` e `ciadi_is_management()` reconhecem apenas perfis activos `admin` e `gestor`.
-- O perfil/atalho da estação Windows é apenas identificação de interface; não concede permissões de dados.
-- Não foi encontrada uma tabela dedicada a fornecedores, compras, stock ou inventário operacional de TI.
+### 1.1 Rotinas e separação de funções observadas
 
-**Conclusão:** a interface não deve tentar gravar nas tabelas clínicas ou financeiras existentes para simular aprovisionamento informático.
+- `has_support_access()`: verificação de acesso ao domínio de Suporte.
+- `has_finance_approval()`: verificação de capacidade de decisão financeira.
+- `capture_audit_event()`: captura de eventos de auditoria.
+- `post_stock_movement(...)`: operação controlada de movimento de stock.
+- `decide_purchase_request(...)`: decisão sobre pedido de aquisição.
+- `transfer_stock(...)`: transferência de stock.
+- `touch_updated_at()`: actualização de carimbo temporal.
 
-## 2. Arquitectura proposta
+A autorização efectiva continua a ser decidida pelo Supabase/RLS, não pelo nome da estação nem por controlos visuais. A aprovação/rejeição financeira pertence exclusivamente a Administração/Gestão. O perfil Suporte não deve receber `admin` ou `gestor`.
+
+## 2. Arquitectura implementada e evolução
 
 Separar o domínio de TI em estruturas próprias, com prefixo `ciadi_it_`. Os nomes abaixo são propostas, não objectos existentes.
 
@@ -68,7 +74,7 @@ Separar o domínio de TI em estruturas próprias, com prefixo `ciadi_it_`. Os no
 
 **Separação de funções:** Suporte não aprova despesas, pagamentos, fornecedores financeiros nem compras em nome da Administração.
 
-Estados sugeridos: `rascunho`, `submetida`, `em_validacao_tecnica`, `pendente_aprovacao_administracao`, `aprovada`, `rejeitada`, `em_aquisicao`, `recebida_parcialmente`, `recebida`, `entregue`, `encerrada`, `cancelada`.
+Estados efectivamente definidos em `purchase_requests`: `draft`, `submitted`, `returned`, `approved`, `rejected`, `received` e `cancelled`. Não apresentar estados adicionais sem migração aprovada.
 
 ## 3. Motor documental técnico
 
@@ -116,14 +122,15 @@ Antes de escrever políticas:
 
 Não conceder `admin` ou `gestor` à conta Suporte como atalho. A implementação deve dar apenas as capacidades necessárias.
 
-## 5. Condições de segurança e implementação
+## 5. Condições de segurança e evolução
 
 - O Supabase passou a exigir exposição explícita de novas tabelas públicas à Data API; não presumir que a criação da tabela a torna acessível. Cada GRANT deve ser intencional e acompanhado de RLS e políticas adequadas.
 - Não colocar service-role/secret keys no HTML, Electron renderer ou instalador.
 - Não usar tabelas clínicas, dados de pacientes ou modelos clínicos para o domínio informático.
 - Não dar ao Suporte capacidade de aprovar despesas, pagamentos ou compras.
-- Não fazer alterações destrutivas, migrações, DDL/DML ou alterações de RLS até existir autorização específica.
-- A implementação deverá ser versionada, testada em ambiente não produtivo, revista e homologada antes de qualquer publicação.
+- Não fazer novas alterações destrutivas, migrações, DDL/DML ou alterações de RLS sem autorização específica.
+- Não assumir que uma aprovação de código autoriza merge, deploy, geração de Setup ou novas alterações à produção.
+- A implementação de interface deve ser versionada e testada; os fluxos transaccionais só devem chamar as RPCs depois de confirmar os respectivos argumentos e contratos exactos.
 
 ## 6. Observações da auditoria de segurança
 
@@ -131,6 +138,6 @@ Na consulta dos Security Advisors foram apresentados, entre outros, avisos sobre
 
 O advisor de desempenho também reportou índices duplicados em várias tabelas. Não foram removidos nem modificados.
 
-## 7. Próximo passo sujeito a autorização
+## 7. Próximo passo
 
-Rever este modelo e autorizar, separadamente, a preparação de uma migração versionada para o domínio `ciadi_it_` e respectivas políticas RLS. A autorização para preparar a migração não deve ser interpretada como autorização para a aplicar no projecto de produção.
+Confirmar os contratos exactos (argumentos, tipos e resultados) das RPCs já existentes antes de ligar os formulários de movimentos, transferências e decisões de pedidos. A interface deve continuar a apresentar os saldos a partir de `stock_balances`, o histórico do ledger e os eventos de auditoria. Não inserir movimentos directamente em `stock_movements` nem contornar as políticas RLS.
