@@ -6,25 +6,17 @@
   'use strict';
 
   const REQUEST_STATES = Object.freeze([
-    'rascunho', 'submetida', 'em_validacao_tecnica',
-    'pendente_aprovacao_administracao', 'aprovada', 'rejeitada',
-    'em_aquisicao', 'recebida_parcialmente', 'recebida',
-    'entregue', 'encerrada', 'cancelada'
+    'draft', 'submitted', 'returned', 'approved', 'rejected', 'received', 'cancelled'
   ]);
 
   const TRANSITIONS = Object.freeze({
-    rascunho: ['submetida', 'cancelada'],
-    submetida: ['em_validacao_tecnica', 'cancelada'],
-    em_validacao_tecnica: ['pendente_aprovacao_administracao', 'submetida', 'cancelada'],
-    pendente_aprovacao_administracao: ['aprovada', 'rejeitada', 'em_validacao_tecnica'],
-    aprovada: ['em_aquisicao', 'cancelada'],
-    rejeitada: [],
-    em_aquisicao: ['recebida_parcialmente', 'recebida'],
-    recebida_parcialmente: ['recebida'],
-    recebida: ['entregue'],
-    entregue: ['encerrada'],
-    encerrada: [],
-    cancelada: []
+    draft: ['submitted', 'cancelled'],
+    submitted: ['returned', 'approved', 'rejected'],
+    returned: ['submitted', 'cancelled'],
+    approved: ['received', 'cancelled'],
+    rejected: [],
+    received: [],
+    cancelled: []
   });
 
   function clean(value) {
@@ -127,12 +119,11 @@
 
   function canTransition({ from, to, actorRole }) {
     if (!REQUEST_STATES.includes(from) || !TRANSITIONS[from]?.includes(to)) return false;
-    if (to === 'aprovada' || to === 'rejeitada') return actorRole === 'admin' || actorRole === 'gestor';
-    if (['submetida', 'em_validacao_tecnica', 'pendente_aprovacao_administracao',
-      'em_aquisicao', 'recebida_parcialmente', 'recebida', 'entregue', 'encerrada'].includes(to)) {
+    if (to === 'approved' || to === 'rejected') return actorRole === 'admin' || actorRole === 'gestor';
+    if (['submitted', 'received', 'cancelled'].includes(to)) {
       return actorRole === 'suporte_informatica' || actorRole === 'admin' || actorRole === 'gestor';
     }
-    return actorRole === 'admin' || actorRole === 'gestor' || actorRole === 'suporte_informatica';
+    return false;
   }
 
   function transitionRequest(request, to, actor) {
