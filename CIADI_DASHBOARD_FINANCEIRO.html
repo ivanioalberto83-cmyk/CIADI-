@@ -9,6 +9,7 @@
 <script src="renderer/core/station-profile-service.js"></script>
 <script src="renderer/modules/hr-module.js"></script>
 <script src="renderer/modules/reception-module.js"></script>
+<script src="renderer/modules/support-operations-module.js"></script>
 <script src="renderer/core/auth-service.js"></script>
 <script src="renderer/core/profile-service.js"></script>
 <style>body{background:#fbfdff;color:#6f351f} .orange{color:#f58200}.bg-orange{background:#f58200}.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 8px 28px rgba(245,130,0,.08)} input,select,textarea{outline:none} input:focus,select:focus,textarea:focus{border-color:#f58200;box-shadow:0 0 0 3px #ffe7bf}.hiddenx{display:none!important}
@@ -203,23 +204,15 @@ async function sosAlerts(){
 }
 
 async function supportDashboard(){
-  const { data: sessionData, error: sessionError } = await authService.getSession();
-  const session = sessionData?.session;
+  const sessionResult = await authService.getSession();
   const stationNames = {adm:'Administração',suporte_informatica:'Suporte Informático',rh:'Recursos Humanos',recepcao:'Receção'};
-  const userEmail = esc(session?.user?.email || 'Sem utilizador');
-  const sessionStatus = sessionError ? 'Não foi possível consultar a sessão.' : session?.user ? 'Sessão autenticada no Supabase.' : 'Sessão não encontrada.';
-  document.getElementById('content').innerHTML =
-    '<div class="flex flex-wrap justify-between items-start gap-4 mb-5"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Tecnologia e Sistemas</span><h2 class="text-3xl font-black mt-1">Centro de Suporte Informático</h2><p class="text-slate-500">Apoio técnico, monitorização operacional e acompanhamento dos sistemas CIADI.</p></div><span class="rounded-full px-3 py-2 text-sm font-bold bg-orange-50 text-orange-700">Estação: '+esc(stationNames[stationProfile]||'Não identificada')+'</span></div>'+
-    '<div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">'+
-    '<article class="card p-5"><div class="text-2xl">🖥️</div><h3 class="font-black text-lg mt-3">Sessão da aplicação</h3><p class="text-sm text-slate-500 mt-1">'+esc(sessionStatus)+'</p><p class="text-xs text-slate-400 mt-3 break-all">'+userEmail+'</p></article>'+
-    '<article class="card p-5"><div class="text-2xl">🧩</div><h3 class="font-black text-lg mt-3">Perfil desta estação</h3><p class="text-sm text-slate-500 mt-1">A navegação está configurada para Suporte Informático.</p><p class="text-xs text-slate-400 mt-3">O perfil da estação não concede permissões de dados.</p></article>'+
-    '<article class="card p-5"><div class="text-2xl">🔐</div><h3 class="font-black text-lg mt-3">Controlo de acesso</h3><p class="text-sm text-slate-500 mt-1">A autenticação e as políticas RLS do Supabase continuam a controlar o acesso efectivo.</p><p class="text-xs text-slate-400 mt-3">Nenhuma permissão foi alterada.</p></article></div>'+
-    '<div class="card p-6 mt-5"><h3 class="text-xl font-black">Ferramentas de suporte</h3><p class="text-sm text-slate-500 mt-1">Aceda às áreas de acompanhamento técnico disponíveis para esta estação.</p><div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">'+
-    '<button onclick="go(\'sos\')" class="border rounded-xl p-4 text-left hover:border-orange-400"><b>🚨 Alertas SOS</b><p class="text-xs text-slate-500 mt-1">Consultar alertas e estado de resposta.</p></button>'+
-    '<button onclick="go(\'utilizadores\')" class="border rounded-xl p-4 text-left hover:border-orange-400"><b>👥 Utilizadores</b><p class="text-xs text-slate-500 mt-1">Consultar contas e perfis autorizados.</p></button>'+
-    '<button onclick="go(\'instituicao\')" class="border rounded-xl p-4 text-left hover:border-orange-400"><b>🌐 Instituição & redes</b><p class="text-xs text-slate-500 mt-1">Consultar configuração institucional.</p></button>'+
-    '<button onclick="go(\'auditoria\')" class="border rounded-xl p-4 text-left hover:border-orange-400"><b>📋 Auditoria</b><p class="text-xs text-slate-500 mt-1">Consultar registos de actividade.</p></button>'+
-    '</div></div>';
+  return window.CIADI_SUPPORT_OPERATIONS.create({
+    root: document.getElementById('content'),
+    supabase: sb,
+    stationLabel: stationNames[stationProfile] || 'Não identificada',
+    navigate: go,
+    notify: toast
+  }).renderHome();
 }
 
 async function overview(){
