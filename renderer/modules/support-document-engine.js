@@ -29,6 +29,60 @@
   function makeVerificationPayload({documentId,token,verificationBaseUrl}){if(!clean(documentId)||!/^[A-Za-z0-9_-]{24,128}$/.test(clean(token)))throw new Error('Identificador ou token de autenticação inválido.');const base=clean(verificationBaseUrl).replace(/\/$/,'');if(!/^https:\/\//i.test(base))throw new Error('O endereço de autenticação deve usar HTTPS.');return base+'/validar-documento/'+encodeURIComponent(documentId)+'?token='+encodeURIComponent(token);}
   function renderDocumentHtml({template,values,metadata={},qrDataUrl=null,logoDataUrl=null}){const v=validateValues(template,values);if(!v.valid)throw new Error(v.errors.join(' '));const rows=template.fields.map(x=>'<div class="ciadi-field"><span>'+escapeHtml(x.label)+'</span><p>'+escapeHtml(values[x.key])+'</p></div>').join('');const logo=logoDataUrl?'<img class="ciadi-logo" alt="Logótipo CIADI" src="'+escapeHtml(logoDataUrl)+'">':'<div class="ciadi-wordmark">CIADI</div>';const qr=qrDataUrl?'<aside class="ciadi-auth"><img alt="QR Code de autenticação" src="'+escapeHtml(qrDataUrl)+'"><small>Verifique a autenticidade deste documento através do QR Code.</small></aside>':'<aside class="ciadi-auth ciadi-pending">QR Code: por gerar na emissão oficial</aside>';return '<!doctype html><html lang="pt-AO"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeHtml(template.title)+'</title><style>@page{size:A4;margin:16mm}*{box-sizing:border-box}body{font-family:'+BRAND.fonts+';color:'+BRAND.palette.brown+';font-size:11px;margin:0}.sheet{max-width:180mm;margin:auto}.head{display:flex;align-items:center;justify-content:space-between;border-bottom:4px solid '+BRAND.palette.orange+';padding-bottom:14px}.ciadi-logo{max-width:130px;max-height:65px;object-fit:contain}.ciadi-wordmark{font-size:30px;font-weight:900;color:'+BRAND.palette.orange+'}.org{font-size:9px;font-weight:700;max-width:340px}.doc-meta{text-align:right;font-size:10px}.doc-title{font-size:20px;color:'+BRAND.palette.brown+';margin:24px 0 5px}.sub{color:#64748b;font-size:10px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:24px}.ciadi-field{border-bottom:1px solid #e5e7eb;min-height:45px;padding:4px 0}.ciadi-field span{font-size:9px;color:'+BRAND.palette.orange+';font-weight:800;text-transform:uppercase}.ciadi-field p{white-space:pre-wrap;margin:5px 0 0;font-size:11px}.foot{display:flex;justify-content:space-between;align-items:end;border-top:1px solid #d1d5db;margin-top:35px;padding-top:12px;font-size:9px;color:#64748b}.ciadi-auth{width:105px;text-align:center}.ciadi-auth img{width:82px;height:82px;object-fit:contain}.ciadi-auth small{display:block;font-size:7px}.ciadi-pending{border:1px dashed #d97706;padding:12px;color:#92400e}.signatures{display:flex;gap:35px;margin-top:45px}.signatures div{flex:1;border-top:1px solid #777;padding-top:6px;font-size:9px}.notice{background:'+BRAND.palette.peach+';padding:9px;margin-top:18px;font-size:9px}</style></head><body><main class="sheet"><header class="head">'+logo+'<div class="org">'+BRAND.name+'</div><div class="doc-meta"><b>'+escapeHtml(metadata.number||'RASCUNHO')+'</b><br>'+escapeHtml(metadata.createdAt||'')+'<br>'+escapeHtml(metadata.status||'Em preparação')+'</div></header><h1 class="doc-title">'+escapeHtml(template.title)+'</h1><div class="sub">Código '+escapeHtml(template.code)+' · Modelo versão '+template.version+'</div><section class="fields">'+rows+'</section><div class="signatures"><div>Elaborado por</div><div>Validação / aprovação, quando aplicável</div></div><div class="notice">Documento institucional CIADI. A validade de um documento emitido deve ser confirmada no serviço oficial de autenticação.</div><footer class="foot"><div>CIADI · Suporte Informática<br>Documento sujeito a controlo de versão e auditoria.</div>'+qr+'</footer></main></body></html>';}
   function createDocumentDraft({templateCode,values,actorId,now}){const t=TEMPLATES.find(x=>x.code===templateCode);if(!t)return Object.freeze({ok:false,errors:['Modelo documental não encontrado.']});const validation=validateValues(t,values);if(!validation.valid)return Object.freeze({ok:false,errors:validation.errors});if(!clean(actorId))return Object.freeze({ok:false,errors:['Autor obrigatório.']});const createdAt=now||new Date().toISOString();return Object.freeze({ok:true,document:Object.freeze({id:null,number:null,templateCode,templateVersion:t.version,values:Object.freeze({...values}),status:'draft',createdBy:clean(actorId),createdAt,issuedAt:null,verification:null,history:Object.freeze([{event:'draft_created',actorId:clean(actorId),at:createdAt}])})});}
-  function createDocumentService({repository,qrEncoder,pdfExporter,sender}={}){return Object.freeze({async save(document){if(!repository?.save)throw new Error('Arquivo documental não configurado; não foi gravado qualquer documento.');if(!document||document.status!=='draft')throw new Error('Apenas rascunhos podem ser guardados nesta operação.');return repository.save(document);},async createQr(payload){if(typeof qrEncoder!=='function')throw new Error('Gerador de QR Code não configurado.');return qrEncoder(payload);},async exportPdf(html,filename){if(typeof pdfExporter!=='function')throw new Error('Exportação PDF não configurada.');return pdfExporter({html,filename});},async send(document,destination){if(typeof sender!=='function')throw new Error('Canal de envio não configurado.');if(!clean(destination))throw new Error('Destinatário obrigatório.');if(!document||document.status!=='issued')throw new Error('Só é permitido enviar documentos emitidos.');return sender({document,destination});}});}
+  function createDocumentService({repository,qrEncoder,pdfExporter,sender,deliveryRecorder}={}) {
+    return Object.freeze({
+      async save(document) {
+        if(!repository?.saveDraft) throw new Error('Arquivo documental não configurado; não foi gravado qualquer documento.');
+        if(!document||document.status!=='draft') throw new Error('Apenas rascunhos podem ser guardados nesta operação.');
+        return repository.saveDraft(document);
+      },
+      async issue(documentId) {
+        if(!clean(documentId)) throw new Error('Identificador documental obrigatório.');
+        if(typeof repository?.issueDraft!=='function') throw new Error('Operação de emissão atómica do servidor não configurada.');
+        if(typeof qrEncoder!=='function') throw new Error('Gerador de QR Code não configurado.');
+        const result=await repository.issueDraft(documentId);
+        if(!result?.document||result.document.status!=='issued'||!result.verificationUrl) throw new Error('O servidor não confirmou a emissão e a URL de autenticação.');
+        if(!/^https:\/\//i.test(result.verificationUrl)) throw new Error('A URL de autenticação deve usar HTTPS.');
+        const qrDataUrl=await qrEncoder(result.verificationUrl);
+        return Object.freeze({document:Object.freeze({...result.document}),qrDataUrl});
+      },
+      async createQr(payload) {
+        if(typeof qrEncoder!=='function') throw new Error('Gerador de QR Code não configurado.');
+        if(!/^https:\/\//i.test(clean(payload))) throw new Error('O QR Code só pode apontar para uma URL HTTPS.');
+        return qrEncoder(payload);
+      },
+      async exportPdf(html,filename) {
+        if(typeof pdfExporter!=='function') throw new Error('Exportação PDF não configurada.');
+        return pdfExporter({html,filename});
+      },
+      async exportIssuedPdf(document,html,filename) {
+        if(!document||document.status!=='issued') throw new Error('A exportação PDF exige um documento emitido.');
+        if(!clean(html)||!clean(filename)) throw new Error('Conteúdo e nome do PDF são obrigatórios.');
+        if(typeof pdfExporter!=='function') throw new Error('Exportação PDF não configurada.');
+        return pdfExporter({html,filename,documentId:document.id});
+      },
+      async archive(document,artifact) {
+        if(!document||document.status!=='issued') throw new Error('Só documentos emitidos podem ser arquivados.');
+        if(typeof repository?.archiveIssued!=='function') throw new Error('Arquivo privado documental não configurado.');
+        if(!artifact?.bytes||!clean(artifact.filename)||!clean(artifact.sha256)) throw new Error('PDF, nome e hash SHA-256 são obrigatórios para arquivo.');
+        return repository.archiveIssued({documentId:document.id,artifact});
+      },
+      async verify(documentId,token) {
+        if(typeof repository?.verifyToken!=='function') throw new Error('Serviço de autenticação documental não configurado.');
+        if(!clean(documentId)||!clean(token)) throw new Error('Dados de autenticação incompletos.');
+        return repository.verifyToken({documentId,token});
+      },
+      async send(document,destination,artifact) {
+        if(typeof sender!=='function') throw new Error('Canal de envio não configurado.');
+        if(!clean(destination)) throw new Error('Destinatário obrigatório.');
+        if(!document||document.status!=='issued') throw new Error('Só é permitido enviar documentos emitidos.');
+        if(!artifact) throw new Error('O PDF final do documento é obrigatório para envio.');
+        const result=await sender({document,destination,artifact});
+        if(typeof deliveryRecorder!=='function') throw new Error('Registo de entrega não configurado; confirme o estado do envio antes de repetir.');
+        await deliveryRecorder({documentId:document.id,destination,result});
+        return result;
+      }
+    });
+  }
   return Object.freeze({BRAND,TEMPLATES,validateTemplate,validateValues,makeVerificationPayload,renderDocumentHtml,createDocumentDraft,createDocumentService});
 });
