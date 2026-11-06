@@ -112,15 +112,13 @@ O arquivo deverá usar o bucket privado apropriado, com autorização por docume
 
 O acesso global de Suporte e Administração aos polos deve ser independente da atribuição física do equipamento. O âmbito de RH e Recepção mantém-se limitado às funções e polos autorizados.
 
-### 4.1 Implementação de autorização
+### 4.1 Verificações pendentes
 
-Antes de escrever políticas:
 1. Confirmar o mapeamento real das quatro contas de estação para os perfis autenticados, sem alterar contas.
-2. Definir capacidades explícitas e separadas da estação Windows.
-3. Desenhar políticas RLS por operação e por registo, incluindo escopo global de TI e separação de polos.
-4. Verificar privilégios SQL e exposição ao Data API para cada nova tabela.
-5. Testar SELECT/INSERT/UPDATE/DELETE com identidades de teste autorizadas e não autorizadas.
-6. Executar Security Advisors e rever funções auxiliares, sem introduzir acesso privilegiado genérico.
+2. Verificar a visibilidade dos menus por perfil e confirmar que a estação Suporte não herda permissões financeiras.
+3. Testar SELECT/INSERT/UPDATE/DELETE com identidades de teste autorizadas e não autorizadas, sem criar dados reais.
+4. Rever as políticas RLS e os resultados dos Security Advisors associados ao schema `ciadi_ti`.
+5. Confirmar os contratos das RPCs antes de ligar operações de escrita no renderer.
 
 Não conceder `admin` ou `gestor` à conta Suporte como atalho. A implementação deve dar apenas as capacidades necessárias.
 
