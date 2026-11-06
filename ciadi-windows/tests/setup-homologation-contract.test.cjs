@@ -45,7 +45,7 @@ test('o pacote inclui renderer e não publica automaticamente', () => {
 test('a compilação sincroniza o Dashboard, renderer e gera o ícone CIADI a partir do PNG incorporado', () => {
   assert.match(buildWorkflow, /Copy-Item\s+\$source\s+["']ciadi-windows\/index\.html["']\s+-Force/);
   assert.match(buildWorkflow, /Copy-Item\s+["']renderer\/\*["']\s+["']ciadi-windows\/renderer\/["']\s+-Recurse\s+-Force/);
-  assert.match(buildWorkflow, /Gerar ícone Windows a partir do logótipo CIADI/);
+  assert.match(buildWorkflow, /Gerar ícone e imagem lateral com o logótipo oficial CIADI/);
   assert.match(buildWorkflow, /data:image\/png;base64/);
   assert.match(buildWorkflow, /ciadi-windows\/ciadi\.ico/);
 });
