@@ -24,7 +24,7 @@ test('A página preserva as caixas assinaladas quando o utilizador regressa ao p
   const profilePage = installer.slice(installer.indexOf('Function CIADIProfilePageCreate'), installer.indexOf('Function CIADIProfilePageLeave'));
   for (const flag of ['ADM','Support','RH','Reception']) {
     assert.match(profilePage, new RegExp('CIADISelect' + flag + ' == "1"'));
-    assert.match(profilePage, new RegExp('BM_SETCHECK.*CIADIProfileCheck' + flag));
+    assert.match(profilePage, new RegExp('CIADIProfileCheck.*BM_SETCHECK' + flag));
   }
   const poloPage = installer.slice(installer.indexOf('Function CIADIPoloPageCreate'), installer.indexOf('Function CIADIPoloPageLeave'));
   assert.match(poloPage, /CIADIPolo == "talatona"/);
