@@ -64,3 +64,35 @@ test('resume os estados reais do aprovisionamento sem misturar aprovação e rec
     approved: 1, rejected: 1, received: 1
   });
 });
+
+
+test('serviço de aprovisionamento valida o perfil e os dados antes de criar artigos', async () => {
+  const calls = [];
+  const db = { from(table) { return { insert(payload) { calls.push({ table, payload }); return { select() { return { single: async () => ({ data: { id: 'item-1', ...payload }, error: null }) }; } }; } }; } };
+  const service = support.createProcurementService({ db, role: 'suporte_informatica' });
+  const result = await service.createItem({ sku: 'TI-001', name: 'Portátil', item_type: 'equipamento', tracking_mode: 'serialized', minimum_stock: 0 });
+  assert.equal(result.data.id, 'item-1');
+  assert.equal(calls[0].table, 'items');
+  assert.equal(calls[0].payload.sku, 'TI-001');
+});
+
+test('serviço de aprovisionamento rejeita perfis sem capacidade e payloads inválidos sem chamar a base de dados', async () => {
+  let writes = 0;
+  const db = { from() { return { insert() { writes++; return this; } }; } };
+  const denied = support.createProcurementService({ db, role: 'operador' });
+  await assert.rejects(() => denied.createItem({ sku: 'TI-002', name: 'Rato' }), /Perfil sem autorização/);
+  const allowed = support.createProcurementService({ db, role: 'suporte_informatica' });
+  await assert.rejects(() => allowed.createItem({ sku: '', name: '', item_type: 'inexistente', tracking_mode: 'x', minimum_stock: -1 }), /Dados do artigo inválidos/);
+  assert.equal(writes, 0);
+});
+
+test('serviço cria fornecedores e armazéns apenas com os campos permitidos', async () => {
+  const calls = [];
+  const db = { from(table) { return { insert(payload) { calls.push({ table, payload }); return { select() { return { single: async () => ({ data: payload, error: null }) }; } }; } }; } };
+  const service = support.createProcurementService({ db, role: 'admin' });
+  await service.createSupplier({ name: 'Fornecedor TI', nif: '5000000000', email: 'vendas@example.ao', active: true, unexpected: 'não gravar' });
+  await service.createWarehouse({ code: 'AR-01', name: 'Armazém TI', polo: 'Talatona', active: true, unexpected: 'não gravar' });
+  assert.deepEqual(calls.map(x => x.table), ['suppliers', 'warehouses']);
+  assert.equal('unexpected' in calls[0].payload, false);
+  assert.equal('unexpected' in calls[1].payload, false);
+});
