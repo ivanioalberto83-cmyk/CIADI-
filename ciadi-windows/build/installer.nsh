@@ -23,11 +23,12 @@ Var CIADIPoloRadioRosas
 !macroend
 
 Function CIADIProfilePageCreate
-  StrCpy $CIADIPolo ""
-  StrCpy $CIADISelectADM "0"
-  StrCpy $CIADISelectSupport "0"
-  StrCpy $CIADISelectRH "0"
-  StrCpy $CIADISelectReception "0"
+  ${If} $CIADISelectADM == ""
+    StrCpy $CIADISelectADM "0"
+    StrCpy $CIADISelectSupport "0"
+    StrCpy $CIADISelectRH "0"
+    StrCpy $CIADISelectReception "0"
+  ${EndIf}
   nsDialogs::Create 1018
   Pop $CIADIProfileDialog
   ${If} $CIADIProfileDialog == error
@@ -39,12 +40,24 @@ Function CIADIProfilePageCreate
   Pop $0
   ${NSD_CreateCheckbox} 0 50u 100% 14u "CIADI ADM — Administração"
   Pop $CIADIProfileCheckADM
+  ${If} $CIADISelectADM == "1"
+    SendMessage $CIADIProfileCheckADM ${BM_SETCHECK} ${BST_CHECKED} 0
+  ${EndIf}
   ${NSD_CreateCheckbox} 0 70u 100% 14u "CIADI Suporte Informático"
   Pop $CIADIProfileCheckSupport
+  ${If} $CIADISelectSupport == "1"
+    SendMessage $CIADIProfileCheckSupport ${BM_SETCHECK} ${BST_CHECKED} 0
+  ${EndIf}
   ${NSD_CreateCheckbox} 0 90u 100% 14u "CIADI Recursos Humanos (RH)"
   Pop $CIADIProfileCheckRH
+  ${If} $CIADISelectRH == "1"
+    SendMessage $CIADIProfileCheckRH ${BM_SETCHECK} ${BST_CHECKED} 0
+  ${EndIf}
   ${NSD_CreateCheckbox} 0 110u 100% 14u "CIADI Receção"
   Pop $CIADIProfileCheckReception
+  ${If} $CIADISelectReception == "1"
+    SendMessage $CIADIProfileCheckReception ${BM_SETCHECK} ${BST_CHECKED} 0
+  ${EndIf}
   nsDialogs::Show
 FunctionEnd
 
@@ -79,7 +92,6 @@ Function CIADIProfilePageLeave
 FunctionEnd
 
 Function CIADIPoloPageCreate
-  StrCpy $CIADIPolo ""
   ${If} $CIADISelectRH != "1"
   ${AndIf} $CIADISelectReception != "1"
     Abort
@@ -96,8 +108,14 @@ Function CIADIPoloPageCreate
   ${NSD_CreateRadioButton} 0 48u 100% 16u "Talatona — Polo 001"
   Pop $CIADIPoloRadioTalatona
   SendMessage $CIADIPoloRadioTalatona ${BM_SETSTYLE} 0x00020009 1
+  ${If} $CIADIPolo == "talatona"
+    SendMessage $CIADIPoloRadioTalatona ${BM_SETCHECK} ${BST_CHECKED} 0
+  ${EndIf}
   ${NSD_CreateRadioButton} 0 72u 100% 16u "Jardim de Rosas — Polo 002"
   Pop $CIADIPoloRadioRosas
+  ${If} $CIADIPolo == "jardim_de_rosas"
+    SendMessage $CIADIPoloRadioRosas ${BM_SETCHECK} ${BST_CHECKED} 0
+  ${EndIf}
   nsDialogs::Show
 FunctionEnd
 
