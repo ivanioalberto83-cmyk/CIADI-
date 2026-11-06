@@ -21,22 +21,16 @@ const STATION_POLOS = Object.freeze({
 function getStationProfileId() {
   if (!app.isPackaged || process.platform !== 'win32') return null;
   const argument = process.argv.find(value => value.startsWith('--ciadi-profile='));
-  if (argument) {
-    const requestedProfile = argument.slice('--ciadi-profile='.length).trim();
-    return Object.prototype.hasOwnProperty.call(STATION_PROFILES, requestedProfile) ? requestedProfile : null;
-  }
-  try {
-    const profilePath = path.join(path.dirname(process.execPath), 'ciadi-install-profile.txt');
-    const profileId = fs.readFileSync(profilePath, 'utf8').trim();
-    return Object.prototype.hasOwnProperty.call(STATION_PROFILES, profileId) ? profileId : null;
-  } catch (error) {
-    console.warn('Não foi possível ler o perfil da estação CIADI:', error.message);
-    return null;
-  }
+  if (!argument) return null;
+  const requestedProfile = argument.slice('--ciadi-profile='.length).trim();
+  return Object.prototype.hasOwnProperty.call(STATION_PROFILES, requestedProfile) ? requestedProfile : null;
 }
 
 function getStationPoloId() {
   if (!app.isPackaged || process.platform !== 'win32') return null;
+  const profileId = getStationProfileId();
+  if (profileId !== 'rh' && profileId !== 'recepcao') return null;
+
   const argument = process.argv.find(value => value.startsWith('--ciadi-polo='));
   if (argument) {
     const requestedPolo = argument.slice('--ciadi-polo='.length).trim();
