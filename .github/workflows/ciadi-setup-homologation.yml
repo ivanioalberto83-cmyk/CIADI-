@@ -44,22 +44,49 @@ jobs:
           Copy-Item $source "ciadi-windows/index.html" -Force
           New-Item -ItemType Directory -Force -Path "ciadi-windows/renderer" | Out-Null
           Copy-Item "renderer/*" "ciadi-windows/renderer/" -Recurse -Force
-      - name: Gerar ícone Windows a partir do logótipo CIADI
+      - name: Gerar ícone e imagem lateral com o logótipo oficial CIADI
         shell: pwsh
         run: |
+          Add-Type -AssemblyName System.Drawing
           $html = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
           $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
           if (!$match.Success) { throw "Logótipo PNG não encontrado no Dashboard." }
           $png = [Convert]::FromBase64String($match.Groups[1].Value)
-          $ico = New-Object byte[] (22 + $png.Length)
+          $sourceStream = [IO.MemoryStream]::new($png)
+          $sourceImage = [System.Drawing.Image]::FromStream($sourceStream)
+
+          $iconBitmap = New-Object System.Drawing.Bitmap 256, 256, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+          $iconGraphics = [System.Drawing.Graphics]::FromImage($iconBitmap)
+          $iconGraphics.Clear([System.Drawing.Color]::White)
+          $iconGraphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+          $iconGraphics.DrawImage($sourceImage, [System.Drawing.Rectangle]::new(0, 0, 256, 256), [System.Drawing.Rectangle]::new(0, 0, 240, 240), [System.Drawing.GraphicsUnit]::Pixel)
+          $iconStream = [IO.MemoryStream]::new()
+          $iconBitmap.Save($iconStream, [System.Drawing.Imaging.ImageFormat]::Png)
+          $iconPng = $iconStream.ToArray()
+          $ico = New-Object byte[] (22 + $iconPng.Length)
           $ico[2] = 1
           $ico[4] = 1
           [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]1), 0, $ico, 10, 2)
           [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]32), 0, $ico, 12, 2)
-          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]$png.Length), 0, $ico, 14, 4)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]$iconPng.Length), 0, $ico, 14, 4)
           [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]22), 0, $ico, 18, 4)
-          [Buffer]::BlockCopy($png, 0, $ico, 22, $png.Length)
+          [Buffer]::BlockCopy($iconPng, 0, $ico, 22, $iconPng.Length)
           [IO.File]::WriteAllBytes("ciadi-windows/ciadi.ico", $ico)
+
+          $sidebarBitmap = New-Object System.Drawing.Bitmap 164, 314, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+          $sidebarGraphics = [System.Drawing.Graphics]::FromImage($sidebarBitmap)
+          $sidebarGraphics.Clear([System.Drawing.Color]::White)
+          $sidebarGraphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+          $sidebarGraphics.DrawImage($sourceImage, [System.Drawing.Rectangle]::new(8, 133, 148, 48))
+          $sidebarBitmap.Save("ciadi-windows/ciadi-installer-sidebar.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
+
+          $sidebarGraphics.Dispose()
+          $sidebarBitmap.Dispose()
+          $iconGraphics.Dispose()
+          $iconBitmap.Dispose()
+          $iconStream.Dispose()
+          $sourceImage.Dispose()
+          $sourceStream.Dispose()
       - uses: actions/setup-node@v4
         with:
           node-version: 22
