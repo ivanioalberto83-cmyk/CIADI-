@@ -4,22 +4,27 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const installer = fs.readFileSync(path.join(__dirname, '..', 'build', 'installer.nsh'), 'utf8');
+const main = fs.readFileSync(path.join(__dirname, '..', 'main.cjs'), 'utf8');
 
-test('ADM and Support skip the polo page; RH and Reception must select a polo', () => {
-  assert.match(installer, /Page custom CIADIPoloPageCreate CIADIPoloPageLeave/);
-  const poloPage = installer.slice(installer.indexOf('Function CIADIPoloPageCreate'), installer.indexOf('Function CIADIPoloPageLeave'));
-  assert.match(poloPage, /\$CIADIProfile == "adm"/);
-  assert.match(poloPage, /\$CIADIProfile == "suporte_informatica"/);
-  assert.match(poloPage, /Abort/);
-  assert.match(poloPage, /NSD_CreateRadioButton/);
-  assert.match(installer, /Function CIADIPoloPageLeave/);
+test('ADM e Suporte podem ser seleccionados sem escolher polo', () => {
+  const page = installer.slice(installer.indexOf('Function CIADIPoloPageCreate'), installer.indexOf('Function CIADIPoloPageLeave'));
+  assert.match(page, /CIADISelectRH != "1"/);
+  assert.match(page, /CIADISelectReception != "1"/);
+  assert.match(page, /Abort/);
+  const install = installer.slice(installer.indexOf('!macro customInstall'), installer.indexOf('!macroend', installer.indexOf('!macro customInstall')));
+  assert.match(install, /CIADISelectRH == "1"[\s\S]*CIADIPolo == ""/);
+  assert.match(install, /CIADISelectReception == "1"[\s\S]*CIADIPolo == ""/);
 });
 
-test('installer requires a polo only for RH and Reception profiles', () => {
-  const customInstall = installer.slice(installer.indexOf('!macro customInstall'), installer.indexOf('!macroend', installer.indexOf('!macro customInstall')));
-  const validationBlock = customInstall.slice(0, customInstall.indexOf('FileOpen $0'));
-  const firstLocalProfileCheck = validationBlock.indexOf('CIADIProfile == "rh"');
-  assert.doesNotMatch(validationBlock.slice(0, firstLocalProfileCheck), /Polo CIADI não seleccionado/);
-  assert.match(customInstall, /CIADIProfile == "rh"[\s\S]*CIADIPolo == ""[\s\S]*Polo CIADI não seleccionado/);
-  assert.match(customInstall, /CIADIProfile == "recepcao"[\s\S]*CIADIPolo == ""[\s\S]*Polo CIADI não seleccionado/);
+test('RH e Receção exigem polo e recebem-no no argumento do respectivo atalho', () => {
+  assert.match(installer, /--ciadi-profile=rh --ciadi-polo=\$CIADIPolo/);
+  assert.match(installer, /--ciadi-profile=recepcao --ciadi-polo=\$CIADIPolo/);
+  assert.match(installer, /Talatona — Polo 001/);
+  assert.match(installer, /Jardim de Rosas — Polo 002/);
+});
+
+test('Electron só usa o polo instalado como fallback para RH ou Receção', () => {
+  assert.match(main, /getStationProfileId\(\)/);
+  assert.match(main, /profileId !== 'rh' && profileId !== 'recepcao'/);
+  assert.match(main, /--ciadi-polo=/);
 });
