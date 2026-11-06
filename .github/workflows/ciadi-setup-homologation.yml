@@ -96,7 +96,7 @@ jobs:
       - name: Reexecutar testes no ambiente Windows
         working-directory: ciadi-windows
         run: npm run test:architecture
-      - name: Compilar Setup sem publicar uma release
+      - name: Compilar Setup de homologação sem publicar uma release
         working-directory: ciadi-windows
         run: npm run dist:win
       - name: Guardar Setup para homologação
