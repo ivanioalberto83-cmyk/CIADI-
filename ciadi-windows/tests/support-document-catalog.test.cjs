@@ -24,7 +24,7 @@ test('pesquisa documental por código e filtra por motor', () => {
 });
 
 test('gráficos e painéis são definidos como saídas analíticas, não formulários vazios', () => {
-  const chart = catalog.findDocument('SUP-ANA-001');
+  const chart = catalog.listDocuments().find(x => x.title === 'Painel de indicadores do Suporte Informática');
   assert.equal(chart.outputKind, 'dashboard');
   assert.ok(chart.dataSources.length > 0);
   assert.equal(catalog.validateCatalog().valid, true);
