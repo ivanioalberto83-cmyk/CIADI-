@@ -96,3 +96,30 @@ test('serviço cria fornecedores e armazéns apenas com os campos permitidos', a
   assert.equal('unexpected' in calls[0].payload, false);
   assert.equal('unexpected' in calls[1].payload, false);
 });
+
+
+test('analisa movimentos de stock por tipo e dia sem tratar a soma líquida como saldo global', () => {
+  const rows = [
+    { movement_type: 'entrada', quantity_delta: 10, created_at: '2026-11-06T08:00:00Z' },
+    { movement_type: 'saida', quantity_delta: -3, created_at: '2026-11-06T09:00:00Z' },
+    { movement_type: 'entrada', quantity_delta: 5, created_at: '2026-11-05T09:00:00Z' }
+  ];
+  const result = support.summarizeStockMovements(rows);
+  assert.equal(result.total, 3);
+  assert.equal(result.netQuantity, 12);
+  assert.equal(result.knownQuantities, 3);
+  assert.deepEqual(result.byType, [{ label: 'entrada', value: 2 }, { label: 'saida', value: 1 }]);
+  assert.deepEqual(result.byDay, [{ label: '2026-11-05', value: 1 }, { label: '2026-11-06', value: 2 }]);
+  assert.equal(rows.length, 3);
+});
+
+test('ignora quantidades inválidas na soma e agrupa datas desconhecidas', () => {
+  const result = support.summarizeStockMovements([
+    { movement_type: 'ajuste_positivo', quantity_delta: 'não-numérico', created_at: 'inválida' },
+    { movement_type: 'ajuste_positivo', quantity_delta: 2, created_at: null }
+  ]);
+  assert.equal(result.total, 2);
+  assert.equal(result.netQuantity, 2);
+  assert.equal(result.knownQuantities, 1);
+  assert.equal(result.byDay.find(x => x.label === 'Data desconhecida').value, 2);
+});
