@@ -1,8 +1,8 @@
 # CIADI — Desenho técnico do Suporte Informático
 
-**Estado:** proposta técnica baseada em auditoria read-only de 06-11-2026.  
+**Estado:** base de dados `ciadi_ti` implementada no projecto Supabase CIADI; integração de interface em evolução.  
 **Aplicação:** exclusivamente aos sistemas, equipamentos e serviços internos do CIADI.  
-**Não aplicado:** este documento não cria tabelas, não altera RLS, políticas, permissões, contas, dados ou produção.
+**Migrações aplicadas:** `ciadi_ti_inventory_core` (20261106124438), `ciadi_ti_inventory_workflows` (20261106124530) e `ciadi_ti_inventory_updated_at` (20261106124604). Esta documentação descreve o estado observado; não autoriza novas alterações à produção.
 
 ## 1. Estado observado do domínio `ciadi_ti`
 
@@ -38,22 +38,24 @@ A autorização efectiva continua a ser decidida pelo Supabase/RLS, não pelo no
 
 ## 2. Arquitectura implementada e evolução
 
-Separar o domínio de TI em estruturas próprias, com prefixo `ciadi_it_`. Os nomes abaixo são propostas, não objectos existentes.
+O domínio de TI está implementado no schema `ciadi_ti`; não criar estruturas paralelas com prefixo `ciadi_it_`.
 
-| Estrutura proposta | Finalidade principal |
+| Estrutura | Finalidade |
 |---|---|
-| `ciadi_it_memberships` | Associar utilizadores autenticados a capacidades de TI, sem confundir estação com autorização |
-| `ciadi_it_assets` | Registo de computadores, monitores, impressoras, routers, telefones e outros equipamentos |
-| `ciadi_it_stock_items` | Catálogo interno de artigos e consumíveis informáticos |
-| `ciadi_it_stock_movements` | Entradas, saídas, transferências, devoluções e ajustamentos justificados |
-| `ciadi_it_requests` | Requisições internas de equipamento, consumíveis e serviços técnicos |
-| `ciadi_it_request_items` | Linhas, quantidades e especificações técnicas de cada requisição |
-| `ciadi_it_suppliers` | Cadastro interno de fornecedores autorizados para compras de TI |
-| `ciadi_it_maintenance` | Manutenções preventivas/correctivas, diagnóstico, intervenção e resultado |
-| `ciadi_it_document_templates` | Modelos versionados de documentos técnicos |
-| `ciadi_it_documents` | Documentos técnicos emitidos, numeração, autoria, estado, hash e arquivo |
-| `ciadi_it_document_history` | Histórico append-only de alterações e transições documentais |
-| `ciadi_it_service_checks` | Verificações de serviço com data, origem, evidência e estado |
+| `warehouses` | Armazéns e localização/polo |
+| `item_categories` | Categorias do catálogo |
+| `suppliers` | Fornecedores |
+| `items` | Artigos, consumíveis, equipamentos e serviços |
+| `assets` | Equipamentos individualizados |
+| `stock_movements` | Ledger append-only de movimentos |
+| `purchase_requests` | Pedidos de aquisição e decisão financeira |
+| `purchase_request_lines` | Linhas dos pedidos |
+| `inventory_counts` | Contagens físicas |
+| `inventory_count_lines` | Quantidades e diferenças de contagem |
+| `audit_events` | Eventos de auditoria do domínio |
+| `stock_balances` (vista) | Saldos calculados a partir do ledger |
+
+A verificação do projecto confirmou 11 tabelas com RLS activo e 24 políticas no domínio. A vista `stock_balances` usa contexto de invocador (`security_invoker`) para respeitar as permissões aplicáveis.
 
 ### 2.1 Regras de inventário
 
