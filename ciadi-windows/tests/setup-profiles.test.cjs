@@ -58,5 +58,6 @@ test('A configuração do instalador usa o ícone CIADI para aplicação e insta
   assert.equal(packageJson.build.nsis.installerIcon, 'ciadi.ico');
   assert.equal(packageJson.build.nsis.uninstallerIcon, 'ciadi.ico');
   assert.equal(packageJson.build.nsis.installerHeaderIcon, 'ciadi.ico');
+  assert.equal(packageJson.build.nsis.installerSidebar, 'ciadi-installer-sidebar.bmp');
   assert.match(dashboard, /data:image\/png;base64,/);
 });
