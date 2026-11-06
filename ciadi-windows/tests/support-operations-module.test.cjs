@@ -28,13 +28,14 @@ test('valida modelos documentais com código, versão e campos', () => {
 
 test('calcula indicadores de aprovisionamento sem aprovar compras', () => {
   const result = support.summarizeProcurement([
-    { status: 'pending', category: 'hardware' },
+    { status: 'submitted', category: 'hardware' },
     { status: 'approved', category: 'consumables' },
-    { status: 'pending', category: 'hardware' }
+    { status: 'returned', category: 'hardware' }
   ]);
   assert.equal(result.total, 3);
   assert.equal(result.pending, 2);
   assert.equal(result.approved, 1);
+  assert.equal(result.returned, 1);
 });
 
 
