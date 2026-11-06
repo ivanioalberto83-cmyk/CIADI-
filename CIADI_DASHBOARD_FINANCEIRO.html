@@ -204,7 +204,6 @@ async function sosAlerts(){
 }
 
 async function supportDashboard(){
-  const sessionResult = await authService.getSession();
   const stationNames = {adm:'Administração',suporte_informatica:'Suporte Informático',rh:'Recursos Humanos',recepcao:'Receção'};
   return window.CIADI_SUPPORT_OPERATIONS.create({
     root: document.getElementById('content'),
