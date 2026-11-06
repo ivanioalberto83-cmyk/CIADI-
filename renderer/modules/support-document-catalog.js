@@ -40,18 +40,18 @@ const GROUPS=[
  'Mapa de despesas de aprovisionamento','Mapa de custos por equipamento','Mapa de custos por polo','Relatório de consumo por departamento','Relatório de compras por fornecedor','Relatório de execução do orçamento informático','Mapa de necessidades de aquisição','Relatório de custos de manutenção','Relatório de perdas e desperdícios','Relatório de eficiência operacional','Gráfico de entradas e saídas de stock','Gráfico de evolução das compras','Gráfico de consumo por período','Gráfico de avarias e quebras','Gráfico de equipamentos por estado','Gráfico de custos por polo','Gráfico de despesas por categoria','Gráfico de desempenho das intervenções','Mapa de stock por armazém','Mapa de necessidades de reposição','Painel de indicadores do Suporte Informática'
  ]]
 ];
-const EXISTING={
- 'Requisição interna de material ou equipamento':'SUP-REQ',
- 'Ordem de trabalho técnica':'SUP-OT',
- 'Ficha de equipamento e termo de atribuição':'SUP-EQP',
- 'Guia de entrega ou devolução':'SUP-GUI',
- 'Relatório de manutenção':'SUP-MAN',
- 'Relatório de incidente informático':'SUP-INC',
- 'Registo de alteração de acesso ou configuração':'SUP-ACC',
- 'Relatório de backup e teste de recuperação':'SUP-BKP',
- 'Acta técnica de verificação e homologação':'SUP-HOM',
- 'Relatório técnico de intervenção':'SUP-REL'
-};
+const LEGACY_TEMPLATES=Object.freeze({
+ 'Requisição interna de compra':'SUP-REQ',
+ 'Ordem de trabalho':'SUP-OT',
+ 'Ficha de equipamento':'SUP-EQP',
+ 'Guia de entrega de equipamento':'SUP-GUI',
+ 'Ficha de manutenção':'SUP-MAN',
+ 'Relatório de resolução de incidente':'SUP-INC',
+ 'Registo de alterações de acessos':'SUP-ACC',
+ 'Relatório de backup':'SUP-BKP',
+ 'Acta de verificação técnica':'SUP-HOM',
+ 'Relatório de intervenção':'SUP-REL'
+});
 const sourceFor=m=>m.sources;
 const documents=[];
 for(const [motorId,titles] of GROUPS){
@@ -68,7 +68,8 @@ for(const [motorId,titles] of GROUPS){
    lifecycle:outputKind==='document'?Object.freeze(['draft','submitted','validated','approved','issued','archived','cancelled']):Object.freeze(['available','generated','archived']),
    requiresServerNumber:outputKind==='document',
    immutableAfterIssue:outputKind==='document',
-   implementationStatus:'catalogued'
+   legacyTemplateCode:LEGACY_TEMPLATES[title]||null,
+   implementationStatus:LEGACY_TEMPLATES[title]?'draft-template-available':'catalogued'
   }));
  });
 }
