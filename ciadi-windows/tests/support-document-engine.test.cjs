@@ -39,3 +39,32 @@ test('envio exige documento emitido e destinatário',async()=>{
   await assert.rejects(()=>s.send({status:'draft'},'a@ciadi.ao'),/Só é permitido/);
   await assert.rejects(()=>s.send({status:'issued'},''),/Destinatário obrigatório/);
 });
+
+test('emissão usa operação atómica do repositório e QR recebe apenas URL de verificação',async()=>{
+  const calls=[];
+  const repository={
+    save:async doc=>({...doc,id:'doc-1'}),
+    issue:async id=>{calls.push(['issue',id]);return {document:{id,number:'SUP-INC/2026/000001',status:'issued'},verificationUrl:'https://ciadi.ao/validar-documento/doc-1?token=abcdefghijklmnopqrstuvwxyz123456'};}
+  };
+  const qrEncoder=async url=>{calls.push(['qr',url]);return 'data:image/png;base64,QR';};
+  const pdfExporter=async ({html,filename})=>({filename,bytes:html.length});
+  const service=engine.createDocumentService({repository,qrEncoder,pdfExporter});
+  const issued=await service.issue('doc-1');
+  assert.equal(issued.document.status,'issued');
+  assert.equal(issued.document.number,'SUP-INC/2026/000001');
+  assert.equal(issued.qrDataUrl,'data:image/png;base64,QR');
+  assert.deepEqual(calls[0],['issue','doc-1']);
+  assert.match(calls[1][1],/^https:\/\//);
+});
+test('emissão falha sem operação atómica do servidor e não cria número local',async()=>{
+  const service=engine.createDocumentService({repository:{save:async x=>x}});
+  await assert.rejects(()=>service.issue('doc-1'),/emissão atómica/);
+});
+test('PDF só é exportado a partir de documento emitido e HTML final com QR',async()=>{
+  let exported;
+  const service=engine.createDocumentService({pdfExporter:async x=>(exported=x,{ok:true})});
+  await assert.rejects(()=>service.exportIssuedPdf({status:'draft'},'<html/>','draft.pdf'),/documento emitido/);
+  await service.exportIssuedPdf({status:'issued'},'<html>QR</html>','issued.pdf');
+  assert.match(exported.html,/QR/);
+  assert.equal(exported.filename,'issued.pdf');
+});
