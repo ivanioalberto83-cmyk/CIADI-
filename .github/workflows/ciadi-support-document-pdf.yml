@@ -27,5 +27,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Verificar sintaxe dos pontos de integração Electron
+        run: node --check ciadi-windows/main.cjs && node --check ciadi-windows/preload.cjs && node --check ciadi-windows/document-pdf-service.cjs
       - name: Executar testes do serviço PDF documental
         run: node --test ciadi-windows/tests/document-pdf-service.test.cjs
