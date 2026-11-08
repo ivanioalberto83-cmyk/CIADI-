@@ -19,7 +19,7 @@ function createDocumentPdfService({ dialog, windowFactory, fs }) {
         const bytes = await pdfWindow.webContents.printToPDF({
           printBackground: true,
           pageSize: 'A4',
-          margins: { top: 0, right: 0, bottom: 0, left: 0 }
+          preferCSSPageSize: true
         });
         return Uint8Array.from(bytes);
       } finally {
