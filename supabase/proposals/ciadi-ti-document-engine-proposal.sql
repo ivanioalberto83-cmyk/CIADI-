@@ -212,7 +212,7 @@ set search_path = pg_catalog, ciadi_ti, public, storage
 as $issue$
 declare
   v_doc ciadi_ti.documents%rowtype;
-  v_year integer := extract(year from now())::integer;
+  v_year integer := extract(year from (now() at time zone 'Africa/Luanda'))::integer;
   v_next bigint;
   v_number text;
   v_path text;
@@ -227,9 +227,163 @@ begin
     raise exception 'Perfil activo sem acesso ao Suporte Informático.';
   end if;
 
-  if p_sha256 !~ '^[a-f0-9]{64}$'
-     or p_verification_token_hash !~ '^[a-f0-9]{64}$'
-     or p_file_size_bytes not between 1 and 10485760 then
+  if p_sha256 is null or p_sha256 !~ '^[a-f0-9]{64}
+    raise exception 'Metadados PDF ou hash inválidos.';
+  end if;
+
+  select * into v_doc
+  from ciadi_ti.documents
+  where id = p_document_id
+  for update;
+
+  if not found or v_doc.status <> 'draft' then
+    raise exception 'Documento inexistente ou já emitido.';
+  end if;
+
+  v_path := 'suporte-informatica/' || v_doc.id::text || '.pdf';
+
+  if not exists (
+    select 1 from storage.objects o
+    where o.bucket_id = 'ciadi-ti-documentos'
+      and o.name = v_path
+      and o.metadata ->> 'mimetype' = 'application/pdf'
+  ) then
+    raise exception 'O PDF não foi encontrado no arquivo privado ou não é PDF.';
+  end if;
+
+  insert into ciadi_ti.document_sequences (document_type_code, issue_year, last_value)
+  values (v_doc.document_type_code, v_year, 1)
+  on conflict (document_type_code, issue_year)
+  do update set last_value = ciadi_ti.document_sequences.last_value + 1
+  returning last_value into v_next;
+
+  v_number := 'SUP-' || v_doc.document_type_code || '/' || v_year::text || '/' || lpad(v_next::text, 6, '0');
+
+  update ciadi_ti.documents
+  set status = 'issued',
+      document_number = v_number,
+      storage_path = v_path,
+      mime_type = 'application/pdf',
+      file_size_bytes = p_file_size_bytes,
+      sha256 = p_sha256,
+      verification_token_hash = p_verification_token_hash,
+      issued_by = p_actor_id,
+      issued_at = now(),
+      updated_at = now()
+  where id = v_doc.id;
+
+  insert into ciadi_ti.document_events (document_id, event_type, actor_id, details)
+  values (
+    v_doc.id,
+    'issued',
+    p_actor_id,
+    jsonb_build_object('document_number', v_number, 'sha256', p_sha256, 'storage_path', v_path)
+  );
+
+  return v_number;
+end
+$issue$;
+
+revoke all on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint) from public;
+revoke all on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint) from anon;
+revoke all on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint) from authenticated;
+grant execute on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint) to service_role;
+
+-- Privilégios mínimos para o cliente; RLS continua a ser aplicada.
+grant usage on schema ciadi_ti to authenticated;
+grant select, insert, update on ciadi_ti.documents to authenticated;
+grant select on ciadi_ti.document_events to authenticated;
+revoke all on ciadi_ti.document_sequences from anon, authenticated;
+
+commit;
+
+-- PENDENTE ANTES DE QUALQUER APLICAÇÃO:
+-- 1. Validar o nome/claim de MIME usado pela versão Storage do projecto.
+-- 2. Testar políticas com utilizadores de Suporte, Administração, Gestão e sem perfil.
+-- 3. Implementar Edge Functions: upload/issue e verify-document.
+-- 4. A função pública de verificação deve devolver apenas número, tipo, título,
+--    estado e datas; nunca storage_path, payload, hashes ou dados do autor.
+-- 5. Executar advisors, testes de integração e revisão de segurança.
+
+     or p_verification_token_hash is null or p_verification_token_hash !~ '^[a-f0-9]{64}
+    raise exception 'Metadados PDF ou hash inválidos.';
+  end if;
+
+  select * into v_doc
+  from ciadi_ti.documents
+  where id = p_document_id
+  for update;
+
+  if not found or v_doc.status <> 'draft' then
+    raise exception 'Documento inexistente ou já emitido.';
+  end if;
+
+  v_path := 'suporte-informatica/' || v_doc.id::text || '.pdf';
+
+  if not exists (
+    select 1 from storage.objects o
+    where o.bucket_id = 'ciadi-ti-documentos'
+      and o.name = v_path
+      and o.metadata ->> 'mimetype' = 'application/pdf'
+  ) then
+    raise exception 'O PDF não foi encontrado no arquivo privado ou não é PDF.';
+  end if;
+
+  insert into ciadi_ti.document_sequences (document_type_code, issue_year, last_value)
+  values (v_doc.document_type_code, v_year, 1)
+  on conflict (document_type_code, issue_year)
+  do update set last_value = ciadi_ti.document_sequences.last_value + 1
+  returning last_value into v_next;
+
+  v_number := 'SUP-' || v_doc.document_type_code || '/' || v_year::text || '/' || lpad(v_next::text, 6, '0');
+
+  update ciadi_ti.documents
+  set status = 'issued',
+      document_number = v_number,
+      storage_path = v_path,
+      mime_type = 'application/pdf',
+      file_size_bytes = p_file_size_bytes,
+      sha256 = p_sha256,
+      verification_token_hash = p_verification_token_hash,
+      issued_by = p_actor_id,
+      issued_at = now(),
+      updated_at = now()
+  where id = v_doc.id;
+
+  insert into ciadi_ti.document_events (document_id, event_type, actor_id, details)
+  values (
+    v_doc.id,
+    'issued',
+    p_actor_id,
+    jsonb_build_object('document_number', v_number, 'sha256', p_sha256, 'storage_path', v_path)
+  );
+
+  return v_number;
+end
+$issue$;
+
+revoke all on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint) from public;
+revoke all on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint) from anon;
+revoke all on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint) from authenticated;
+grant execute on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint) to service_role;
+
+-- Privilégios mínimos para o cliente; RLS continua a ser aplicada.
+grant usage on schema ciadi_ti to authenticated;
+grant select, insert, update on ciadi_ti.documents to authenticated;
+grant select on ciadi_ti.document_events to authenticated;
+revoke all on ciadi_ti.document_sequences from anon, authenticated;
+
+commit;
+
+-- PENDENTE ANTES DE QUALQUER APLICAÇÃO:
+-- 1. Validar o nome/claim de MIME usado pela versão Storage do projecto.
+-- 2. Testar políticas com utilizadores de Suporte, Administração, Gestão e sem perfil.
+-- 3. Implementar Edge Functions: upload/issue e verify-document.
+-- 4. A função pública de verificação deve devolver apenas número, tipo, título,
+--    estado e datas; nunca storage_path, payload, hashes ou dados do autor.
+-- 5. Executar advisors, testes de integração e revisão de segurança.
+
+     or p_file_size_bytes is null or p_file_size_bytes not between 1 and 10485760 then
     raise exception 'Metadados PDF ou hash inválidos.';
   end if;
 
