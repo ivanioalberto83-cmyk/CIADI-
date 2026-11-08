@@ -62,11 +62,11 @@ O UI consulta o schema `ciadi_ti`, tabelas `helpdesk_tickets` e `helpdesk_ticket
 
 ### Motor e interface no código
 - Criado `renderer/modules/support-inventory-lifecycle-module.js`, carregado pelo Dashboard CIADI e ligado à área de Aprovisionamento da estação Suporte Informático.
-- Recepção: o formulário permite seleccionar um pedido aprovado, armazém, referência e data do documento de entrega, e registar várias linhas com quantidades recebidas, aceites e danificadas, custo e lote.
+- Recepção: o formulário permite seleccionar um pedido aprovado, armazém, referência e data do documento de entrega, e registar várias linhas com quantidades recebidas, aceites, danificadas e devolvidas ao fornecedor, custo e lote.
 - A criação da recepção é uma operação RPC; fica em rascunho e não altera o stock.
-- Conferência: o estado passa de `draft` para `checked`; a operação não cria movimentos de stock.
+- Conferência: o estado passa de `draft` para `checked`; a operação não cria movimentos de stock e exige classificar todas as unidades recebidas como aceites, danificadas ou devolvidas.
 - Publicação: apenas uma recepção conferida pode ser finalizada. A proposta de servidor chama `post_stock_movement()` para cada quantidade aceite, dentro da mesma transacção, e impede a repetição da publicação por bloqueio do cabeçalho e validação do estado.
-- Divergências: os indicadores distinguem faltas, excessos e unidades danificadas; a quantidade danificada não é somada à quantidade aceite.
+- Divergências: os indicadores distinguem faltas, excessos, unidades danificadas e devoluções ao fornecedor; a quantidade danificada ou devolvida não é somada à quantidade aceite.
 - Inventário: uma contagem `counted` pode ser reconciliada; as diferenças positivas/negativas geram ajustes através de `post_stock_movement()` e a contagem passa a `reconciled` na mesma transacção.
 - Auditoria: a proposta regista criação e mudança de estado das recepções em `ciadi_ti.audit_events`; os movimentos continuam no razão de stock existente.
 - A interface apresenta contagens, estados e divergências; os totais dependem dos registos efectivamente consultados e não são apresentados como totais globais quando a consulta está limitada.
