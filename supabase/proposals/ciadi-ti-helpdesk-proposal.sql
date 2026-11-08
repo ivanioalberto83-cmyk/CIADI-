@@ -2,6 +2,14 @@
 -- Helpdesk institucional da estação Suporte Informático CIADI.
 begin;
 
+do $
+begin
+  if to_regprocedure('ciadi_ti.has_support_access()') is null then
+    raise exception 'Pré-requisito em falta: definir e homologar ciadi_ti.has_support_access() antes de aplicar esta proposta.';
+  end if;
+end;
+$;
+
 create sequence if not exists ciadi_ti.helpdesk_ticket_number_seq;
 
 create table if not exists ciadi_ti.helpdesk_tickets (
