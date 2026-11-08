@@ -56,3 +56,10 @@ test('trata cancelamento do utilizador sem criar ficheiro', async () => {
   assert.deepEqual(result, { saved: false, cancelled: true });
   assert.equal(h.writes.length, 0);
 });
+
+test('inclui o serviço PDF no pacote Windows', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  assert.ok(packageJson.build.files.includes('document-pdf-service.cjs'));
+});
