@@ -22,36 +22,40 @@ function harness({ cancelled = false } = {}) {
   return { service: createDocumentPdfService({ dialog, windowFactory, fs }), calls, writes };
 }
 
-test('exporta PDF apenas de documento emitido e grava o ficheiro escolhido', async () => {
+test('exporta apenas o PDF oficial arquivado e grava o ficheiro escolhido', async () => {
   const h = harness();
+  const archived = Buffer.from('%PDF-test');
   const result = await h.service.exportIssuedPdf({
     document: { id: 'doc-1', status: 'issued', number: 'SUP-INC/2026/000001' },
-    html: '<!doctype html><html><body>CIADI</body></html>',
+    bytes: archived,
+    mimeType: 'application/pdf',
     filename: 'relatorio-incidente.pdf'
   });
-  assert.deepEqual(result, { saved: true, filePath: '/tmp/CIADI-documento.pdf', source: 'rendered' });
+  assert.deepEqual(result, { saved: true, filePath: '/tmp/CIADI-documento.pdf', source: 'archive' });
   assert.equal(h.writes.length, 1);
   assert.equal(h.writes[0].path, '/tmp/CIADI-documento.pdf');
   assert.equal(h.writes[0].bytes.toString(), '%PDF-test');
-  assert.ok(h.calls.some(x => x[0] === 'printToPDF'));
-  assert.ok(h.calls.some(x => x[0] === 'close'));
+  assert.equal(h.calls.some(x => x[0] === 'printToPDF'), false);
 });
 
-test('recusa rascunhos e HTML vazio sem abrir a janela de gravação', async () => {
+test('recusa rascunhos e documentos sem bytes oficiais arquivados', async () => {
   const h = harness();
   await assert.rejects(() => h.service.exportIssuedPdf({
-    document: { id: 'doc-2', status: 'draft' }, html: '<html/>', filename: 'rascunho.pdf'
+    document: { id: 'doc-2', status: 'draft' }, bytes: Buffer.from('%PDF-test'), mimeType: 'application/pdf', filename: 'rascunho.pdf'
   }), /documento emitido/);
   await assert.rejects(() => h.service.exportIssuedPdf({
-    document: { id: 'doc-2', status: 'issued' }, html: '', filename: 'vazio.pdf'
-  }), /HTML.*obrigatório/);
+    document: { id: 'doc-2', status: 'issued' }, filename: 'vazio.pdf'
+  }), /bytes.*obrigatórios/);
   assert.equal(h.calls.length, 0);
 });
 
 test('trata cancelamento do utilizador sem criar ficheiro', async () => {
   const h = harness({ cancelled: true });
   const result = await h.service.exportIssuedPdf({
-    document: { id: 'doc-3', status: 'issued' }, html: '<html/>', filename: 'doc.pdf'
+    document: { id: 'doc-3', status: 'issued' },
+    bytes: Buffer.from('%PDF-test'),
+    mimeType: 'application/pdf',
+    filename: 'doc.pdf'
   });
   assert.deepEqual(result, { saved: false, cancelled: true });
   assert.equal(h.writes.length, 0);
