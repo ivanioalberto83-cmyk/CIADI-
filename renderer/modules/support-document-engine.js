@@ -79,12 +79,25 @@
         }
 
         // 4. O servidor valida Storage, calcula o SHA-256 e emite atomicamente.
-        const finalized=await repository.finalizeIssuance({
+        const finalizationInput={
           documentId,
           token:prepared.token,
           artifact:{...artifact,bytes,mimeType:'application/pdf'},
           filename:clean(filename)||prepared.number+'.pdf'
-        });
+        };
+        let finalized;
+        try {
+          finalized=await repository.finalizeIssuance(finalizationInput);
+        } catch(firstError) {
+          // The server endpoint is idempotent for the same token and exact PDF.
+          // Retry once so a lost response after a committed transaction can recover.
+          try {
+            finalized=await repository.finalizeIssuance(finalizationInput);
+          } catch(secondError) {
+            const reason=clean(secondError?.message)||clean(firstError?.message)||'erro desconhecido';
+            throw new Error('Não foi possível confirmar a emissão após a repetição segura: '+reason);
+          }
+        }
         if(!finalized?.document || finalized.document.status!=='issued' ||
            finalized.document.number!==prepared.number) {
           throw new Error('O servidor não confirmou a emissão do documento com o número reservado.');
