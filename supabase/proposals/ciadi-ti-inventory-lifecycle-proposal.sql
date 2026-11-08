@@ -39,6 +39,7 @@ create table if not exists ciadi_ti.goods_receipt_lines (
   received_quantity numeric(14,3) not null check (received_quantity >= 0),
   accepted_quantity numeric(14,3) not null check (accepted_quantity >= 0),
   damaged_quantity numeric(14,3) not null default 0 check (damaged_quantity >= 0),
+  returned_quantity numeric(14,3) not null default 0 check (returned_quantity >= 0),
   unit_cost numeric(14,2) check (unit_cost is null or unit_cost >= 0),
   lot_code text,
   notes text,
@@ -47,7 +48,8 @@ create table if not exists ciadi_ti.goods_receipt_lines (
   unique (receipt_id, purchase_request_line_id),
   check (accepted_quantity <= received_quantity),
   check (damaged_quantity <= received_quantity),
-  check (accepted_quantity + damaged_quantity <= received_quantity)
+  check (returned_quantity <= received_quantity),
+  check (accepted_quantity + damaged_quantity + returned_quantity <= received_quantity)
 );
 
 create index if not exists goods_receipts_request_created_idx
@@ -90,6 +92,9 @@ security definer
 set search_path = pg_catalog, ciadi_ti
 as $$
 begin
+  if auth.uid() is null then
+    raise exception 'Auditoria de recepção exige utilizador autenticado.' using errcode = '42501';
+  end if;
   insert into ciadi_ti.audit_events(table_name, record_id, action, actor_id)
   values (
     'goods_receipts',
@@ -112,6 +117,8 @@ after update of status on ciadi_ti.goods_receipts
 for each row when (old.status is distinct from new.status)
 execute function ciadi_ti.record_goods_receipt_audit();
 
+revoke all on function ciadi_ti.record_goods_receipt_audit() from public, anon, authenticated;
+
 create or replace function ciadi_ti.create_goods_receipt(
   p_purchase_request_id uuid,
   p_warehouse_id uuid,
@@ -133,13 +140,17 @@ declare
   v_received numeric(14,3);
   v_accepted numeric(14,3);
   v_damaged numeric(14,3);
+  v_returned numeric(14,3);
   v_cost numeric(14,2);
   v_line_id uuid;
 begin
   if auth.uid() is null or not ciadi_ti.has_support_access() then
     raise exception 'Acesso não autorizado à recepção de mercadorias.' using errcode = '42501';
   end if;
-  if jsonb_typeof(p_lines) is distinct from 'array' or jsonb_array_length(p_lines) = 0 then
+  if jsonb_typeof(p_lines) is distinct from 'array' then
+    raise exception 'As linhas da recepção devem ser fornecidas numa lista.' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_lines) = 0 then
     raise exception 'A recepção deve conter pelo menos uma linha.' using errcode = '22023';
   end if;
   select * into v_request
@@ -182,12 +193,13 @@ begin
     v_received := nullif(v_line->>'received_quantity','')::numeric;
     v_accepted := nullif(v_line->>'accepted_quantity','')::numeric;
     v_damaged := coalesce(nullif(v_line->>'damaged_quantity','')::numeric, 0);
+    v_returned := coalesce(nullif(v_line->>'returned_quantity','')::numeric, 0);
     v_cost := coalesce(nullif(v_line->>'unit_cost','')::numeric, v_request_line.estimated_unit_cost);
-    if v_received is null or v_accepted is null or v_received < 0 or v_accepted < 0 or v_damaged < 0 then
+    if v_received is null or v_accepted is null or v_received < 0 or v_accepted < 0 or v_damaged < 0 or v_returned < 0 then
       raise exception 'As quantidades recebida, aceite e danificada devem ser não negativas.' using errcode = '22023';
     end if;
-    if v_accepted > v_received or v_damaged > v_received or v_accepted + v_damaged > v_received then
-      raise exception 'As quantidades aceite e danificada não podem exceder a quantidade recebida.' using errcode = '23514';
+    if v_accepted > v_received or v_damaged > v_received or v_returned > v_received or v_accepted + v_damaged + v_returned > v_received then
+      raise exception 'As quantidades aceite, danificada e devolvida não podem exceder a quantidade recebida.' using errcode = '23514';
     end if;
     if v_cost is not null and v_cost < 0 then
       raise exception 'O custo unitário não pode ser negativo.' using errcode = '22023';
@@ -195,11 +207,11 @@ begin
 
     insert into ciadi_ti.goods_receipt_lines(
       receipt_id, purchase_request_line_id, item_id, ordered_quantity,
-      received_quantity, accepted_quantity, damaged_quantity, unit_cost,
+      received_quantity, accepted_quantity, damaged_quantity, returned_quantity, unit_cost,
       lot_code, notes
     ) values (
       v_receipt.id, v_request_line.id, v_request_line.item_id, v_request_line.quantity,
-      v_received, v_accepted, v_damaged, v_cost,
+      v_received, v_accepted, v_damaged, v_returned, v_cost,
       nullif(btrim(v_line->>'lot_code'), ''),
       nullif(btrim(v_line->>'notes'), '')
     );
@@ -223,6 +235,7 @@ as $$
 declare
   v_receipt ciadi_ti.goods_receipts%rowtype;
   v_count integer;
+  v_unclassified integer;
 begin
   if auth.uid() is null or not ciadi_ti.has_support_access() then
     raise exception 'Acesso não autorizado à conferência de mercadorias.' using errcode = '42501';
@@ -239,6 +252,13 @@ begin
   where receipt_id = v_receipt.id;
   if v_count = 0 then
     raise exception 'Não é possível conferir uma recepção sem linhas.' using errcode = '23514';
+  end if;
+  select count(*) into v_unclassified
+  from ciadi_ti.goods_receipt_lines
+  where receipt_id = v_receipt.id
+    and accepted_quantity + damaged_quantity + returned_quantity <> received_quantity;
+  if v_unclassified > 0 then
+    raise exception 'Classifique todas as unidades recebidas como aceites, danificadas ou devolvidas antes da conferência.' using errcode = '23514';
   end if;
   update ciadi_ti.goods_receipts
   set status = 'checked', checked_by = auth.uid(), checked_at = now(), updated_at = now()
