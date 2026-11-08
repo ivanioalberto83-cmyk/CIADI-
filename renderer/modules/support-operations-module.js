@@ -207,6 +207,7 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
   const metrics=summarizeProcurement(requests),movementStats=summarizeStockMovements(movements);
   const count=(name)=>by[name].rows.length;
   const table=(title,rows,cols)=>'<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">'+title+'</h3>'+(rows.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">'+cols.map(x=>'<th class="p-2">'+x[1]+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr class="border-b">'+cols.map(x=>'<td class="p-2">'+esc(row[x[0]]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem registos disponíveis.</p>')+'</section>';
+  const requestTable='<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">Pedidos de aquisição</h3>'+(requests.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-2">N.º pedido</th><th>Estado</th><th>Justificação</th><th>Estimativa (Kz)</th><th>Acção</th></tr></thead><tbody>'+requests.map(row=>'<tr class="border-b"><td class="p-2">'+esc(row.request_number)+'</td><td>'+esc(row.status)+'</td><td>'+esc(row.justification)+'</td><td>'+esc(row.estimated_total??'—')+'</td><td>'+(canManage&&row.requested_by===actorId&&['draft','returned'].includes(row.status)?'<button data-submit-request="'+esc(row.id)+'" class="border rounded-lg px-2 py-1">Submeter</button>':'—')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem pedidos de aquisição.</p>')+'</section>';
   const dynamicTable=(title,rows)=>{const cols=rows.length?Object.keys(rows[0]):[];return '<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">'+title+'</h3>'+(rows.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">'+cols.map(x=>'<th class="p-2">'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr class="border-b">'+cols.map(x=>'<td class="p-2">'+esc(row[x]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem movimentos de stock na amostra consultada.</p>')+'</section>';};
   const forms=canManage
     ? '<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">Registar no catálogo</h3><div class="grid xl:grid-cols-3 gap-4">'+
@@ -235,10 +236,16 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
   table('Movimentos de stock',movements,[['created_at','Data'],['movement_type','Movimento'],['item_id','Artigo (ID)'],['warehouse_id','Armazém (ID)'],['quantity_delta','Variação'],['reference','Referência']])+
   table('Contagens de inventário',by.inventory_counts.rows,[['created_at','Criada em'],['warehouse_id','Armazém (ID)'],['status','Estado'],['counted_at','Contada em'],['reconciled_at','Reconciliada em']])+
   table('Eventos de auditoria do inventário',by.audit_events.rows,[['occurred_at','Data'],['table_name','Tabela'],['action','Acção'],['record_id','Registo']])+
-  table('Pedidos de aquisição',requests,[['request_number','N.º pedido'],['status','Estado'],['supplier_id','Fornecedor (ID)'],['justification','Justificação'],['estimated_total','Estimativa (Kz)'],['finance_decision_note','Nota da Administração']])+table('Linhas dos pedidos',by.purchase_request_lines.rows,[['request_id','Pedido (ID)'],['description','Descrição'],['quantity','Quantidade'],['unit_of_measure','Unidade'],['estimated_unit_cost','Custo unitário (Kz)']])+table('Linhas das contagens de inventário',by.inventory_count_lines.rows,[['count_id','Contagem (ID)'],['item_id','Artigo (ID)'],['system_quantity','Quantidade sistema'],['counted_quantity','Quantidade contada'],['variance','Diferença']])+
+  requestTable+table('Linhas dos pedidos',by.purchase_request_lines.rows,[['request_id','Pedido (ID)'],['description','Descrição'],['quantity','Quantidade'],['unit_of_measure','Unidade'],['estimated_unit_cost','Custo unitário (Kz)']])+table('Linhas das contagens de inventário',by.inventory_count_lines.rows,[['count_id','Contagem (ID)'],['item_id','Artigo (ID)'],['system_quantity','Quantidade sistema'],['counted_quantity','Quantidade contada'],['variance','Diferença']])+
   (errors.length?'<div class="card p-4 mt-5 border border-amber-300"><b>Consultas com erro</b><ul class="list-disc pl-5 text-sm">'+errors.map(x=>'<li>'+esc(x.table)+': '+esc(x.error?.message||'Erro de consulta')+'</li>').join('')+'</ul></div>':'')+
   '<p class="text-xs text-slate-400 mt-4">Consultas limitadas aos 100 registos mais recentes/ordenados por tabela. Os totais apresentados correspondem à amostra carregada, não a contagens globais. Nenhum registo foi criado ou alterado.</p>';
   root.querySelector('#proc-back').addEventListener('click',()=>renderHome().catch(e=>notify(e.message)));
+  root.querySelectorAll('[data-submit-request]').forEach(button=>button.addEventListener('click',async()=>{
+    if(!procurementService)return;
+    button.disabled=true;
+    try{await procurementService.submitPurchaseRequest(button.dataset.submitRequest);notify('Pedido submetido à Administração para decisão.');await renderProcurement();}
+    catch(error){button.disabled=false;notify('Não foi possível submeter o pedido: '+(error?.message||'erro desconhecido'));}
+  }));
   root.querySelectorAll('[data-proc-form]').forEach(form=>form.addEventListener('submit',async event=>{
     event.preventDefault();
     if(!procurementService){notify('O perfil autenticado não tem permissões de gestão de aprovisionamento.');return;}
@@ -248,20 +255,22 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
       if(form.dataset.procForm==='item')await procurementService.createItem(values);
       else if(form.dataset.procForm==='purchase'){
         const result=await procurementService.createPurchaseRequest({supplier_id:values.supplier_id||null,justification:values.justification,lines:[{item_id:values.item_id||null,description:values.description,quantity:values.quantity,unit_of_measure:values.unit_of_measure,estimated_unit_cost:values.estimated_unit_cost}]});
-        notify('Pedido '+(result.request.request_number||'')+' guardado em rascunho.');
+
       }else if(form.dataset.procForm==='movement'){
         const id=await procurementService.postStockMovement(values);
-        notify('Movimento de stock registado: '+id);
+
       }else if(form.dataset.procForm==='transfer'){
         const result=await procurementService.transferStock(values);
-        notify('Transferência concluída. Movimentos: '+JSON.stringify(result));
+
       }else if(form.dataset.procForm==='count'){
         const result=await procurementService.createInventoryCount({warehouse_id:values.warehouse_id,notes:values.notes,lines:[{item_id:values.item_id,system_quantity:values.system_quantity,counted_quantity:values.counted_quantity,notes:values.notes}]});
-        notify('Contagem guardada em rascunho: '+result.count.id);
+
       }
       else if(form.dataset.procForm==='supplier')await procurementService.createSupplier(values);
       else if(form.dataset.procForm==='warehouse')await procurementService.createWarehouse(values);
-      notify('Registo criado com sucesso.');
+      if(form.dataset.procForm==='item')notify('Artigo criado com sucesso.');
+      else if(form.dataset.procForm==='supplier')notify('Fornecedor criado com sucesso.');
+      else if(form.dataset.procForm==='warehouse')notify('Armazém criado com sucesso.');
       await renderProcurement();
     }catch(error){notify('Não foi possível gravar: '+(error?.message||'erro desconhecido'));}
   }));
