@@ -286,9 +286,15 @@ grant execute on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint
 revoke all on ciadi_ti.documents from anon;
 revoke all on ciadi_ti.document_sequences from anon, authenticated;
 revoke all on ciadi_ti.document_events from anon;
-grant usage on schema ciadi_ti to authenticated;
+grant usage on schema ciadi_ti to authenticated, service_role;
 grant select, insert, update on ciadi_ti.documents to authenticated;
 grant select on ciadi_ti.document_events to authenticated;
+
+-- The trusted Edge Functions use service_role for verification lookups and
+-- server-written audit events. Do not grant service_role direct UPDATE/DELETE
+-- on documents; issuance remains behind issue_document().
+grant select on ciadi_ti.documents to service_role;
+grant select, insert on ciadi_ti.document_events to service_role;
 
 commit;
 
