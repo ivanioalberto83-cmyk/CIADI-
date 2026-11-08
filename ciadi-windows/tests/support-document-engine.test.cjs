@@ -59,6 +59,27 @@ test('emissão prepara número e QR antes de compor e arquivar o PDF final',asyn
   assert.equal(calls[3][1].token,'abcdefghijklmnopqrstuvwxyz1234567890');
   assert.equal(calls[3][1].artifact.mimeType,'application/pdf');
 });
+test('repete a finalização com o mesmo token e PDF para recuperar resposta perdida',async()=>{
+  let attempts=0;
+  const seen=[];
+  const repository={
+    prepareIssuance:async()=>({number:'SUP-SUP-INC/2026/000003',token:'abcdefghijklmnopqrstuvwxyz1234567890',verificationUrl:'https://ciadi.ao/validar',qrDataUrl:'data:image/svg+xml;base64,PHN2Zy8+'}),
+    finalizeIssuance:async input=>{
+      attempts++;seen.push(input);
+      if(attempts===1)throw new Error('resposta de rede perdida');
+      return {document:{id:input.documentId,number:'SUP-SUP-INC/2026/000003',status:'issued'}};
+    }
+  };
+  const service=engine.createDocumentService({
+    repository,
+    pdfRenderer:async()=>({bytes:new Uint8Array([37,80,68,70]),mimeType:'application/pdf'})
+  });
+  const result=await service.issue('doc-retry',{renderHtml:async()=>'<html/>',filename:'retry.pdf'});
+  assert.equal(result.document.status,'issued');
+  assert.equal(attempts,2);
+  assert.equal(seen[0].token,seen[1].token);
+  assert.equal(seen[0].artifact.bytes,seen[1].artifact.bytes);
+});
 test('emissão não finaliza se o QR ou o PDF falharem',async()=>{
   let finalized=false;
   const repository={
