@@ -208,3 +208,23 @@ test('cria contagem de inventário com quantidades iguais a zero permitidas',asy
   assert.equal(calls[1].payload[0].variance,undefined);
   assert.equal(calls[1].payload[0].system_quantity,0);
 });
+
+test('só acrescenta linhas a contagens próprias ainda em rascunho',async()=>{
+  const calls=[];
+  const db={from(table){
+    let payload;
+    const q={
+      select(){return q;},
+      eq(){return q;},
+      maybeSingle(){return Promise.resolve({data:{id:'count-1',status:'draft',counted_by:'user-1'},error:null});},
+      insert(value){payload=value;calls.push({table,payload:value});return q;},
+      then(resolve,reject){return Promise.resolve({data:payload,error:null}).then(resolve,reject);}
+    };
+    return q;
+  }};
+  const service=support.createProcurementService({db,role:'suporte_informatica',actorId:'user-1'});
+  const saved=await service.addInventoryCountLines('count-1',[{item_id:'item-1',system_quantity:0,counted_quantity:2}]);
+  assert.equal(saved[0].count_id,'count-1');
+  assert.equal(saved[0].system_quantity,0);
+  assert.equal(calls[0].table,'inventory_count_lines');
+});
