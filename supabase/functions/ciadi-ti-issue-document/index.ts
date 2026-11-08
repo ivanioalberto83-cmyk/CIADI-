@@ -136,7 +136,6 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
         status: "issued",
       },
       verificationUrl: verificationUrl.toString(),
-      sha256: fileHash,
     });
   } catch (error) {
     if (!issued) {
