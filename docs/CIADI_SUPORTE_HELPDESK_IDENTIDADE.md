@@ -20,6 +20,24 @@ Esta entrega consolida a primeira camada operacional do Helpdesk da estação Su
 - Os 116 tipos do catálogo continuam distribuídos por oito motores. Os documentos e relatórios não-dashboard dispõem agora de formulários padrão gerados pelo perfil do respectivo motor; os dez modelos anteriores mantêm os seus campos específicos. Estes formulários padrão são uma primeira camada e não substituem ainda a validação de campos próprios de cada documento.
 - A identidade central está disponível no código; a migração integral de todos os modelos documentais continua a exigir inventário e validação individual.
 
+## Auditoria read-only do Aprovisionamento (2026-11-08)
+- Confirmado no Supabase `egpkkttbcaukqnnxyhjv`: schema `ciadi_ti` com 10 tabelas operacionais de inventário, compras, stock, contagens e auditoria; as 10 tabelas apresentavam zero registos no momento da consulta.
+- A vista `ciadi_ti.stock_balances` existe, é uma view com `security_invoker=true` e agrega os movimentos por artigo/armazém. A listagem de tabelas não a apresentou por ser uma view; a interface consulta a vista existente.
+- Confirmadas as funções `has_support_access()`, `has_finance_approval()`, `decide_purchase_request()`, `post_stock_movement()` e `transfer_stock()`. As funções transaccionais de stock verificam acesso, artigo/armazém activos e saldo suficiente; a transferência regista saída e entrada numa operação.
+- RLS está activo nas 10 tabelas consultadas. O acesso de suporte depende de perfil activo `suporte_informatica`, além de `admin` e `gestor` na função comum.
+- A decisão de compra é feita por `decide_purchase_request()`, que limita a aprovação/rejeição a `admin` e `gestor`, e apenas para pedidos submetidos.
+- **Risco a tratar na fase de permissões:** a policy actual de UPDATE em `purchase_requests` filtra por acesso de suporte e estado, mas não limita `requested_by` ao utilizador autor. A interface adiciona uma verificação de autoria antes da submissão, mas isso não substitui uma condição RLS no servidor. Não foi alterada qualquer policy.
+- A consulta confirmou USAGE no schema e privilégios de SELECT/INSERT/UPDATE de `authenticated` em `purchase_requests`. A exposição efectiva na Data API ainda deve ser confirmada no PostgREST/Data API settings.
+- Nenhuma escrita foi executada na base de dados durante esta auditoria.
+
+## Fluxos de Aprovisionamento implementados no código
+- Criar pedido de aquisição em rascunho, com linha, quantidade, unidade, fornecedor opcional e cálculo do total estimado.
+- Submeter pedido à Administração, com verificação de autoria na camada de serviço; a decisão financeira continua fora da estação Suporte Informático.
+- Registar entradas, saídas, ajustes e devoluções usando exclusivamente `post_stock_movement()`.
+- Transferir stock entre armazéns usando exclusivamente `transfer_stock()`, sem inserts directos na tabela de movimentos.
+- Criar contagens físicas em rascunho e marcar a contagem como concluída; a reconciliação final permanece separada.
+- Consultar a vista de saldos existente `stock_balances`.
+
 ## Formulários e relatórios
 - O catálogo mantém 116 tipos em oito motores.
 - Os tipos documentais e relatórios não-dashboard têm formulários padrão gerados por motor; os dez modelos originais mantêm os seus campos específicos.
