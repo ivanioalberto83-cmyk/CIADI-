@@ -2,15 +2,15 @@ name: CIADI Workstation Modules CI
 
 on:
   push:
-    branches: ['feature/ciadi-workstation-modules-20261104', 'feature/ciadi-support-operations-phase1-20261106']
+    branches: ['feature/ciadi-workstation-modules-20261104', 'feature/ciadi-support-operations-phase1-20261106', 'feature/ciadi-ti-document-engine-edge-functions-20261108']
     paths:
       - 'renderer/**'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
-      - 'ciadi-windows/tests/**'
+      - 'ciadi-windows/**'
       - '.github/workflows/ciadi-modules-ci.yml'
   pull_request:
-    branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104']
+    branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104', 'feature/ciadi-ti-document-engine-postgres-tests-20261108']
     paths:
       - 'renderer/**'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
