@@ -13,6 +13,7 @@ declare
   v_bad_receipt uuid;
   v_count uuid := '70000000-0000-4000-8000-000000000001';
   v_empty_count uuid := '70000000-0000-4000-8000-000000000002';
+  v_atomic_count uuid := '70000000-0000-4000-8000-000000000003';
   v_result jsonb;
   v_balance numeric;
 begin
@@ -174,6 +175,28 @@ begin
   exception when sqlstate '23514' then
     null;
   end;
+
+  -- Uma falha num ajuste negativo tem de reverter também os ajustes anteriores da mesma reconciliação.
+  insert into ciadi_ti.inventory_counts(id, warehouse_id, status, counted_by, counted_at, notes)
+  values (v_atomic_count, v_warehouse, 'counted', v_user, now(), 'Teste de rollback transaccional');
+  insert into ciadi_ti.inventory_count_lines(count_id, item_id, system_quantity, counted_quantity, variance)
+  values
+    (v_atomic_count, v_item_a, 8, 9, 1),
+    (v_atomic_count, v_item_b, 7, 3, -4);
+  begin
+    perform ciadi_ti.reconcile_inventory_count(v_atomic_count);
+    raise exception 'A reconciliação com stock insuficiente deveria falhar.';
+  exception when sqlstate '23514' then
+    null;
+  end;
+  select coalesce(sum(quantity_delta),0) into v_balance
+  from ciadi_ti.stock_movements where item_id = v_item_a and warehouse_id = v_warehouse;
+  if v_balance <> 8 then
+    raise exception 'A falha do ajuste negativo deveria reverter o ajuste positivo anterior; saldo obtido: %.', v_balance;
+  end if;
+  if (select status from ciadi_ti.inventory_counts where id = v_atomic_count) <> 'counted' then
+    raise exception 'A contagem com reconciliação falhada deve permanecer em estado counted.';
+  end if;
 
   insert into ciadi_ti.inventory_counts(id, warehouse_id, status, counted_by, counted_at)
   values (v_empty_count, v_warehouse, 'counted', v_user, now());
