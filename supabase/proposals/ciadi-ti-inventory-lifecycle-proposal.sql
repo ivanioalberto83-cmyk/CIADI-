@@ -355,6 +355,9 @@ begin
     raise exception 'A contagem tem de estar concluída antes da reconciliação.' using errcode = '23514';
   end if;
 
+  if not exists (select 1 from ciadi_ti.inventory_count_lines where count_id = v_count.id) then
+    raise exception 'Não é possível reconciliar uma contagem sem linhas.' using errcode = '23514';
+  end if;
   v_reference := 'IC-' || v_count.id::text;
   for v_line in
     select * from ciadi_ti.inventory_count_lines
