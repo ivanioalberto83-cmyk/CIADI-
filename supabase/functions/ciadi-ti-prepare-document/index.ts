@@ -105,7 +105,7 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
     documentNumber,
     verificationUrl: verificationUrl.toString(),
     qrDataUrl: svgDataUrl(qrSvg),
-    expiresAt: expiresAt.toISOString(),
+    expiresAt: String(expiresAt),
   });
 });
 
