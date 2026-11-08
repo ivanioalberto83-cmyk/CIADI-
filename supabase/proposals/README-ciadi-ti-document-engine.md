@@ -25,7 +25,7 @@
 2. Guardar objectos em `suporte-informatica/<document_uuid>.pdf`.
 3. Criar `ciadi_ti.documents` para metadados e estado do documento.
 4. Criar `ciadi_ti.document_sequences` para numeração por código documental e ano.
-5. Criar `ciadi_ti.document_events` como histórico de eventos, com escrita apenas pelo servidor confiável.
+5. Criar `ciadi_ti.document_events` como histórico de eventos, com escrita apenas pelo servidor confiável.\n6. Criar `ciadi_ti.document_issuance_sessions` para tokens QR temporários, com hash, actor, validade de 10 minutos e consumo atómico na emissão.
 6. Permitir ao cliente autenticado ler documentos do módulo e criar/editar apenas os seus rascunhos. Sem política de eliminação.
 7. A emissão é transaccional, via função restrita a `service_role`; valida o perfil, reserva número, confirma o PDF no bucket e grava hashes.
 8. QR Code contém token aleatório; apenas o hash é guardado. A verificação pública deve passar por Edge Function e devolver metadados mínimos, nunca o PDF nem dados internos.
@@ -61,5 +61,5 @@
 - A função RPC de emissão está no schema personalizado `ciadi_ti`. Por isso, a proposta concede explicitamente `USAGE` nesse schema a `service_role`, além de `EXECUTE` na função; sem ambos, a Edge Function pode não conseguir invocar a RPC.
 - As Edge Functions de confiança precisam de consultar os metadados documentais e registar eventos. A proposta concede a `service_role` apenas `SELECT` em `documents` e `SELECT/INSERT` em `document_events`; não concede actualização ou eliminação directa de documentos emitidos.
 - Foi acrescentado um harness PostgreSQL isolado em `supabase/tests/`, com objectos mínimos compatíveis com Supabase, execução da proposta e verificações de RLS, emissão, sequência, registo de evento e imutabilidade.
-- O harness é uma simulação PostgreSQL, não substitui um teste Supabase local/real: não valida o comportamento interno real do Storage, JWT/Edge Runtime, Data API, Advisors ou concorrência de múltiplas emissões.
+- O harness é uma simulação PostgreSQL, não substitui um teste Supabase local/real: não valida o comportamento interno real do Storage, JWT/Edge Runtime, Data API, Advisors ou concorrência de múltiplas emissões. Os testes agora também verificam a criação e consumo da sessão temporária QR.
 - A exposição do schema `ciadi_ti` à Data API continua a ser uma configuração explícita a confirmar. Não expor o schema a `anon`; conceder apenas o acesso autenticado estritamente necessário.
