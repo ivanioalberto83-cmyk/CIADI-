@@ -8,6 +8,8 @@ on:
       - 'supabase/proposals/ciadi-ti-document-engine-proposal.sql'
       - 'supabase/tests/**'
       - '.github/workflows/ciadi-ti-document-engine-postgres.yml'
+      - 'renderer/**'
+      - 'ciadi-windows/tests/**'
   pull_request:
     branches:
       - feature/ciadi-support-document-storage-fixes-20261108
@@ -15,6 +17,8 @@ on:
       - 'supabase/proposals/ciadi-ti-document-engine-proposal.sql'
       - 'supabase/tests/**'
       - '.github/workflows/ciadi-ti-document-engine-postgres.yml'
+      - 'renderer/**'
+      - 'ciadi-windows/tests/**'
 
 permissions:
   contents: read
@@ -52,3 +56,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-document-engine-proposal.sql
       - name: Testar RLS, emissão, numeração e imutabilidade
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/ciadi-ti-document-engine.integration.sql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Executar testes do motor documental e módulos CIADI
+        run: node --test ciadi-windows/tests/*.test.cjs
