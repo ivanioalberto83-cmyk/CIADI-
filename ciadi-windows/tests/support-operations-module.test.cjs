@@ -135,3 +135,76 @@ test('estação Suporte Informática não concede gestão de aprovisionamento a 
     );
   }
 });
+
+test('calcula saldos estimados por artigo, armazém e lote a partir do razão de movimentos',()=>{
+  const result=support.summarizeStockBalances(
+    [{id:'i1',sku:'TI-01',name:'Cabo',minimum_stock:3}],
+    [{id:'w1',name:'Armazém central'}],
+    [
+      {item_id:'i1',warehouse_id:'w1',lot_code:'L1',quantity_delta:5},
+      {item_id:'i1',warehouse_id:'w1',lot_code:'L1',quantity_delta:-1},
+      {item_id:'i1',warehouse_id:'w1',lot_code:'L2',quantity_delta:2}
+    ]
+  );
+  assert.equal(result.length,2);
+  assert.equal(result.find(x=>x.lot_code==='L1').quantity,4);
+  assert.equal(result.find(x=>x.lot_code==='L2').quantity,2);
+  assert.equal(result.find(x=>x.lot_code==='L2').below_minimum,true);
+});
+test('cria pedido de aquisição em rascunho com linhas e total estimado',async()=>{
+  const calls=[];
+  const db={from(table){
+    let payload;
+    const q={
+      insert(value){payload=value;calls.push({table,payload:value});return q;},
+      select(){return q;},
+      single(){return Promise.resolve({data:table==='purchase_requests'?{id:'req-1',request_number:12,...payload}:payload,error:null});},
+      then(resolve,reject){return Promise.resolve({data:payload,error:null}).then(resolve,reject);}
+    };
+    return q;
+  }};
+  const service=support.createProcurementService({db,role:'suporte_informatica',actorId:'user-1'});
+  const result=await service.createPurchaseRequest({
+    justification:'Substituição de periféricos',
+    lines:[{description:'Rato USB',quantity:2,unit_of_measure:'unidade',estimated_unit_cost:1500}]
+  });
+  assert.equal(result.request.request_number,12);
+  assert.equal(calls[0].table,'purchase_requests');
+  assert.equal(calls[0].payload.status,'draft');
+  assert.equal(calls[0].payload.requested_by,'user-1');
+  assert.equal(calls[1].table,'purchase_request_lines');
+  assert.equal(calls[1].payload[0].request_id,'req-1');
+  assert.equal(result.request.estimated_total,3000);
+});
+test('movimentos e transferências usam apenas RPC transaccional existente',async()=>{
+  const calls=[];
+  const db={from(){throw new Error('Não deve inserir directamente em stock_movements.');},rpc:async(name,args)=>{calls.push({name,args});return{name,data:name==='transfer_stock'?[{out_movement_id:'out-1',in_movement_id:'in-1'}]:'move-1',error:null};}};
+  const service=support.createProcurementService({db,role:'suporte_informatica',actorId:'user-1'});
+  const movement=await service.postStockMovement({item_id:'item-1',warehouse_id:'warehouse-1',movement_type:'entrada',quantity:'3',reference:'GR-01'});
+  const transfer=await service.transferStock({item_id:'item-1',from_warehouse_id:'warehouse-1',to_warehouse_id:'warehouse-2',quantity:1});
+  assert.equal(movement,'move-1');
+  assert.equal(transfer[0].out_movement_id,'out-1');
+  assert.deepEqual(calls.map(x=>x.name),['post_stock_movement','transfer_stock']);
+  await assert.rejects(()=>service.postStockMovement({item_id:'item-1',warehouse_id:'warehouse-1',movement_type:'transferencia_saida',quantity:1}),/Transferências usam/);
+  await assert.rejects(()=>service.transferStock({item_id:'item-1',from_warehouse_id:'warehouse-1',to_warehouse_id:'warehouse-1',quantity:1}),/diferentes/);
+});
+test('cria contagem de inventário com quantidades iguais a zero permitidas',async()=>{
+  const calls=[];
+  const db={from(table){
+    let payload;
+    const q={
+      insert(value){payload=value;calls.push({table,payload:value});return q;},
+      select(){return q;},
+      single(){return Promise.resolve({data:{id:'count-1',...payload},error:null});},
+      then(resolve,reject){return Promise.resolve({data:payload,error:null}).then(resolve,reject);}
+    };
+    return q;
+  }};
+  const service=support.createProcurementService({db,role:'suporte_informatica',actorId:'user-1'});
+  const result=await service.createInventoryCount({warehouse_id:'warehouse-1',lines:[{item_id:'item-1',system_quantity:0,counted_quantity:0}]});
+  assert.equal(result.count.id,'count-1');
+  assert.equal(calls[0].table,'inventory_counts');
+  assert.equal(calls[1].table,'inventory_count_lines');
+  assert.equal(calls[1].payload[0].variance,undefined);
+  assert.equal(calls[1].payload[0].system_quantity,0);
+});
