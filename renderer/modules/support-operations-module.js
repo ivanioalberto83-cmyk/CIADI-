@@ -326,7 +326,7 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
     row.querySelector('[data-remove-line]')?.addEventListener('click',()=>{
       const collection=row.parentElement;
       if(collection.children.length>1)row.remove();
-      else row.querySelectorAll('input,select,textarea').forEach(input=>{if(input.name==='unit_of_measure')input.value='unidade';else input.value='';});
+      else row.querySelectorAll('input,select,textarea').forEach(input=>{if(input.name==='unit_of_measure')input.value='unidade';else if(input.name==='damaged_quantity'||input.name==='returned_quantity')input.value='0';else input.value='';});
     });
   });
   root.querySelectorAll('[data-add-line]').forEach(button=>button.addEventListener('click',()=>{
@@ -334,8 +334,8 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
     const first=collection?.querySelector('[data-line-row]');
     if(!first)return;
     const clone=first.cloneNode(true);
-    clone.querySelectorAll('input,select,textarea').forEach(input=>{if(input.name==='unit_of_measure')input.value='unidade';else input.value='';});
-    clone.querySelector('[data-remove-line]')?.addEventListener('click',()=>{if(collection.children.length>1)clone.remove();else clone.querySelectorAll('input,select,textarea').forEach(input=>{if(input.name==='unit_of_measure')input.value='unidade';else input.value='';});});
+    clone.querySelectorAll('input,select,textarea').forEach(input=>{if(input.name==='unit_of_measure')input.value='unidade';else if(input.name==='damaged_quantity'||input.name==='returned_quantity')input.value='0';else input.value='';});
+    clone.querySelector('[data-remove-line]')?.addEventListener('click',()=>{if(collection.children.length>1)clone.remove();else clone.querySelectorAll('input,select,textarea').forEach(input=>{if(input.name==='unit_of_measure')input.value='unidade';else if(input.name==='damaged_quantity'||input.name==='returned_quantity')input.value='0';else input.value='';});});
     collection.appendChild(clone);
   }));
   root.querySelectorAll('[data-proc-form]').forEach(form=>form.addEventListener('submit',async event=>{
