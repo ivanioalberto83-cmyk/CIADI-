@@ -55,6 +55,23 @@ begin
   end;
   perform set_config('request.jwt.claim.sub', v_user::text, false);
 
+  -- Uma recepção formal tem de identificar o documento de entrega do fornecedor.
+  begin
+    perform ciadi_ti.create_goods_receipt(
+      v_request, v_warehouse, null, current_date, 'Sem documento',
+      jsonb_build_array(jsonb_build_object(
+        'purchase_request_line_id', v_line,
+        'received_quantity', 1,
+        'accepted_quantity', 1,
+        'damaged_quantity', 0,
+        'returned_quantity', 0
+      ))
+    );
+    raise exception 'A recepção sem referência documental deveria falhar.';
+  exception when sqlstate '22023' then
+    null;
+  end;
+
   -- Recepção parcial: 6 aceites, 1 danificada, 1 devolvida; só 6 entram em stock.
   v_result := ciadi_ti.create_goods_receipt(
     v_request, v_warehouse, 'GUIA-CI-001', current_date, 'Recepção parcial',
