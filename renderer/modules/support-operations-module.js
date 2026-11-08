@@ -266,7 +266,7 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
     ['inventory_counts','id,warehouse_id,status,counted_by,reconciled_by,counted_at,reconciled_at,notes,created_at','created_at'],
     ['inventory_count_lines','id,count_id,item_id,system_quantity,counted_quantity,variance,notes,created_at','created_at'],
     ['goods_receipts','id,receipt_number,purchase_request_id,supplier_id,warehouse_id,delivery_reference,delivery_date,status,notes,created_by,checked_by,checked_at,posted_by,posted_at,created_at','created_at'],
-    ['goods_receipt_lines','id,receipt_id,purchase_request_line_id,item_id,ordered_quantity,received_quantity,accepted_quantity,damaged_quantity,unit_cost,lot_code,notes,movement_id,created_at','created_at'],
+    ['goods_receipt_lines','id,receipt_id,purchase_request_line_id,item_id,ordered_quantity,received_quantity,accepted_quantity,damaged_quantity,returned_quantity,unit_cost,lot_code,notes,movement_id,created_at','created_at'],
     ['audit_events','id,table_name,record_id,action,actor_id,occurred_at','occurred_at']
   ];
   const results=await Promise.all(specs.map(async([table,columns,order])=>{try{const q=await db.from(table).select(columns).order(order,{ascending:false}).limit(100);return{table,rows:q.data||[],error:q.error};}catch(error){return{table,rows:[],error};}}));
@@ -278,7 +278,7 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
   const metrics=summarizeProcurement(requests),movementStats=summarizeStockMovements(movements),stockAlerts=summarizeStockAlerts(balances.rows);
   const count=(name)=>by[name].rows.length;
   const receiptLineRows=by.goods_receipt_lines.rows;
-  const receiptRows=by.goods_receipts.rows.map(receipt=>{const lines=receiptLineRows.filter(line=>line.receipt_id===receipt.id);return {...receipt,received_quantity:lines.reduce((sum,line)=>sum+Number(line.received_quantity||0),0),accepted_quantity:lines.reduce((sum,line)=>sum+Number(line.accepted_quantity||0),0),damaged_quantity:lines.reduce((sum,line)=>sum+Number(line.damaged_quantity||0),0),line_count:lines.length};});
+  const receiptRows=by.goods_receipts.rows.map(receipt=>{const lines=receiptLineRows.filter(line=>line.receipt_id===receipt.id);return {...receipt,received_quantity:lines.reduce((sum,line)=>sum+Number(line.received_quantity||0),0),accepted_quantity:lines.reduce((sum,line)=>sum+Number(line.accepted_quantity||0),0),damaged_quantity:lines.reduce((sum,line)=>sum+Number(line.damaged_quantity||0),0),returned_quantity:lines.reduce((sum,line)=>sum+Number(line.returned_quantity||0),0),line_count:lines.length};});
   const receiptStats=lifecycleModule?lifecycleModule.summarizeGoodsReceipts(receiptRows):{total:0,draft:0,checked:0,posted:0,receivedQuantity:0,acceptedQuantity:0,damagedQuantity:0,discrepancies:0};
   const receiptDiscrepancies=lifecycleModule?lifecycleModule.summarizeReceiptDiscrepancies(receiptLineRows):{lines:0,shortages:0,excesses:0,damagedLines:0,shortageQuantity:0,excessQuantity:0,damagedQuantity:0};
   const countStatusById=new Map(by.inventory_counts.rows.map(row=>[row.id,row.status]));
