@@ -121,19 +121,31 @@ async function renderDocuments(){
     async prepareIssuance(documentId){
       const {data,error}=await supabase.functions.invoke('ciadi-ti-prepare-document',{body:{document_id:documentId}});
       if(error)throw error;
-      return data;
+      const token=new URL(data.verificationUrl).searchParams.get('token');
+      return {...data,number:data.documentNumber,token};
     },
-    async issuePreparedDocument({documentId,verificationToken,artifact}){
+    async finalizeIssuance({documentId,token,artifact}){
       const form=new FormData();
       form.append('document_id',documentId);
-      form.append('verification_token',verificationToken);
+      form.append('verification_token',token);
       form.append('file',new Blob([artifact.bytes],{type:'application/pdf'}),artifact.filename);
       const {data,error}=await supabase.functions.invoke('ciadi-ti-issue-document',{body:form});
       if(error)throw error;
       return data;
     }
   };
-  const service=engine.createDocumentService({repository});
+  const pdfRenderer=async({html,filename})=>{
+    const desktop=window.ciadiDesktop?.documents;
+    if(!desktop?.renderPdf)throw new Error('A geração do PDF final exige a aplicação CIADI Desktop.');
+    const rendered=await desktop.renderPdf({html});
+    let bytes;
+    if(rendered instanceof Uint8Array)bytes=rendered;
+    else if(Array.isArray(rendered))bytes=Uint8Array.from(rendered);
+    else if(rendered?.data&&Array.isArray(rendered.data))bytes=Uint8Array.from(rendered.data);
+    else throw new Error('O serviço Desktop não devolveu os bytes do PDF.');
+    return {bytes,mimeType:'application/pdf',filename};
+  };
+  const service=engine.createDocumentService({repository,pdfRenderer});
   function drawFields(){
     const t=templates[Number(select.value)];
     fields.innerHTML=t.fields.map(f=>'<label class="block text-sm font-semibold">'+esc(f.label)+(f.required?' *':'')+(f.type==='textarea'?'<textarea data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1" rows="3"></textarea>':f.type==='select'?'<select data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1"><option value="">Seleccionar…</option>'+f.options.map(o=>'<option value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select>':'<input data-field="'+esc(f.key)+'" type="'+(f.type==='number'?'number':f.type==='date'?'date':'text')+'" '+(f.type==='number'?'min="0" step="any"':'')+' class="block w-full border rounded-xl p-3 mt-1">')+'</label>').join('');
@@ -161,24 +173,20 @@ async function renderDocuments(){
   });
   issue.addEventListener('click',async()=>{
     if(!latestDraft||latestDraft.status!=='draft')return;
-    issue.disabled=true;errors.textContent='';state.textContent='A preparar o QR Code e a reserva do número oficial…';
+    issue.disabled=true;errors.textContent='';state.textContent='A reservar o número, preparar o QR e gerar o PDF final…';
     try{
-      const prepared=await service.prepareIssue(latestDraft.id);
-      const verificationToken=new URL(prepared.verificationUrl).searchParams.get('token');
-      if(!verificationToken)throw new Error('O servidor não devolveu o token da sessão QR.');
-      const finalHtml=engine.renderDocumentHtml({template:latestTemplate,values:latestValues,metadata:{number:prepared.documentNumber,createdAt:latestDraft.createdAt,status:'Emitido'},qrDataUrl:prepared.qrDataUrl});
-      const desktop=window.ciadiDesktop?.documents;
-      if(!desktop?.renderPdf)throw new Error('A geração do PDF final exige a aplicação CIADI Desktop.');
-      const rendered=await desktop.renderPdf({html:finalHtml});
-      let bytes;
-      if(rendered instanceof Uint8Array)bytes=rendered;
-      else if(Array.isArray(rendered))bytes=Uint8Array.from(rendered);
-      else if(rendered?.data&&Array.isArray(rendered.data))bytes=Uint8Array.from(rendered.data);
-      else throw new Error('O serviço Desktop não devolveu os bytes do PDF.');
-      const filename=String(prepared.documentNumber).replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf';
-      const result=await service.issuePrepared({documentId:latestDraft.id,verificationToken,artifact:{bytes,filename}});
+      const filenameHint='documento-ciadi.pdf';
+      const result=await service.issue(latestDraft.id,{
+        filename:filenameHint,
+        renderHtml:async({number,verificationUrl,qrDataUrl})=>engine.renderDocumentHtml({
+          template:latestTemplate,
+          values:latestValues,
+          metadata:{number,createdAt:latestDraft.createdAt,status:'Emitido'},
+          qrDataUrl
+        })
+      });
       latestDraft={...latestDraft,status:'issued',number:result.document.number};
-      latestHtml=finalHtml;
+      latestHtml=result.html;
       preview.innerHTML='<div class="overflow-auto rounded-xl bg-slate-100 p-3"><div class="mx-auto bg-white shadow-xl" style="max-width:210mm">'+latestHtml+'</div></div>';
       state.textContent='Documento emitido e arquivado: '+result.document.number;
       print.disabled=false;issue.disabled=true;send.disabled=true;
