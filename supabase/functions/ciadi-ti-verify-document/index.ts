@@ -22,7 +22,7 @@ export default {
 
     const tokenHash = await sha256Hex(new TextEncoder().encode(token));
     const { data: document, error } = await ctx.supabaseAdmin
-      .from("documents")
+      .schema("ciadi_ti").from("documents")
       .select("document_number,document_type_code,issued_at,status,verification_token_hash")
       .eq("id", documentId)
       .eq("status", "issued")
