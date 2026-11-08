@@ -1,0 +1,53 @@
+name: CIADI Inventory SQL Homologation
+
+on:
+  push:
+    branches:
+      - feature/ciadi-helpdesk-lifecycle-20261108
+    paths:
+      - 'supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'
+      - 'ciadi-windows/tests/sql/**'
+      - '.github/workflows/ciadi-inventory-sql-homologation.yml'
+  pull_request:
+    paths:
+      - 'supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'
+      - 'ciadi-windows/tests/sql/**'
+      - '.github/workflows/ciadi-inventory-sql-homologation.yml'
+
+jobs:
+  postgres-homologation:
+    name: PostgreSQL 16 isolated homologation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ciadi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ciadi_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: ciadi_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Prepare isolated CI schema
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-inventory-lifecycle.sql
+      - name: Apply proposal to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql
+      - name: Run receipt, stock and inventory reconciliation tests
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/inventory-lifecycle-proposal.test.sql
