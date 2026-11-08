@@ -196,7 +196,7 @@ begin
     v_returned := coalesce(nullif(v_line->>'returned_quantity','')::numeric, 0);
     v_cost := coalesce(nullif(v_line->>'unit_cost','')::numeric, v_request_line.estimated_unit_cost);
     if v_received is null or v_accepted is null or v_received < 0 or v_accepted < 0 or v_damaged < 0 or v_returned < 0 then
-      raise exception 'As quantidades recebida, aceite e danificada devem ser não negativas.' using errcode = '22023';
+      raise exception 'As quantidades recebida, aceite, danificada e devolvida devem ser não negativas.' using errcode = '22023';
     end if;
     if v_accepted > v_received or v_damaged > v_received or v_returned > v_received or v_accepted + v_damaged + v_returned > v_received then
       raise exception 'As quantidades aceite, danificada e devolvida não podem exceder a quantidade recebida.' using errcode = '23514';
