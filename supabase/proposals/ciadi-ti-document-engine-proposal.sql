@@ -238,15 +238,6 @@ begin
     raise exception 'Documento inexistente ou já emitido.';
   end if;
 
-  insert into ciadi_ti.document_sequences (document_type_code, issue_year, last_value)
-  values (v_doc.document_type_code, v_year, 1)
-  on conflict (document_type_code, issue_year)
-  do update set last_value = ciadi_ti.document_sequences.last_value + 1
-  returning last_value into v_next;
-
-  v_number := 'SUP-' || v_doc.document_type_code || '/' ||
-    v_year::text || '/' || lpad(v_next::text, 6, '0');
-
   insert into ciadi_ti.document_issuance_sessions
     (document_id, actor_id, token_hash, reserved_number, expires_at)
   values
@@ -269,10 +260,9 @@ set search_path = pg_catalog, ciadi_ti, public, storage
 as $issue$
 declare
   v_doc ciadi_ti.documents%rowtype;
-  v_year integer := extract(year from (now() at time zone 'Africa/Luanda'))::integer;
-  v_next bigint;
   v_number text;
   v_path text;
+  v_session_id uuid;
 begin
   if p_actor_id is null
      or not exists (
@@ -302,6 +292,20 @@ begin
 
   if not found or v_doc.status <> 'draft' then
     raise exception 'Documento inexistente ou já emitido.';
+  end if;
+
+  select s.id, s.reserved_number
+  into v_session_id, v_number
+  from ciadi_ti.document_issuance_sessions s
+  where s.document_id = v_doc.id
+    and s.actor_id = p_actor_id
+    and s.token_hash = p_verification_token_hash
+    and s.expires_at > now()
+    and s.consumed_at is null
+  for update;
+
+  if not found then
+    raise exception 'Sessão de emissão inválida, expirada ou já consumida.';
   end if;
 
   v_path := 'suporte-informatica/' || v_doc.id::text || '.pdf';
@@ -338,6 +342,10 @@ begin
       updated_at = now()
   where id = v_doc.id;
 
+  update ciadi_ti.document_issuance_sessions
+  set consumed_at = now()
+  where id = v_session_id;
+
   insert into ciadi_ti.document_events (document_id, event_type, actor_id, details)
   values (
     v_doc.id,
@@ -363,6 +371,7 @@ grant execute on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint
 revoke all on ciadi_ti.documents from anon;
 revoke all on ciadi_ti.document_sequences from anon, authenticated;
 revoke all on ciadi_ti.document_events from anon;
+revoke all on ciadi_ti.document_issuance_sessions from anon, authenticated;
 grant usage on schema ciadi_ti to authenticated, service_role;
 grant select, insert, update on ciadi_ti.documents to authenticated;
 grant select on ciadi_ti.document_events to authenticated;
@@ -372,6 +381,7 @@ grant select on ciadi_ti.document_events to authenticated;
 -- on documents; issuance remains behind issue_document().
 grant select on ciadi_ti.documents to service_role;
 grant select, insert on ciadi_ti.document_events to service_role;
+grant select, insert, update on ciadi_ti.document_issuance_sessions to service_role;
 
 commit;
 
