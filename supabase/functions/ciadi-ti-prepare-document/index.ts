@@ -59,8 +59,6 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
 
   const token = createVerificationToken();
   const tokenHash = await sha256Hex(new TextEncoder().encode(token));
-  const createdAt = new Date();
-  const expiresAt = new Date(createdAt.getTime() + 10 * 60 * 1000);
   const { data: documentNumber, error: prepareError } = await db.rpc("prepare_document_issuance", {
     p_document_id: documentId,
     p_actor_id: actorId,
@@ -70,6 +68,19 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
     console.error("CIADI TI issuance preparation failed:", prepareError?.message || "invalid RPC result");
     return jsonResponse({ error: "Não foi possível reservar o número e preparar a emissão documental." }, 500);
   }
+
+  const { data: session, error: sessionError } = await db
+    .from("document_issuance_sessions")
+    .select("expires_at")
+    .eq("document_id", documentId)
+    .eq("actor_id", actorId)
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
+  if (sessionError || !session) {
+    console.error("CIADI TI issuance session lookup failed:", sessionError?.message || "session missing");
+    return jsonResponse({ error: "Não foi possível confirmar a sessão temporária de emissão." }, 500);
+  }
+  const expiresAt = session.expires_at;
 
   const verificationUrl = new URL("/functions/v1/ciadi-ti-verify-document", supabaseUrl);
   verificationUrl.searchParams.set("document_id", documentId);
@@ -91,6 +102,7 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
   return jsonResponse({
     ok: true,
     documentId,
+    documentNumber,
     verificationUrl: verificationUrl.toString(),
     qrDataUrl: svgDataUrl(qrSvg),
     expiresAt: expiresAt.toISOString(),
