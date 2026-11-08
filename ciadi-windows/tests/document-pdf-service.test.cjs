@@ -77,7 +77,9 @@ test('gera bytes PDF A4 para a emissão antes de abrir a caixa de exportação',
   assert.ok(bytes instanceof Uint8Array);
   assert.equal(Buffer.from(bytes).toString(), '%PDF-test');
   assert.ok(h.calls.some(x => x[0] === 'loadURL'));
-  assert.ok(h.calls.some(x => x[0] === 'printToPDF'));
+  const printCall = h.calls.find(x => x[0] === 'printToPDF');
+  assert.ok(printCall);
+  assert.equal(printCall[1].preferCSSPageSize, true);
   assert.ok(h.calls.some(x => x[0] === 'close'));
   assert.equal(h.writes.length, 0);
   assert.equal(h.calls.some(x => x[0] === 'dialog'), false);
