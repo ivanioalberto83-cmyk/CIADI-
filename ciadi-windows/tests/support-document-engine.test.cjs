@@ -54,10 +54,10 @@ test('emissão prepara número e QR antes de compor e arquivar o PDF final',asyn
   assert.equal(issued.document.number,'SUP-SUP-INC/2026/000001');
   assert.equal(issued.qrDataUrl,'data:image/svg+xml;base64,PHN2Zy8+');
   assert.deepEqual(calls.map(x=>x[0]),['prepare','html','pdf','finalize']);
-  assert.ok(calls[2][1].verificationUrl.startsWith('https://'));
-  assert.ok(calls[2][1].qrDataUrl.startsWith('data:image/'));
-  assert.equal(calls[4][1].token,'abcdefghijklmnopqrstuvwxyz1234567890');
-  assert.equal(calls[4][1].artifact.mimeType,'application/pdf');
+  assert.ok(calls[1][1].verificationUrl.startsWith('https://'));
+  assert.ok(calls[1][1].qrDataUrl.startsWith('data:image/'));
+  assert.equal(calls[3][1].token,'abcdefghijklmnopqrstuvwxyz1234567890');
+  assert.equal(calls[3][1].artifact.mimeType,'application/pdf');
 });
 test('emissão não finaliza se o QR ou o PDF falharem',async()=>{
   let finalized=false;
