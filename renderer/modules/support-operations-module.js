@@ -133,6 +133,14 @@ async function renderDocuments(){
       if(error)throw error;
       return data;
     }
+    ,
+    async downloadIssuedPdf(documentId){
+      const path='suporte-informatica/'+documentId+'.pdf';
+      const {data,error}=await supabase.storage.from('ciadi-ti-documentos').download(path);
+      if(error)throw error;
+      if(!data)throw new Error('PDF oficial não encontrado no arquivo privado.');
+      return {bytes:new Uint8Array(await data.arrayBuffer()),mimeType:data.type||'application/pdf',filename:documentId+'.pdf'};
+    }
   };
   const pdfRenderer=async({html,filename})=>{
     const desktop=window.ciadiDesktop?.documents;
@@ -145,7 +153,12 @@ async function renderDocuments(){
     else throw new Error('O serviço Desktop não devolveu os bytes do PDF.');
     return {bytes,mimeType:'application/pdf',filename};
   };
-  const service=engine.createDocumentService({repository,pdfRenderer});
+  const pdfExporter=async({bytes,filename,documentId,mimeType})=>{
+    const desktop=window.ciadiDesktop?.documents;
+    if(!desktop?.exportIssuedPdf)throw new Error('Exportação PDF disponível apenas na aplicação CIADI Desktop.');
+    return desktop.exportIssuedPdf({document:{id:documentId,status:'issued'},bytes,mimeType,filename});
+  };
+  const service=engine.createDocumentService({repository,pdfRenderer,pdfExporter});
   function drawFields(){
     const t=templates[Number(select.value)];
     fields.innerHTML=t.fields.map(f=>'<label class="block text-sm font-semibold">'+esc(f.label)+(f.required?' *':'')+(f.type==='textarea'?'<textarea data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1" rows="3"></textarea>':f.type==='select'?'<select data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1"><option value="">Seleccionar…</option>'+f.options.map(o=>'<option value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select>':'<input data-field="'+esc(f.key)+'" type="'+(f.type==='number'?'number':f.type==='date'?'date':'text')+'" '+(f.type==='number'?'min="0" step="any"':'')+' class="block w-full border rounded-xl p-3 mt-1">')+'</label>').join('');
@@ -198,15 +211,13 @@ async function renderDocuments(){
     }
   });
   print.addEventListener('click',async()=>{
-    if(!latestDraft||latestDraft.status!=='issued'||!latestHtml)return;
+    if(!latestDraft||latestDraft.status!=='issued')return;
     try{
-      const desktop=window.ciadiDesktop?.documents;
-      if(!desktop?.exportIssuedPdf)throw new Error('Exportação PDF disponível apenas na aplicação CIADI Desktop.');
       const filename=String(latestDraft.number||'documento-ciadi').replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf';
-      const result=await desktop.exportIssuedPdf({document:{id:latestDraft.id,status:'issued',number:latestDraft.number},html:latestHtml,filename});
+      const result=await service.exportIssuedPdf(latestDraft,filename);
       if(result?.cancelled)state.textContent='Exportação cancelada pelo utilizador.';
-      else if(result?.saved)state.textContent='PDF exportado para: '+result.filePath;
-    }catch(e){errors.textContent='Não foi possível exportar o PDF: '+(e?.message||'erro desconhecido');}
+      else if(result?.saved)state.textContent='PDF oficial arquivado exportado para: '+result.filePath;
+    }catch(e){errors.textContent='Não foi possível exportar o PDF oficial: '+(e?.message||'erro desconhecido');}
   });
   send.addEventListener('click',()=>notify('O canal de envio institucional ainda não está configurado; nenhum documento foi enviado.'));
 }
