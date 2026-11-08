@@ -22,9 +22,9 @@ Deno.test("PDF validation requires header and EOF marker", () => {
 Deno.test("SHA-256 returns lowercase 64-character hex", async () => {
   const hash = await sha256Hex(new TextEncoder().encode("CIADI"));
   if (!/^[a-f0-9]{64}$/.test(hash)) throw new Error("SHA-256 shape invalid");
-  if (hash !== "bd3a2c1c8f4e2f8e9b9d7e3e3a9f8a4f0b4f6f7f7f7f7f7f7f7f7f7f7f7f7f7f") {
-    // Only assert deterministic shape here; known-answer vector is covered below.
-    if (hash === "") throw new Error("Empty hash");
+  if (hash !== "e9a276d5e5a1d6a326f185a37f93bc3ce5430690ba302dd4cf7d83a6c05e4d6f") {
+    throw new Error("SHA-256 known-answer vector mismatch");
+  }
   }
 });
 
