@@ -120,3 +120,21 @@ test('inclui QR SVG e número reservado no PDF definitivo',()=>{
   assert.ok(html.includes('SUP-SUP-INC/2026/000001'));
   assert.ok(html.includes('QR Code de autenticação'));
 });
+
+test('filtra o arquivo documental por texto e estado sem alterar os registos',()=>{
+  const rows=[
+    {id:'1',title:'Relatório de manutenção',document_number:'SUP-TEC/2026/000001',document_type_code:'SUP-MAN',status:'issued'},
+    {id:'2',title:'Requisição de material',document_number:null,document_type_code:'SUP-REQ',status:'draft'},
+    {id:'3',title:'Relatório de incidente',document_number:'SUP-INC/2026/000002',document_type_code:'SUP-INC',status:'issued'}
+  ];
+  assert.deepEqual(engine.filterDocumentArchive(rows,{query:'manutenção'}).map(x=>x.id),['1']);
+  assert.deepEqual(engine.filterDocumentArchive(rows,{status:'draft'}).map(x=>x.id),['2']);
+  assert.deepEqual(engine.filterDocumentArchive(rows,{query:'SUP-INC',status:'issued'}).map(x=>x.id),['3']);
+  assert.equal(rows.length,3);
+});
+test('resume o arquivo documental por estado',()=>{
+  const summary=engine.summarizeDocumentArchive([
+    {status:'draft'},{status:'issued'},{status:'issued'},{status:'cancelled'}
+  ]);
+  assert.deepEqual(summary,{total:4,drafts:1,issued:2,other:1});
+});
