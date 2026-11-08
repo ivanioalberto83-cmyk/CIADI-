@@ -2,6 +2,7 @@
 do $$
 declare
   v_user uuid := '10000000-0000-4000-8000-000000000001';
+  v_other_user uuid := '10000000-0000-4000-8000-000000000002';
   v_supplier uuid := '20000000-0000-4000-8000-000000000001';
   v_warehouse uuid := '30000000-0000-4000-8000-000000000001';
   v_item_a uuid := '40000000-0000-4000-8000-000000000001';
@@ -17,7 +18,9 @@ declare
 begin
   perform set_config('request.jwt.claim.sub', v_user::text, false);
 
-  insert into public.perfis(id, ativo, tipo) values (v_user, true, 'suporte_informatica');
+  insert into public.perfis(id, ativo, tipo) values
+    (v_user, true, 'suporte_informatica'),
+    (v_other_user, true, 'profissional');
   insert into ciadi_ti.suppliers(id, name) values (v_supplier, 'Fornecedor de teste');
   insert into ciadi_ti.warehouses(id, code, name) values (v_warehouse, 'WH-TEST', 'Armazém de homologação');
   insert into ciadi_ti.items(id, sku, name) values
@@ -31,6 +34,26 @@ begin
   if not ciadi_ti.has_support_access() then
     raise exception 'Perfil de suporte não foi reconhecido pelo helper.';
   end if;
+
+  -- O servidor rejeita utilizador não autenticado e perfil fora do helper.
+  perform set_config('request.jwt.claim.sub', '', false);
+  begin
+    perform ciadi_ti.create_goods_receipt(v_request, v_warehouse, null, current_date, null, '[]'::jsonb);
+    raise exception 'Uma chamada sem sessão deveria ser recusada.';
+  exception when sqlstate '42501' then
+    null;
+  end;
+  perform set_config('request.jwt.claim.sub', v_other_user::text, false);
+  if ciadi_ti.has_support_access() then
+    raise exception 'Perfil profissional não deve ter acesso ao ciclo de stock.';
+  end if;
+  begin
+    perform ciadi_ti.create_goods_receipt(v_request, v_warehouse, null, current_date, null, '[]'::jsonb);
+    raise exception 'Um perfil sem autorização deveria ser recusado.';
+  exception when sqlstate '42501' then
+    null;
+  end;
+  perform set_config('request.jwt.claim.sub', v_user::text, false);
 
   -- Recepção parcial: 6 aceites, 1 danificada, 1 devolvida; só 6 entram em stock.
   v_result := ciadi_ti.create_goods_receipt(
@@ -153,6 +176,28 @@ begin
   end if;
   if not has_function_privilege('authenticated', 'ciadi_ti.create_goods_receipt(uuid,uuid,text,date,text,jsonb)', 'EXECUTE') then
     raise exception 'O perfil authenticated deve executar a RPC de recepção.';
+  end if;
+
+  if has_function_privilege('anon', 'ciadi_ti.check_goods_receipt(uuid)', 'EXECUTE')
+     or has_function_privilege('anon', 'ciadi_ti.finalize_goods_receipt(uuid)', 'EXECUTE')
+     or has_function_privilege('anon', 'ciadi_ti.reconcile_inventory_count(uuid)', 'EXECUTE') then
+    raise exception 'O perfil anon não deve executar RPCs do ciclo de inventário.';
+  end if;
+  if not has_function_privilege('authenticated', 'ciadi_ti.check_goods_receipt(uuid)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'ciadi_ti.finalize_goods_receipt(uuid)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'ciadi_ti.reconcile_inventory_count(uuid)', 'EXECUTE') then
+    raise exception 'O perfil authenticated deve executar as RPCs de ciclo de inventário.';
+  end if;
+  if has_function_privilege('authenticated', 'ciadi_ti.record_goods_receipt_audit()', 'EXECUTE') then
+    raise exception 'A função de auditoria interna não deve ser executável directamente pelo cliente.';
+  end if;
+  if (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+      where n.nspname='ciadi_ti' and c.relname in ('goods_receipts','goods_receipt_lines') and c.relrowsecurity) <> 2 then
+    raise exception 'RLS deve estar activo nas duas tabelas de recepção.';
+  end if;
+  if (select count(*) from pg_policies
+      where schemaname='ciadi_ti' and tablename in ('goods_receipts','goods_receipt_lines')) <> 2 then
+    raise exception 'As duas tabelas de recepção devem ter policy de leitura.';
   end if;
 end;
 $$;
