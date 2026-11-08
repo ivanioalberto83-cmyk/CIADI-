@@ -59,7 +59,7 @@ test('emissão prepara número e QR antes de compor e arquivar o PDF final',asyn
   assert.equal(calls[3][1].token,'abcdefghijklmnopqrstuvwxyz1234567890');
   assert.equal(calls[3][1].artifact.mimeType,'application/pdf');
 });
-test('repete a finalização com o mesmo token e PDF para recuperar resposta perdida',async()=>{
+test('repete a finalização se a primeira tentativa falhar antes da emissão',async()=>{
   let attempts=0;
   const seen=[];
   const repository={
@@ -96,7 +96,7 @@ test('emissão não finaliza se o QR ou o PDF falharem',async()=>{
 });
 test('emissão falha sem operação atómica do servidor e não cria número local',async()=>{
   const service=engine.createDocumentService({repository:{save:async x=>x}});
-  await assert.rejects(()=>service.issue('doc-1'),/preparação e finalização atómicas/);
+  await assert.rejects(()=>service.issue('doc-1'),/fluxo seguro exige preparação e finalização atómicas/);
 });
 test('exportação descarrega o PDF oficial arquivado sem o voltar a compor',async()=>{
   let downloadedId=null,exported=null;
