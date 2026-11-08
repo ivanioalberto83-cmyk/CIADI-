@@ -1,14 +1,14 @@
-\\set ON_ERROR_STOP on
+\set ON_ERROR_STOP on
 
--- Support user creates a draft through the authenticated RLS policy.
 insert into public.perfis(id, tipo, ativo)
 values ('00000000-0000-0000-0000-000000000001', 'suporte_informatica', true);
 
+-- Authenticated support user creates a draft.
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
 insert into ciadi_ti.documents(document_type_code, title, payload)
 values ('REL', 'Relatório de teste', '{"purpose":"isolated-postgres-test"}'::jsonb)
-returning id \\gset draft_
+returning id \gset draft_
 reset role;
 
 -- Trusted server prepares the QR session and reserves the official number.
@@ -17,7 +17,7 @@ select ciadi_ti.prepare_document_issuance(
   :'draft_id'::uuid,
   '00000000-0000-0000-0000-000000000001'::uuid,
   repeat('b', 64)
-) as reserved_number \\gset
+) as reserved_number \gset
 reset role;
 
 -- Simulate the final PDF upload after rendering the QR with the reserved number.
@@ -36,16 +36,22 @@ select ciadi_ti.issue_document(
   repeat('a', 64),
   repeat('b', 64),
   1024
-) as issued_number \\gset
+) as issued_number \gset
 reset role;
+
+-- psql variables are copied into settings before entering PL/pgSQL blocks.
+select set_config('ciadi_test.draft_id', :'draft_id', false);
+select set_config('ciadi_test.reserved_number', :'reserved_number', false);
+select set_config('ciadi_test.issued_number', :'issued_number', false);
 
 do $$
 declare
   v_doc ciadi_ti.documents%rowtype;
-  v_reserved text := :'reserved_number';
-  v_issued text := :'issued_number';
+  v_draft_id uuid := current_setting('ciadi_test.draft_id')::uuid;
+  v_reserved text := current_setting('ciadi_test.reserved_number');
+  v_issued text := current_setting('ciadi_test.issued_number');
 begin
-  select * into v_doc from ciadi_ti.documents where title = 'Relatório de teste';
+  select * into v_doc from ciadi_ti.documents where id = v_draft_id;
   if v_doc.status <> 'issued'
      or v_doc.document_number <> v_reserved
      or v_doc.document_number <> v_issued
@@ -65,12 +71,15 @@ $$;
 -- Authenticated support users cannot mutate an issued document through RLS.
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
-update ciadi_ti.documents set title = 'Tentativa de alteração' where id = current_setting('ciadi_test.draft_id')::uuid;
+update ciadi_ti.documents
+set title = 'Tentativa de alteração'
+where id = current_setting('ciadi_test.draft_id')::uuid;
 reset role;
 
 do $$
 begin
-  if (select title from ciadi_ti.documents where id = :'draft_id'::uuid) <> 'Relatório de teste' then
+  if (select title from ciadi_ti.documents
+      where id = current_setting('ciadi_test.draft_id')::uuid) <> 'Relatório de teste' then
     raise exception 'RLS allowed an issued document to be changed';
   end if;
 end
@@ -80,7 +89,9 @@ $$;
 do $$
 begin
   begin
-    update ciadi_ti.documents set title = 'Alteração privilegiada' where id = :'draft_id'::uuid;
+    update ciadi_ti.documents
+    set title = 'Alteração privilegiada'
+    where id = current_setting('ciadi_test.draft_id')::uuid;
     raise exception 'Expected immutable-document trigger to reject update';
   exception
     when raise_exception then
@@ -103,10 +114,11 @@ begin
     raise exception 'User without support profile can read CI documents';
   end if;
   begin
-    insert into ciadi_ti.documents(document_type_code, title) values ('REL', 'Não autorizado');
+    insert into ciadi_ti.documents(document_type_code, title)
+    values ('REL', 'Não autorizado');
     raise exception 'Expected RLS to reject draft creation';
-  exception when insufficient_privilege then
-    null;
+  exception
+    when insufficient_privilege then null;
   end;
 end
 $$;
