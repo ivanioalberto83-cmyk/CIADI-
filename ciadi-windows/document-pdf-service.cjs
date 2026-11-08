@@ -6,6 +6,26 @@ function createDocumentPdfService({ dialog, windowFactory, fs }) {
   }
 
   return Object.freeze({
+    async renderPdfBytes({ html }) {
+      if (typeof html !== 'string' || !html.trim()) {
+        throw new Error('HTML do documento obrigatório para gerar PDF.');
+      }
+      const pdfWindow = windowFactory({
+        show: false,
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+      });
+      try {
+        await pdfWindow.webContents.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+        const bytes = await pdfWindow.webContents.printToPDF({
+          printBackground: true,
+          pageSize: 'A4',
+          margins: { top: 0, right: 0, bottom: 0, left: 0 }
+        });
+        return Uint8Array.from(bytes);
+      } finally {
+        if (typeof pdfWindow.close === 'function') await pdfWindow.close();
+      }
+    },
     async exportIssuedPdf({ document, html, filename }) {
       if (!document || document.status !== 'issued') {
         throw new Error('A exportação PDF exige um documento emitido.');
