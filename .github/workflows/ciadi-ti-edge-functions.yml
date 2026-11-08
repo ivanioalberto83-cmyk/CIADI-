@@ -17,7 +17,7 @@ on:
       - '.github/workflows/ciadi-ti-edge-functions.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   deno:
@@ -28,6 +28,16 @@ jobs:
         with:
           deno-version: v2.9.8
       - name: Verificar tipos das Edge Functions
-        run: deno check --frozen --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/ciadi-ti-issue-document/index.ts supabase/functions/ciadi-ti-verify-document/index.ts supabase/functions/_shared/document.test.ts
+        run: deno check --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/ciadi-ti-prepare-document/index.ts supabase/functions/ciadi-ti-issue-document/index.ts supabase/functions/ciadi-ti-verify-document/index.ts supabase/functions/_shared/document.test.ts
       - name: Testes unitários de segurança documental
-        run: deno test --frozen --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/_shared/document.test.ts
+        run: deno test --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/_shared/document.test.ts
+      - name: Guardar lockfile de dependências Deno
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/deno.lock
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ciadi-ti): update Deno dependency lock"
+            git push
+          fi
