@@ -65,7 +65,7 @@ $$;
 -- Authenticated support users cannot mutate an issued document through RLS.
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
-update ciadi_ti.documents set title = 'Tentativa de alteração' where id = :'draft_id'::uuid;
+update ciadi_ti.documents set title = 'Tentativa de alteração' where id = current_setting('ciadi_test.draft_id')::uuid;
 reset role;
 
 do $$
@@ -115,7 +115,7 @@ reset role;
 do $$
 begin
   if (select count(*) from ciadi_ti.document_events
-      where document_id = :'draft_id'::uuid and event_type = 'issued') <> 1 then
+      where document_id = current_setting('ciadi_test.draft_id')::uuid and event_type = 'issued') <> 1 then
     raise exception 'Expected exactly one issued event';
   end if;
 end
