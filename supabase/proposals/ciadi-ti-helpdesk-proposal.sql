@@ -62,7 +62,7 @@ $$;
 create or replace function ciadi_ti.record_helpdesk_ticket_updated()
 returns trigger language plpgsql security definer
 set search_path = pg_catalog, ciadi_ti
-as $
+as $record_update$
 begin
   if new.status is distinct from old.status then
     insert into ciadi_ti.helpdesk_ticket_events(ticket_id,event_type,message,from_status,to_status,created_by)
@@ -76,7 +76,7 @@ begin
   end if;
   return new;
 end;
-$;
+$record_update$;
 
 create or replace function ciadi_ti.record_helpdesk_ticket_created()
 returns trigger language plpgsql security definer
