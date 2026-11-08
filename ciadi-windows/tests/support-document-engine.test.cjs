@@ -110,3 +110,13 @@ test('exportação descarrega o PDF oficial arquivado sem o voltar a compor',asy
   assert.equal(exported.filename,'copia.pdf');
   assert.equal(exported.mimeType,'application/pdf');
 });
+
+
+test('inclui QR SVG e número reservado no PDF definitivo',()=>{
+  const t=engine.TEMPLATES.find(x=>x.code==='SUP-INC');
+  const values={incident_title:'Falha de rede',detected_at:'2026-11-06 10:00',affected_service:'Rede',impact:'Interrupção',actions:'Diagnóstico',resolution:'Restabelecido'};
+  const html=engine.renderDocumentHtml({template:t,values,metadata:{number:'SUP-SUP-INC/2026/000001',status:'Emitido'},qrDataUrl:'data:image/svg+xml;base64,PHN2Zy8+'});
+  assert.ok(html.includes('data:image/svg+xml;base64,PHN2Zy8+'));
+  assert.ok(html.includes('SUP-SUP-INC/2026/000001'));
+  assert.ok(html.includes('QR Code de autenticação'));
+});
