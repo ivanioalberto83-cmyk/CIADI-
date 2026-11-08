@@ -216,6 +216,14 @@ begin
       where schemaname='ciadi_ti' and tablename in ('goods_receipts','goods_receipt_lines')) <> 2 then
     raise exception 'As duas tabelas de recepção devem ter policy de leitura.';
   end if;
+  if has_table_privilege('authenticated', 'ciadi_ti.goods_receipts', 'INSERT')
+     or has_table_privilege('authenticated', 'ciadi_ti.goods_receipts', 'UPDATE')
+     or has_table_privilege('authenticated', 'ciadi_ti.goods_receipts', 'DELETE')
+     or has_table_privilege('authenticated', 'ciadi_ti.goods_receipt_lines', 'INSERT')
+     or has_table_privilege('authenticated', 'ciadi_ti.goods_receipt_lines', 'UPDATE')
+     or has_table_privilege('authenticated', 'ciadi_ti.goods_receipt_lines', 'DELETE') then
+    raise exception 'O cliente não deve escrever directamente nas tabelas de recepção.';
+  end if;
 end;
 $$;
 
