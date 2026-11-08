@@ -42,8 +42,8 @@ function createDocumentPdfService({ dialog, windowFactory, fs }) {
         throw new Error('O ficheiro arquivado não contém uma assinatura PDF válida ou excede 10 MiB.');
       }
       const safeName = String(filename || 'documento-ciadi.pdf')
-        .replace(/[\\\\/:*?"<>|\\u0000-\\u001f]/g, '_')
-        .replace(/\\.+$/g, '') || 'documento-ciadi.pdf';
+        .replace(/[\\/:*?"<>|]/g, '_')
+        .replace(/[\u0000-\u001f]/g, '_')
       const suggestedName = safeName.toLowerCase().endsWith('.pdf') ? safeName : safeName + '.pdf';
       const selection = await dialog.showSaveDialog({
         title: 'Exportar documento CIADI em PDF',
