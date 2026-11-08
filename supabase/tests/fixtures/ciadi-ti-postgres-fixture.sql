@@ -66,7 +66,7 @@ returns text[]
 language sql
 immutable
 as $$
-  select string_to_array(name, '/')[1:array_length(string_to_array(name, '/'), 1)-1]
+  select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1)-1]
 $$;
 
 grant usage on schema storage to authenticated;
