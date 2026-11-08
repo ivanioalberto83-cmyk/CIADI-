@@ -17,6 +17,7 @@ Esta entrega consolida a primeira camada operacional do Helpdesk da estação Su
 - Nome institucional, paleta, tipografia, endereço, site e email num único serviço.
 - Funções comuns para escapar conteúdo e compor cabeçalho documental.
 - O motor documental disponibiliza consulta do arquivo, pesquisa por referência/título/código, filtro por estado, indicadores de rascunhos/emitidos, consulta do histórico de eventos e exportação do PDF oficial para documentos emitidos.
+- Os 116 tipos do catálogo continuam distribuídos por oito motores. Os documentos e relatórios não-dashboard dispõem agora de formulários padrão gerados pelo perfil do respectivo motor; os dez modelos anteriores mantêm os seus campos específicos. Estes formulários padrão são uma primeira camada e não substituem ainda a validação de campos próprios de cada documento.
 - A identidade central está disponível no código; a migração integral de todos os modelos documentais continua a exigir inventário e validação individual.
 
 ## Dependência de dados
