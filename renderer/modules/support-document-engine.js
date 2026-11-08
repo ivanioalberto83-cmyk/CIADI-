@@ -29,22 +29,74 @@
   function makeVerificationPayload({documentId,token,verificationBaseUrl}){if(!clean(documentId)||!/^[A-Za-z0-9_-]{24,128}$/.test(clean(token)))throw new Error('Identificador ou token de autenticação inválido.');const base=clean(verificationBaseUrl).replace(/\/$/,'');if(!/^https:\/\//i.test(base))throw new Error('O endereço de autenticação deve usar HTTPS.');return base+'/validar-documento/'+encodeURIComponent(documentId)+'?token='+encodeURIComponent(token);}
   function renderDocumentHtml({template,values,metadata={},qrDataUrl=null,logoDataUrl=null}){const v=validateValues(template,values);if(!v.valid)throw new Error(v.errors.join(' '));const rows=template.fields.map(x=>'<div class="ciadi-field"><span>'+escapeHtml(x.label)+'</span><p>'+escapeHtml(values[x.key])+'</p></div>').join('');const logo=logoDataUrl?'<img class="ciadi-logo" alt="Logótipo CIADI" src="'+escapeHtml(logoDataUrl)+'">':'<div class="ciadi-wordmark">CIADI</div>';const qr=qrDataUrl?'<aside class="ciadi-auth"><img alt="QR Code de autenticação" src="'+escapeHtml(qrDataUrl)+'"><small>Verifique a autenticidade deste documento através do QR Code.</small></aside>':'<aside class="ciadi-auth ciadi-pending">QR Code: por gerar na emissão oficial</aside>';return '<!doctype html><html lang="pt-AO"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeHtml(template.title)+'</title><style>@page{size:A4;margin:16mm}*{box-sizing:border-box}body{font-family:'+BRAND.fonts+';color:'+BRAND.palette.brown+';font-size:11px;margin:0}.sheet{max-width:180mm;margin:auto}.head{display:flex;align-items:center;justify-content:space-between;border-bottom:4px solid '+BRAND.palette.orange+';padding-bottom:14px}.ciadi-logo{max-width:130px;max-height:65px;object-fit:contain}.ciadi-wordmark{font-size:30px;font-weight:900;color:'+BRAND.palette.orange+'}.org{font-size:9px;font-weight:700;max-width:340px}.doc-meta{text-align:right;font-size:10px}.doc-title{font-size:20px;color:'+BRAND.palette.brown+';margin:24px 0 5px}.sub{color:#64748b;font-size:10px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:24px}.ciadi-field{border-bottom:1px solid #e5e7eb;min-height:45px;padding:4px 0}.ciadi-field span{font-size:9px;color:'+BRAND.palette.orange+';font-weight:800;text-transform:uppercase}.ciadi-field p{white-space:pre-wrap;margin:5px 0 0;font-size:11px}.foot{display:flex;justify-content:space-between;align-items:end;border-top:1px solid #d1d5db;margin-top:35px;padding-top:12px;font-size:9px;color:#64748b}.ciadi-auth{width:105px;text-align:center}.ciadi-auth img{width:82px;height:82px;object-fit:contain}.ciadi-auth small{display:block;font-size:7px}.ciadi-pending{border:1px dashed #d97706;padding:12px;color:#92400e}.signatures{display:flex;gap:35px;margin-top:45px}.signatures div{flex:1;border-top:1px solid #777;padding-top:6px;font-size:9px}.notice{background:'+BRAND.palette.peach+';padding:9px;margin-top:18px;font-size:9px}</style></head><body><main class="sheet"><header class="head">'+logo+'<div class="org">'+BRAND.name+'</div><div class="doc-meta"><b>'+escapeHtml(metadata.number||'RASCUNHO')+'</b><br>'+escapeHtml(metadata.createdAt||'')+'<br>'+escapeHtml(metadata.status||'Em preparação')+'</div></header><h1 class="doc-title">'+escapeHtml(template.title)+'</h1><div class="sub">Código '+escapeHtml(template.code)+' · Modelo versão '+template.version+'</div><section class="fields">'+rows+'</section><div class="signatures"><div>Elaborado por</div><div>Validação / aprovação, quando aplicável</div></div><div class="notice">Documento institucional CIADI. A validade de um documento emitido deve ser confirmada no serviço oficial de autenticação.</div><footer class="foot"><div>CIADI · Suporte Informática<br>Documento sujeito a controlo de versão e auditoria.</div>'+qr+'</footer></main></body></html>';}
   function createDocumentDraft({templateCode,values,actorId,now}){const t=TEMPLATES.find(x=>x.code===templateCode);if(!t)return Object.freeze({ok:false,errors:['Modelo documental não encontrado.']});const validation=validateValues(t,values);if(!validation.valid)return Object.freeze({ok:false,errors:validation.errors});if(!clean(actorId))return Object.freeze({ok:false,errors:['Autor obrigatório.']});const createdAt=now||new Date().toISOString();return Object.freeze({ok:true,document:Object.freeze({id:null,number:null,templateCode,templateVersion:t.version,values:Object.freeze({...values}),status:'draft',createdBy:clean(actorId),createdAt,issuedAt:null,verification:null,history:Object.freeze([{event:'draft_created',actorId:clean(actorId),at:createdAt}])})});}
-  function createDocumentService({repository,qrEncoder,pdfExporter,sender,deliveryRecorder}={}) {
+  function createDocumentService({repository,qrEncoder,pdfRenderer,pdfExporter,sender,deliveryRecorder}={}) {
     return Object.freeze({
       async save(document) {
         if(!repository?.saveDraft) throw new Error('Arquivo documental não configurado; não foi gravado qualquer documento.');
         if(!document||document.status!=='draft') throw new Error('Apenas rascunhos podem ser guardados nesta operação.');
         return repository.saveDraft(document);
       },
-      async issue(documentId) {
+      async issue(documentId, { renderHtml, filename } = {}) {
         if(!clean(documentId)) throw new Error('Identificador documental obrigatório.');
-        if(typeof repository?.issueDraft!=='function') throw new Error('Operação de emissão atómica do servidor não configurada.');
+        if(typeof repository?.prepareIssuance!=='function' || typeof repository?.finalizeIssuance!=='function') {
+          throw new Error('O fluxo seguro exige preparação e finalização atómicas no servidor.');
+        }
         if(typeof qrEncoder!=='function') throw new Error('Gerador de QR Code não configurado.');
-        const result=await repository.issueDraft(documentId);
-        if(!result?.document||result.document.status!=='issued'||!result.verificationUrl) throw new Error('O servidor não confirmou a emissão e a URL de autenticação.');
-        if(!/^https:\/\//i.test(result.verificationUrl)) throw new Error('A URL de autenticação deve usar HTTPS.');
-        const qrDataUrl=await qrEncoder(result.verificationUrl);
-        return Object.freeze({document:Object.freeze({...result.document}),qrDataUrl});
+        if(typeof renderHtml!=='function') throw new Error('Compositor do PDF final não configurado.');
+        if(typeof pdfRenderer!=='function') throw new Error('Renderizador PDF em memória não configurado.');
+
+        // 1. O servidor reserva número e cria uma sessão QR de curta duração.
+        const prepared=await repository.prepareIssuance(documentId);
+        if(!prepared || !clean(prepared.number) || !clean(prepared.token) || !/^https:\\/\\//i.test(clean(prepared.verificationUrl))) {
+          throw new Error('O servidor não devolveu uma sessão de emissão válida.');
+        }
+        if(!/^[A-Za-z0-9_-]{32,128}$/.test(prepared.token)) {
+          throw new Error('O token temporário de autenticação tem formato inválido.');
+        }
+
+        // 2. O QR é composto antes do PDF definitivo.
+        const qrDataUrl=await qrEncoder(prepared.verificationUrl);
+        if(typeof qrDataUrl!=='string' || !/^data:image\\//i.test(qrDataUrl)) {
+          throw new Error('O gerador não devolveu uma imagem QR válida.');
+        }
+        const html=await renderHtml({
+          number:prepared.number,
+          verificationUrl:prepared.verificationUrl,
+          qrDataUrl
+        });
+        if(typeof html!=='string' || !html.trim()) throw new Error('O compositor não devolveu HTML para o PDF.');
+
+        // 3. O PDF final é renderizado já com o número reservado e o QR.
+        const artifact=await pdfRenderer({html,filename:clean(filename)||prepared.number+'.pdf',documentId});
+        const bytes=artifact?.bytes;
+        const byteLength=bytes instanceof ArrayBuffer ? bytes.byteLength
+          : ArrayBuffer.isView(bytes) ? bytes.byteLength
+          : (typeof Blob!=='undefined' && bytes instanceof Blob) ? bytes.size : 0;
+        if(!byteLength || byteLength>10485760) {
+          throw new Error('O PDF final está vazio ou excede o limite de 10 MiB.');
+        }
+        if(artifact?.mimeType && artifact.mimeType!=='application/pdf') {
+          throw new Error('O renderizador devolveu um ficheiro que não é PDF.');
+        }
+
+        // 4. O servidor valida Storage, calcula o SHA-256 e emite atomicamente.
+        const finalized=await repository.finalizeIssuance({
+          documentId,
+          token:prepared.token,
+          artifact:{...artifact,bytes,mimeType:'application/pdf'},
+          filename:clean(filename)||prepared.number+'.pdf'
+        });
+        if(!finalized?.document || finalized.document.status!=='issued' ||
+           finalized.document.number!==prepared.number) {
+          throw new Error('O servidor não confirmou a emissão do documento com o número reservado.');
+        }
+        return Object.freeze({
+          document:Object.freeze({...finalized.document}),
+          qrDataUrl,
+          verificationUrl:prepared.verificationUrl,
+          html,
+          artifact
+        });
       },
       async createQr(payload) {
         if(typeof qrEncoder!=='function') throw new Error('Gerador de QR Code não configurado.');
