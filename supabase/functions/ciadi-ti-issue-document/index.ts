@@ -2,9 +2,9 @@ import { withSupabase } from "@supabase/server";
 import {
   DOCUMENT_BUCKET,
   MAX_PDF_BYTES,
+  TOKEN_RE,
   UUID_RE,
   corsHeaders,
-  createVerificationToken,
   isPdf,
   jsonResponse,
   sha256Hex,
@@ -33,9 +33,10 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
   }
 
   const documentId = String(form.get("document_id") || "");
+  const verificationToken = String(form.get("verification_token") || "");
   const upload = form.get("file");
-  if (!UUID_RE.test(documentId) || !(upload instanceof File)) {
-    return jsonResponse({ error: "Identificador ou ficheiro PDF em falta." }, 400);
+  if (!UUID_RE.test(documentId) || !TOKEN_RE.test(verificationToken) || !(upload instanceof File)) {
+    return jsonResponse({ error: "Identificador, token de emissão ou PDF em falta." }, 400);
   }
   if (upload.size < 1 || upload.size > MAX_PDF_BYTES || upload.type !== "application/pdf") {
     return jsonResponse({ error: "O ficheiro deve ser PDF e ter entre 1 byte e 10 MiB." }, 415);
@@ -64,15 +65,27 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
   if (documentError || !document) return jsonResponse({ error: "Documento não encontrado." }, 404);
   if (document.status !== "draft") return jsonResponse({ error: "Só é possível emitir um rascunho." }, 409);
 
+  const tokenHash = await sha256Hex(new TextEncoder().encode(verificationToken));
+  const { data: issuanceSession, error: sessionError } = await db
+    .from("document_issuance_sessions")
+    .select("id")
+    .eq("document_id", documentId)
+    .eq("actor_id", actorId)
+    .eq("token_hash", tokenHash)
+    .gt("expires_at", new Date().toISOString())
+    .is("consumed_at", null)
+    .maybeSingle();
+  if (sessionError || !issuanceSession) {
+    return jsonResponse({ error: "A sessão QR é inválida, expirou ou já foi utilizada. Prepare uma nova emissão." }, 409);
+  }
+
   const bytes = new Uint8Array(await upload.arrayBuffer());
   if (!isPdf(bytes)) return jsonResponse({ error: "O conteúdo do ficheiro não é um PDF válido." }, 415);
 
-  const token = createVerificationToken();
-  const tokenHash = await sha256Hex(new TextEncoder().encode(token));
   const fileHash = await sha256Hex(bytes);
   const verificationUrl = new URL("/functions/v1/ciadi-ti-verify-document", supabaseUrl);
   verificationUrl.searchParams.set("document_id", documentId);
-  verificationUrl.searchParams.set("token", token);
+  verificationUrl.searchParams.set("token", verificationToken);
 
   const storagePath = "suporte-informatica/" + documentId + ".pdf";
   const storage = ctx.supabaseAdmin.storage.from(DOCUMENT_BUCKET);
@@ -123,6 +136,7 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
         status: "issued",
       },
       verificationUrl: verificationUrl.toString(),
+      sha256: fileHash,
     });
   } catch (error) {
     if (!issued) {
