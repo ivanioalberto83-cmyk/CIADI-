@@ -135,11 +135,19 @@ async function renderDocuments(){
     }
     ,
     async downloadIssuedPdf(documentId){
-      const path='suporte-informatica/'+documentId+'.pdf';
-      const {data,error}=await supabase.storage.from('ciadi-ti-documentos').download(path);
+      const {data:record,error:recordError}=await supabase.schema('ciadi_ti').from('documents')
+        .select('id,status,document_number,storage_path,mime_type')
+        .eq('id',documentId).single();
+      if(recordError)throw recordError;
+      if(!record||record.status!=='issued'||!record.storage_path)throw new Error('O documento não está emitido ou não tem PDF oficial arquivado.');
+      const {data,error}=await supabase.storage.from('ciadi-ti-documentos').download(record.storage_path);
       if(error)throw error;
       if(!data)throw new Error('PDF oficial não encontrado no arquivo privado.');
-      return {bytes:new Uint8Array(await data.arrayBuffer()),mimeType:data.type||'application/pdf',filename:documentId+'.pdf'};
+      return {
+        bytes:new Uint8Array(await data.arrayBuffer()),
+        mimeType:record.mime_type||data.type||'application/pdf',
+        filename:(record.document_number||documentId)+'.pdf'
+      };
     }
   };
   const pdfRenderer=async({html,filename})=>{
