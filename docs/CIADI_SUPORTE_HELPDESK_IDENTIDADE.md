@@ -20,6 +20,12 @@ Esta entrega consolida a primeira camada operacional do Helpdesk da estação Su
 - Os 116 tipos do catálogo continuam distribuídos por oito motores. Os documentos e relatórios não-dashboard dispõem agora de formulários padrão gerados pelo perfil do respectivo motor; os dez modelos anteriores mantêm os seus campos específicos. Estes formulários padrão são uma primeira camada e não substituem ainda a validação de campos próprios de cada documento.
 - A identidade central está disponível no código; a migração integral de todos os modelos documentais continua a exigir inventário e validação individual.
 
+## Formulários e relatórios
+- O catálogo mantém 116 tipos em oito motores.
+- Os tipos documentais e relatórios não-dashboard têm formulários padrão gerados por motor; os dez modelos originais mantêm os seus campos específicos.
+- Os campos padrão ainda carecem de validação individual para cada tipo documental; os painéis e gráficos dependem da ligação às fontes operacionais.
+- A estação inclui uma vista de Auditoria e Relatórios com acções frequentes, actividade diária e registos recentes, limitada aos últimos 300 registos permitidos pela consulta.
+
 ## Dependência de dados
 O UI consulta o schema `ciadi_ti`, tabelas `helpdesk_tickets` e `helpdesk_ticket_events`. A proposta SQL está em `supabase/proposals/ciadi-ti-helpdesk-proposal.sql` e inclui referência sequencial no servidor, histórico automático, eventos de alteração e RLS. A proposta exige previamente a função `ciadi_ti.has_support_access()`; a definição dessa função não foi encontrada na branch auditada. Sem essa dependência e sem exposição validada do schema à Data API, a activação real não está homologada.
 
