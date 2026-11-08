@@ -1,7 +1,14 @@
-const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu, ipcMain } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { autoUpdater } = require('electron-updater');
+const { createDocumentPdfService } = require('./document-pdf-service.cjs');
+
+const documentPdfService = createDocumentPdfService({
+  dialog: { showSaveDialog: options => dialog.showSaveDialog(mainWindow, options) },
+  windowFactory: options => new BrowserWindow(options),
+  fs: { writeFile: (filePath, bytes) => fs.promises.writeFile(filePath, bytes) }
+});
 
 let mainWindow;
 let biometricWindow;
@@ -63,6 +70,13 @@ function openBiometricWindow() {
   biometricWindow.loadFile(path.join(__dirname, 'biometric-k20pro.html'));
   biometricWindow.on('closed', () => { biometricWindow = null; });
 }
+
+ipcMain.handle('ciadi:documents:export-issued-pdf', async (event, payload) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Origem da operação documental não autorizada.');
+  }
+  return documentPdfService.exportIssuedPdf(payload || {});
+});
 
 function installApplicationMenu() {
   const menu = Menu.buildFromTemplate([{ label: 'CIADI', submenu: [{ label: 'Assiduidade Biométrica (ZKTeco K20 Pro) — Homologação', click: openBiometricWindow }, { type: 'separator' }, { role: 'quit', label: 'Sair' }] }]);
