@@ -57,3 +57,29 @@ O UI consulta o schema `ciadi_ti`, tabelas `helpdesk_tickets` e `helpdesk_ticket
 - Atribuição por ID técnico é funcional no contrato de dados, mas a pesquisa/lista de técnicos ainda precisa de uma fonte de utilizadores autorizada.
 - Não estão implementados anexos, envio electrónico, nem cálculo automático de SLA.
 - Não aplicar a proposta SQL automaticamente.
+
+## Ciclo de recepção e reconciliação de inventário — fase de construção (2026-11-08)
+
+### Motor e interface no código
+- Criado `renderer/modules/support-inventory-lifecycle-module.js`, carregado pelo Dashboard CIADI e ligado à área de Aprovisionamento da estação Suporte Informático.
+- Recepção: o formulário permite seleccionar um pedido aprovado, armazém, referência e data do documento de entrega, e registar várias linhas com quantidades recebidas, aceites e danificadas, custo e lote.
+- A criação da recepção é uma operação RPC; fica em rascunho e não altera o stock.
+- Conferência: o estado passa de `draft` para `checked`; a operação não cria movimentos de stock.
+- Publicação: apenas uma recepção conferida pode ser finalizada. A proposta de servidor chama `post_stock_movement()` para cada quantidade aceite, dentro da mesma transacção, e impede a repetição da publicação por bloqueio do cabeçalho e validação do estado.
+- Divergências: os indicadores distinguem faltas, excessos e unidades danificadas; a quantidade danificada não é somada à quantidade aceite.
+- Inventário: uma contagem `counted` pode ser reconciliada; as diferenças positivas/negativas geram ajustes através de `post_stock_movement()` e a contagem passa a `reconciled` na mesma transacção.
+- Auditoria: a proposta regista criação e mudança de estado das recepções em `ciadi_ti.audit_events`; os movimentos continuam no razão de stock existente.
+- A interface apresenta contagens, estados e divergências; os totais dependem dos registos efectivamente consultados e não são apresentados como totais globais quando a consulta está limitada.
+
+### Proposta de base de dados
+- Ficheiro: `supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql`.
+- Cria `goods_receipts` e `goods_receipt_lines`, com RLS e leitura limitada a perfis reconhecidos pelo helper existente.
+- As operações de criação, conferência, finalização e reconciliação são propostas como RPCs: `create_goods_receipt()`, `check_goods_receipt()`, `finalize_goods_receipt()` e `reconcile_inventory_count()`.
+- A proposta não foi executada no Supabase remoto. A interface apresenta a dependência como pendente quando as tabelas ainda não estão disponíveis na Data API.
+- A função existente `has_support_access()` reconhece `admin`, `gestor` e `suporte_informatica`; o serviço de interface desta estação só disponibiliza as acções ao perfil `suporte_informatica`. O endurecimento e homologação das permissões de servidor pertencem ao ponto 7 e não foram aplicados nesta fase.
+
+### Limites ainda por homologar
+- Não foi executada qualquer migração, RPC, INSERT, UPDATE, alteração RLS, alteração de contas ou operação de Storage no Supabase remoto.
+- Não foram testados perfis reais contra as novas RPCs; a proposta requer revisão SQL, validação de grants e confirmação de exposição do schema `ciadi_ti` à Data API.
+- A proposta não marca automaticamente a encomenda como integralmente recebida: permite recepções parciais sem alterar o estado financeiro aprovado.
+- A interface e o motor têm testes automatizados de contrato; a execução real de ponta a ponta depende da aplicação aprovada da proposta num ambiente isolado e da homologação dos dados.
