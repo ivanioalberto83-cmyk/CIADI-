@@ -25,7 +25,6 @@ Deno.test("SHA-256 returns lowercase 64-character hex", async () => {
   if (hash !== "e9a276d5e5a1d6a326f185a37f93bc3ce5430690ba302dd4cf7d83a6c05e4d6f") {
     throw new Error("SHA-256 known-answer vector mismatch");
   }
-  }
 });
 
 Deno.test("constant-time comparison rejects mismatches", () => {
