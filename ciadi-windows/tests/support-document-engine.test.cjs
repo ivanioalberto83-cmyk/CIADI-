@@ -40,21 +40,39 @@ test('envio exige documento emitido e destinatário',async()=>{
   await assert.rejects(()=>s.send({status:'issued'},''),/Destinatário obrigatório/);
 });
 
-test('emissão usa operação atómica do repositório e QR recebe apenas URL de verificação',async()=>{
+test('emissão prepara número e QR antes de compor e arquivar o PDF final',async()=>{
   const calls=[];
   const repository={
-    save:async doc=>({...doc,id:'doc-1'}),
-    issueDraft:async id=>{calls.push(['issue',id]);return {document:{id,number:'SUP-INC/2026/000001',status:'issued'},verificationUrl:'https://ciadi.ao/validar-documento/doc-1?token=abcdefghijklmnopqrstuvwxyz123456'};}
+    prepareIssuance:async id=>{calls.push(['prepare',id]);return {number:'SUP-SUP-INC/2026/000001',token:'abcdefghijklmnopqrstuvwxyz1234567890',verificationUrl:'https://ciadi.ao/validar-documento/doc-1?token=abcdefghijklmnopqrstuvwxyz1234567890'};},
+    finalizeIssuance:async input=>{calls.push(['finalize',input]);return {document:{id:input.documentId,number:'SUP-SUP-INC/2026/000001',status:'issued'}};}
   };
-  const qrEncoder=async url=>{calls.push(['qr',url]);return 'data:image/png;base64,QR';};
-  const pdfExporter=async ({html,filename})=>({filename,bytes:html.length});
-  const service=engine.createDocumentService({repository,qrEncoder,pdfExporter});
-  const issued=await service.issue('doc-1');
+  const qrEncoder=async url=>{calls.push(['qr',url]);return 'data:image/svg+xml;base64,PHN2Zy8+';};
+  const pdfRenderer=async input=>{calls.push(['pdf',input]);return {bytes:new Uint8Array([37,80,68,70]),mimeType:'application/pdf',filename:'documento.pdf'};};
+  const renderHtml=async input=>{calls.push(['html',input]);return '<html><body><img src="'+input.qrDataUrl+'"></body></html>';};
+  const service=engine.createDocumentService({repository,qrEncoder,pdfRenderer});
+  const issued=await service.issue('doc-1',{renderHtml,filename:'documento.pdf'});
   assert.equal(issued.document.status,'issued');
-  assert.equal(issued.document.number,'SUP-INC/2026/000001');
-  assert.equal(issued.qrDataUrl,'data:image/png;base64,QR');
-  assert.deepEqual(calls[0],['issue','doc-1']);
-  assert.match(calls[1][1],/^https:\/\//);
+  assert.equal(issued.document.number,'SUP-SUP-INC/2026/000001');
+  assert.equal(issued.qrDataUrl,'data:image/svg+xml;base64,PHN2Zy8+');
+  assert.deepEqual(calls.map(x=>x[0]),['prepare','qr','html','pdf','finalize']);
+  assert.match(calls[2][1].verificationUrl,/^https:\\/\\//);
+  assert.match(calls[2][1].qrDataUrl,/^data:image\\//);
+  assert.equal(calls[4][1].token,'abcdefghijklmnopqrstuvwxyz1234567890');
+  assert.equal(calls[4][1].artifact.mimeType,'application/pdf');
+});
+test('emissão não finaliza se o QR ou o PDF falharem',async()=>{
+  let finalized=false;
+  const repository={
+    prepareIssuance:async()=>({number:'SUP-SUP-INC/2026/000002',token:'abcdefghijklmnopqrstuvwxyz1234567890',verificationUrl:'https://ciadi.ao/validar'}),
+    finalizeIssuance:async()=>{finalized=true;return {document:{status:'issued'}};}
+  };
+  const service=engine.createDocumentService({
+    repository,
+    qrEncoder:async()=>{throw new Error('QR indisponível');},
+    pdfRenderer:async()=>({bytes:new Uint8Array([1]),mimeType:'application/pdf'})
+  });
+  await assert.rejects(()=>service.issue('doc-2',{renderHtml:async()=>'<html/>',filename:'x.pdf'}),/QR indisponível/);
+  assert.equal(finalized,false);
 });
 test('emissão falha sem operação atómica do servidor e não cria número local',async()=>{
   const service=engine.createDocumentService({repository:{save:async x=>x}});
