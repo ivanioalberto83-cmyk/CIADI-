@@ -31,6 +31,7 @@ jobs:
       - name: Verificar sintaxe do motor e da ponte Electron
         run: |
           node --check renderer/modules/support-operations-module.js
+          node --check renderer/modules/support-inventory-lifecycle-module.js
           node --check renderer/modules/support-document-engine.js
           node --check renderer/modules/support-helpdesk-module.js
           node --check renderer/core/institutional-identity-service.js
