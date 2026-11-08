@@ -24,13 +24,14 @@
       const received = finiteNonNegative(line?.received_quantity, 'Recebida');
       const accepted = finiteNonNegative(line?.accepted_quantity, 'Aceite');
       const damaged = finiteNonNegative(line?.damaged_quantity ?? 0, 'Danificada');
+      const returned = finiteNonNegative(line?.returned_quantity ?? 0, 'Devolvida');
       if (accepted > received) {
         throw new Error('A quantidade aceite não pode exceder a quantidade recebida.');
       }
-      if (damaged > received || accepted + damaged > received) {
-        throw new Error('As quantidades aceite e danificada não podem exceder a quantidade recebida.');
+      if (damaged > received || returned > received || accepted + damaged + returned > received) {
+        throw new Error('As quantidades aceite, danificada e devolvida não podem exceder a quantidade recebida.');
       }
-      return { ordered_quantity: ordered, received_quantity: received, accepted_quantity: accepted, damaged_quantity: damaged };
+      return { ordered_quantity: ordered, received_quantity: received, accepted_quantity: accepted, damaged_quantity: damaged, returned_quantity: returned };
     });
   }
 
@@ -38,7 +39,7 @@
     const receipts = Array.isArray(rows) ? rows : [];
     const summary = {
       total: receipts.length, draft: 0, checked: 0, posted: 0,
-      receivedQuantity: 0, acceptedQuantity: 0, damagedQuantity: 0, discrepancies: 0
+      receivedQuantity: 0, acceptedQuantity: 0, damagedQuantity: 0, returnedQuantity: 0, returns: 0, discrepancies: 0
     };
     for (const receipt of receipts) {
       const status = String(receipt?.status || '').toLowerCase();
@@ -46,9 +47,12 @@
       const received = Number(receipt?.received_quantity || 0);
       const accepted = Number(receipt?.accepted_quantity || 0);
       const damaged = Number(receipt?.damaged_quantity || 0);
+      const returned = Number(receipt?.returned_quantity || 0);
       if (Number.isFinite(received)) summary.receivedQuantity += received;
       if (Number.isFinite(accepted)) summary.acceptedQuantity += accepted;
       if (Number.isFinite(damaged)) summary.damagedQuantity += damaged;
+      if (Number.isFinite(returned)) summary.returnedQuantity += returned;
+      if (returned > 0) summary.returns += 1;
       if (['checked', 'posted'].includes(status) && (received !== accepted || damaged > 0)) summary.discrepancies += 1;
     }
     return summary;
@@ -57,14 +61,15 @@
   function summarizeReceiptDiscrepancies(lines = []) {
     const rows = Array.isArray(lines) ? lines : [];
     const result = {
-      lines: rows.length, shortages: 0, excesses: 0, damagedLines: 0,
-      shortageQuantity: 0, excessQuantity: 0, damagedQuantity: 0
+      lines: rows.length, shortages: 0, excesses: 0, damagedLines: 0, returnedLines: 0,
+      shortageQuantity: 0, excessQuantity: 0, damagedQuantity: 0, returnedQuantity: 0
     };
     for (const line of rows) {
       const ordered = Number(line?.ordered_quantity);
       const received = Number(line?.received_quantity);
       const damaged = Number(line?.damaged_quantity || 0);
-      if (![ordered, received, damaged].every(Number.isFinite)) continue;
+      const returned = Number(line?.returned_quantity || 0);
+      if (![ordered, received, damaged, returned].every(Number.isFinite)) continue;
       if (received < ordered) {
         result.shortages += 1;
         result.shortageQuantity += ordered - received;
@@ -75,6 +80,10 @@
       if (damaged > 0) {
         result.damagedLines += 1;
         result.damagedQuantity += damaged;
+      }
+      if (returned > 0) {
+        result.returnedLines += 1;
+        result.returnedQuantity += returned;
       }
     }
     return result;
@@ -141,7 +150,8 @@
           ordered_quantity: line.ordered_quantity ?? 0,
           received_quantity: line.received_quantity,
           accepted_quantity: line.accepted_quantity,
-          damaged_quantity: line.damaged_quantity ?? 0
+          damaged_quantity: line.damaged_quantity ?? 0,
+          returned_quantity: line.returned_quantity ?? 0
         }])[0];
         let unitCost = null;
         if (line.unit_cost !== undefined && line.unit_cost !== null && line.unit_cost !== '') {
@@ -153,6 +163,7 @@
           received_quantity: quantities.received_quantity,
           accepted_quantity: quantities.accepted_quantity,
           damaged_quantity: quantities.damaged_quantity,
+          returned_quantity: quantities.returned_quantity,
           unit_cost: unitCost,
           lot_code: String(line.lot_code || '').trim() || null,
           notes: String(line.notes || '').trim() || null
