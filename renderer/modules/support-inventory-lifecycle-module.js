@@ -122,7 +122,59 @@
       if (!result?.data) throw new Error('A operação transaccional não devolveu confirmação.');
       return result.data;
     }
+    async function createGoodsReceipt(input = {}) {
+      ensureAccess();
+      if (typeof input.purchaseRequestId !== 'string' || !input.purchaseRequestId.trim()) {
+        throw new Error('Pedido de aquisição obrigatório para a recepção.');
+      }
+      if (typeof input.warehouseId !== 'string' || !input.warehouseId.trim()) {
+        throw new Error('Armazém obrigatório para a recepção.');
+      }
+      if (!Array.isArray(input.lines) || input.lines.length === 0) {
+        throw new Error('A recepção deve conter pelo menos uma linha.');
+      }
+      const lines = input.lines.map((line) => {
+        if (typeof line?.purchaseRequestLineId !== 'string' || !line.purchaseRequestLineId.trim()) {
+          throw new Error('Cada linha deve conter uma referência à linha da encomenda.');
+        }
+        const quantities = validateReceiptLines([{
+          ordered_quantity: line.ordered_quantity ?? 0,
+          received_quantity: line.received_quantity,
+          accepted_quantity: line.accepted_quantity,
+          damaged_quantity: line.damaged_quantity ?? 0
+        }])[0];
+        let unitCost = null;
+        if (line.unit_cost !== undefined && line.unit_cost !== null && line.unit_cost !== '') {
+          unitCost = Number(line.unit_cost);
+          if (!Number.isFinite(unitCost) || unitCost < 0) throw new Error('Custo unitário inválido.');
+        }
+        return {
+          purchase_request_line_id: line.purchaseRequestLineId,
+          received_quantity: quantities.received_quantity,
+          accepted_quantity: quantities.accepted_quantity,
+          damaged_quantity: quantities.damaged_quantity,
+          unit_cost: unitCost,
+          lot_code: String(line.lot_code || '').trim() || null,
+          notes: String(line.notes || '').trim() || null
+        };
+      });
+      const result = await db.rpc('create_goods_receipt', {
+        p_purchase_request_id: input.purchaseRequestId,
+        p_warehouse_id: input.warehouseId,
+        p_delivery_reference: String(input.deliveryReference || '').trim() || null,
+        p_delivery_date: input.deliveryDate || null,
+        p_notes: String(input.notes || '').trim() || null,
+        p_lines: lines
+      });
+      if (result?.error) throw result.error;
+      if (!result?.data) throw new Error('O servidor não confirmou a criação da recepção.');
+      return result.data;
+    }
     return Object.freeze({
+      createGoodsReceipt,
+      checkGoodsReceipt(receiptId) {
+        return invoke('check_goods_receipt', receiptId, 'p_receipt_id');
+      },
       finalizeGoodsReceipt(receiptId) {
         return invoke('finalize_goods_receipt', receiptId, 'p_receipt_id');
       },
