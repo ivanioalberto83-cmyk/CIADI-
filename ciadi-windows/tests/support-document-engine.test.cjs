@@ -78,11 +78,15 @@ test('emissão falha sem operação atómica do servidor e não cria número loc
   const service=engine.createDocumentService({repository:{save:async x=>x}});
   await assert.rejects(()=>service.issue('doc-1'),/preparação e finalização atómicas/);
 });
-test('PDF só é exportado a partir de documento emitido e HTML final com QR',async()=>{
-  let exported;
-  const service=engine.createDocumentService({pdfExporter:async x=>(exported=x,{ok:true})});
-  await assert.rejects(()=>service.exportIssuedPdf({status:'draft'},'<html/>','draft.pdf'),/documento emitido/);
-  await service.exportIssuedPdf({status:'issued'},'<html>QR</html>','issued.pdf');
-  assert.match(exported.html,/QR/);
-  assert.equal(exported.filename,'issued.pdf');
+test('exportação descarrega o PDF oficial arquivado sem o voltar a compor',async()=>{
+  let downloadedId=null,exported=null;
+  const archivedBytes=new Uint8Array([37,80,68,70,45,49]);
+  const repository={downloadIssuedPdf:async id=>{downloadedId=id;return {bytes:archivedBytes,mimeType:'application/pdf',filename:'oficial.pdf'};}};
+  const service=engine.createDocumentService({repository,pdfExporter:async input=>(exported=input,{saved:true})});
+  await assert.rejects(()=>service.exportIssuedPdf({status:'draft',id:'doc-1'},'draft.pdf'),/documento emitido/);
+  await service.exportIssuedPdf({status:'issued',id:'doc-1',number:'SUP-REL/2026/000001'},'copia.pdf');
+  assert.equal(downloadedId,'doc-1');
+  assert.equal(exported.bytes,archivedBytes);
+  assert.equal(exported.filename,'copia.pdf');
+  assert.equal(exported.mimeType,'application/pdf');
 });
