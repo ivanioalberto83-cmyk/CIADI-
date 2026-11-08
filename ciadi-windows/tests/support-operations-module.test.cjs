@@ -276,5 +276,5 @@ test('o painel de aprovisionamento consulta e agrega devoluções de mercadorias
   const fs = require('node:fs');
   const source = fs.readFileSync(require.resolve('../../renderer/modules/support-operations-module.js'), 'utf8');
   assert.match(source, /\['goods_receipt_lines','[^']*returned_quantity/);
-  assert.match(source, /returned_quantity:receiptLineRows\.reduce/);
+  assert.match(source, /returned_quantity:lines\.reduce/);
 });
