@@ -62,7 +62,7 @@ O UI consulta o schema `ciadi_ti`, tabelas `helpdesk_tickets` e `helpdesk_ticket
 
 ### Motor e interface no código
 - Criado `renderer/modules/support-inventory-lifecycle-module.js`, carregado pelo Dashboard CIADI e ligado à área de Aprovisionamento da estação Suporte Informático.
-- Recepção: o formulário permite seleccionar um pedido aprovado, armazém, referência e data do documento de entrega, e registar várias linhas com quantidades recebidas, aceites, danificadas e devolvidas ao fornecedor, custo e lote.
+- Recepção: o formulário exige a referência do documento de entrega do fornecedor, permite seleccionar um pedido aprovado e armazém, registar a data e várias linhas com quantidades recebidas, aceites, danificadas e devolvidas ao fornecedor, custo e lote.
 - A criação da recepção é uma operação RPC; fica em rascunho e não altera o stock.
 - Conferência: o estado passa de `draft` para `checked`; a operação não cria movimentos de stock e exige classificar todas as unidades recebidas como aceites, danificadas ou devolvidas.
 - Publicação: apenas uma recepção conferida pode ser finalizada. A proposta de servidor chama `post_stock_movement()` para cada quantidade aceite, dentro da mesma transacção, e impede a repetição da publicação por bloqueio do cabeçalho e validação do estado.
