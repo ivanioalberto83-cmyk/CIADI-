@@ -136,6 +136,13 @@ test('cria recepção em rascunho através de RPC e não aceita linhas sem refer
     purchaseRequestId: 'request-1', warehouseId: 'warehouse-1',
     lines: [{ received_quantity: 1, accepted_quantity: 1, damaged_quantity: 0 }]
   }), /referência à linha da encomenda/);
+  await assert.rejects(() => service.createGoodsReceipt({
+    purchaseRequestId: 'request-1', warehouseId: 'warehouse-1',
+    deliveryReference: ' ', lines: [{
+      purchaseRequestLineId: 'line-1', received_quantity: 1,
+      accepted_quantity: 1, damaged_quantity: 0, returned_quantity: 0
+    }]
+  }), /documento de entrega/);
 });
 
 test('marca recepção conferida através de RPC sem alterar stock antes da finalização', async () => {
