@@ -121,7 +121,8 @@ create table ciadi_ti.document_issuance_sessions (
   token_hash text not null unique check (token_hash ~ '^[a-f0-9]{64}
 alter table ciadi_ti.documents enable row level security;
 alter table ciadi_ti.document_sequences enable row level security;
-alter table ciadi_ti.document_events enable row level security;\nalter table ciadi_ti.document_issuance_sessions enable row level security;
+alter table ciadi_ti.document_events enable row level security;
+alter table ciadi_ti.document_issuance_sessions enable row level security;
 
 create policy ciadi_ti_documents_read
   on ciadi_ti.documents for select to authenticated
@@ -208,7 +209,8 @@ declare
   v_year integer := extract(year from (now() at time zone 'Africa/Luanda'))::integer;
   v_next bigint;
   v_number text;
-  v_path text;\n  v_session_id uuid;
+  v_path text;
+  v_session_id uuid;
 begin
   if p_actor_id is null
      or not exists (
@@ -311,7 +313,8 @@ grant execute on function ciadi_ti.issue_document(uuid, uuid, text, text, bigint
 
 revoke all on ciadi_ti.documents from anon;
 revoke all on ciadi_ti.document_sequences from anon, authenticated;
-revoke all on ciadi_ti.document_events from anon;\nrevoke all on ciadi_ti.document_issuance_sessions from anon, authenticated;
+revoke all on ciadi_ti.document_events from anon;
+revoke all on ciadi_ti.document_issuance_sessions from anon, authenticated;
 grant usage on schema ciadi_ti to authenticated, service_role;
 grant select, insert, update on ciadi_ti.documents to authenticated;
 grant select on ciadi_ti.document_events to authenticated;
@@ -320,7 +323,8 @@ grant select on ciadi_ti.document_events to authenticated;
 -- server-written audit events. Do not grant service_role direct UPDATE/DELETE
 -- on documents; issuance remains behind issue_document().
 grant select on ciadi_ti.documents to service_role;
-grant select, insert on ciadi_ti.document_events to service_role;\ngrant select, insert, update on ciadi_ti.document_issuance_sessions to service_role;
+grant select, insert on ciadi_ti.document_events to service_role;
+grant select, insert, update on ciadi_ti.document_issuance_sessions to service_role;
 
 commit;
 
