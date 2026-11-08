@@ -47,7 +47,7 @@
 
         // 1. O servidor reserva número e cria uma sessão QR de curta duração.
         const prepared=await repository.prepareIssuance(documentId);
-        if(!prepared || !clean(prepared.number) || !clean(prepared.token) || !/^https:\\/\\//i.test(clean(prepared.verificationUrl))) {
+        if(!prepared || !clean(prepared.number) || !clean(prepared.token) || !clean(prepared.verificationUrl).startsWith('https://')) {
           throw new Error('O servidor não devolveu uma sessão de emissão válida.');
         }
         if(!/^[A-Za-z0-9_-]{32,128}$/.test(prepared.token)) {
@@ -56,7 +56,7 @@
 
         // 2. O QR é composto antes do PDF definitivo.
         const qrDataUrl=await qrEncoder(prepared.verificationUrl);
-        if(typeof qrDataUrl!=='string' || !/^data:image\\//i.test(qrDataUrl)) {
+        if(typeof qrDataUrl!=='string' || !qrDataUrl.startsWith('data:image/')) {
           throw new Error('O gerador não devolveu uma imagem QR válida.');
         }
         const html=await renderHtml({
