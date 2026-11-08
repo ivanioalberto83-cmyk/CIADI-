@@ -76,7 +76,7 @@ test('emissão não finaliza se o QR ou o PDF falharem',async()=>{
 });
 test('emissão falha sem operação atómica do servidor e não cria número local',async()=>{
   const service=engine.createDocumentService({repository:{save:async x=>x}});
-  await assert.rejects(()=>service.issue('doc-1'),/emissão atómica/);
+  await assert.rejects(()=>service.issue('doc-1'),/preparação e finalização atómicas/);
 });
 test('PDF só é exportado a partir de documento emitido e HTML final com QR',async()=>{
   let exported;
