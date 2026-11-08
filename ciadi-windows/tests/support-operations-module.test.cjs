@@ -270,3 +270,11 @@ test('identifica stock abaixo do mínimo sem alertar artigos com mínimo zero', 
   assert.equal(result.belowMinimum, 1);
   assert.deepEqual(result.items.map(x => x.sku), ['TI-01', 'TI-02']);
 });
+
+
+test('o painel de aprovisionamento consulta e agrega devoluções de mercadorias', () => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync(require.resolve('../../renderer/modules/support-operations-module.js'), 'utf8');
+  assert.match(source, /\['goods_receipt_lines','[^']*returned_quantity/);
+  assert.match(source, /returned_quantity:receiptLineRows\.reduce/);
+});
