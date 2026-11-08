@@ -28,5 +28,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Verificar sintaxe do motor e da ponte Electron
+        run: |
+          node --check renderer/modules/support-operations-module.js
+          node --check renderer/modules/support-document-engine.js
+          node --check ciadi-windows/main.cjs
+          node --check ciadi-windows/preload.cjs
+          node --check ciadi-windows/document-pdf-service.cjs
       - name: Executar testes de módulos e arquitectura
         run: node --test ciadi-windows/tests/*.test.cjs
