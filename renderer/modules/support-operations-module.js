@@ -44,7 +44,7 @@ function createProcurementService({db,role,actorId,now=()=>new Date().toISOStrin
   function positiveNumber(value,label){const n=Number(value);if(!Number.isFinite(n)||n<=0)throw new Error(label+' deve ser superior a zero.');return n;}
   function nonNegativeOrNull(value,label){if(value===undefined||value===null||value==='')return null;const n=Number(value);if(!Number.isFinite(n)||n<0)throw new Error(label+' inválido.');return n;}
   function pick(source,keys){const out={};for(const key of keys)if(source&&source[key]!==undefined)out[key]=source[key];return out;}
-  async function insertOne(table,payload){const result=await db.from(table).insert(payload).select().single();if(result?.error)throw result.error;if(!result?.data)throw new Error('A base de dados não devolveu o registo criado.');return result.data;}
+  async function insertOne(table,payload){const result=await db.from(table).insert(payload).select().single();if(result?.error)throw result.error;if(!result?.data)throw new Error('A base de dados não devolveu o registo criado.');return result;}
   async function insertMany(table,payload){if(!payload.length)return[];const result=await db.from(table).insert(payload).select();if(result?.error)throw result.error;return result?.data||[];}
   function normalizeLines(lines){
     if(!Array.isArray(lines)||!lines.length)throw new Error('Adicione pelo menos uma linha ao pedido.');
@@ -70,10 +70,11 @@ function createProcurementService({db,role,actorId,now=()=>new Date().toISOStrin
       const lines=normalizeLines(input?.lines);
       const estimatedTotal=lines.every(line=>line.estimated_unit_cost!==null)
         ? lines.reduce((sum,line)=>sum+line.quantity*line.estimated_unit_cost,0):null;
-      const request=await insertOne('purchase_requests',{
+      const requestResult=await insertOne('purchase_requests',{
         requested_by:actorId,supplier_id:input?.supplier_id||null,status:'draft',
         justification:cleanText(input?.justification,4000),estimated_total:estimatedTotal
       });
+      const request=requestResult.data;
       try{
         const savedLines=await insertMany('purchase_request_lines',lines.map(line=>({...line,request_id:request.id})));
         return Object.freeze({request,lines:savedLines});
@@ -138,10 +139,11 @@ function createProcurementService({db,role,actorId,now=()=>new Date().toISOStrin
         if(!line.item_id||!Number.isFinite(systemQuantity)||systemQuantity<0||!Number.isFinite(countedQuantity)||countedQuantity<0)throw new Error('Artigo e quantidades não negativas são obrigatórios na contagem.');
         return {item_id:line.item_id,system_quantity:systemQuantity,counted_quantity:countedQuantity,notes:String(line.notes||'').trim()||null};
       });
-      const count=await insertOne('inventory_counts',{
+      const countResult=await insertOne('inventory_counts',{
         warehouse_id:cleanText(input?.warehouse_id,80),status:'draft',counted_by:actorId,
         notes:String(input?.notes||'').trim()||null
       });
+      const count=countResult.data;
       try{
         const savedLines=await insertMany('inventory_count_lines',lines.map(line=>({...line,count_id:count.id})));
         return Object.freeze({count,lines:savedLines});
