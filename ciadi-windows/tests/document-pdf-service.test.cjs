@@ -63,3 +63,24 @@ test('inclui o serviço PDF no pacote Windows', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   assert.ok(packageJson.build.files.includes('document-pdf-service.cjs'));
 });
+
+
+test('gera bytes PDF A4 para a emissão antes de abrir a caixa de exportação', async () => {
+  const h = harness();
+  const bytes = await h.service.renderPdfBytes({
+    html: '<!doctype html><html><body>CIADI QR</body></html>'
+  });
+  assert.ok(bytes instanceof Uint8Array);
+  assert.equal(Buffer.from(bytes).toString(), '%PDF-test');
+  assert.ok(h.calls.some(x => x[0] === 'loadURL'));
+  assert.ok(h.calls.some(x => x[0] === 'printToPDF'));
+  assert.ok(h.calls.some(x => x[0] === 'close'));
+  assert.equal(h.writes.length, 0);
+  assert.equal(h.calls.some(x => x[0] === 'dialog'), false);
+});
+
+test('recusa HTML vazio na geração dos bytes PDF', async () => {
+  const h = harness();
+  await assert.rejects(() => h.service.renderPdfBytes({ html: '' }), /HTML.*obrigatório/);
+  assert.equal(h.calls.length, 0);
+});
