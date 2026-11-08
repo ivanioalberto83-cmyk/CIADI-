@@ -29,7 +29,7 @@ test('exporta PDF apenas de documento emitido e grava o ficheiro escolhido', asy
     html: '<!doctype html><html><body>CIADI</body></html>',
     filename: 'relatorio-incidente.pdf'
   });
-  assert.deepEqual(result, { saved: true, filePath: '/tmp/CIADI-documento.pdf' });
+  assert.deepEqual(result, { saved: true, filePath: '/tmp/CIADI-documento.pdf', source: 'rendered' });
   assert.equal(h.writes.length, 1);
   assert.equal(h.writes[0].path, '/tmp/CIADI-documento.pdf');
   assert.equal(h.writes[0].bytes.toString(), '%PDF-test');
