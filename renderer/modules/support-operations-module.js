@@ -137,7 +137,7 @@ async function renderDocuments(){
   function drawFields(){
     const t=templates[Number(select.value)];
     fields.innerHTML=t.fields.map(f=>'<label class="block text-sm font-semibold">'+esc(f.label)+(f.required?' *':'')+(f.type==='textarea'?'<textarea data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1" rows="3"></textarea>':f.type==='select'?'<select data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1"><option value="">Seleccionar…</option>'+f.options.map(o=>'<option value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select>':'<input data-field="'+esc(f.key)+'" type="'+(f.type==='number'?'number':f.type==='date'?'date':'text')+'" '+(f.type==='number'?'min="0" step="any"':'')+' class="block w-full border rounded-xl p-3 mt-1">')+'</label>').join('');
-    errors.textContent='';preview.innerHTML='';latestHtml='';latestDraft=null;latestValues=null;latestTemplate=null;issue.disabled=true;print.disabled=true;send.disabled=true;
+    errors.textContent='';preview.innerHTML='';latestHtml='';latestDraft=null;latestValues=null;latestTemplate=null;root.querySelector('#it-document-preview').disabled=false;issue.disabled=true;print.disabled=true;send.disabled=true;
     state.textContent='Preencha os campos obrigatórios para guardar um rascunho.';
   }
   select.addEventListener('change',drawFields);
@@ -156,7 +156,7 @@ async function renderDocuments(){
       latestHtml=engine.renderDocumentHtml({template:t,values,metadata:{number:'RASCUNHO — SEM NUMERAÇÃO OFICIAL',createdAt:latestDraft.createdAt,status:'Não emitido'}});
       preview.innerHTML='<div class="overflow-auto rounded-xl bg-slate-100 p-3"><div class="mx-auto bg-white shadow-xl" style="max-width:210mm">'+latestHtml+'</div></div>';
       errors.textContent='';state.textContent='Rascunho guardado no arquivo CIADI. Referência: '+saved.id;
-      issue.disabled=false;print.disabled=true;send.disabled=true;
+      root.querySelector('#it-document-preview').disabled=true;issue.disabled=false;print.disabled=true;send.disabled=true;
     }catch(e){errors.textContent='Não foi possível guardar o rascunho: '+(e?.message||'erro desconhecido');state.textContent='O documento não foi confirmado no arquivo.';issue.disabled=true;}
   });
   issue.addEventListener('click',async()=>{
