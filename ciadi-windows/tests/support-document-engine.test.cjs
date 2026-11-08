@@ -20,7 +20,7 @@ test('cria rascunho sem atribuir numeração oficial no cliente',()=>{
 test('gera HTML A4 com identidade CIADI e escapa valores não confiáveis',()=>{
   const t=engine.TEMPLATES.find(x=>x.code==='SUP-INC');
   const html=engine.renderDocumentHtml({template:t,values:{incident_title:'<script>alert(1)</script>',detected_at:'2026-11-06 10:00',affected_service:'Rede',impact:'Interrupção',actions:'Diagnóstico',resolution:'Restabelecido'}});
-  assert.match(html,/CENTRO INTEGRADO DE APOIO E DESENVOLVIMENTO INDIVIDUAL/);assert.match(html,/#f58200/);assert.match(html,/data:image\\/png;base64/);assert.doesNotMatch(html,/<script>/);assert.match(html,/&lt;script&gt;/);assert.match(html,/QR Code: por gerar/);
+  assert.match(html,/CENTRO INTEGRADO DE APOIO E DESENVOLVIMENTO INDIVIDUAL/);assert.match(html,/#f58200/);assert.ok(html.includes('data:image/png;base64'));assert.doesNotMatch(html,/<script>/);assert.match(html,/&lt;script&gt;/);assert.match(html,/QR Code: por gerar/);
 });
 test('QR de autenticação exige URL HTTPS e token aleatório válido',()=>{
   const p=engine.makeVerificationPayload({documentId:'doc-123',token:'Abcdefghijklmnopqrstuvwxyz123456',verificationBaseUrl:'https://ciadi.ao'});
