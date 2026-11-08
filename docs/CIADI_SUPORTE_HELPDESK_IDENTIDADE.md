@@ -36,6 +36,7 @@ Esta entrega consolida a primeira camada operacional do Helpdesk da estação Su
 - Registar entradas, saídas, ajustes e devoluções usando exclusivamente `post_stock_movement()`.
 - Transferir stock entre armazéns usando exclusivamente `transfer_stock()`, sem inserts directos na tabela de movimentos.
 - Criar contagens físicas em rascunho e marcar a contagem como concluída; a reconciliação final permanece separada.
+- Os formulários actuais criam uma linha por operação; o serviço aceita várias linhas e inclui um fluxo de recuperação para cabeçalhos de pedido/contagem que fiquem gravados se a inserção das linhas falhar.
 - Consultar a vista de saldos existente `stock_balances`.
 
 ## Formulários e relatórios
