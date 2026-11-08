@@ -32,6 +32,8 @@ jobs:
         run: |
           node --check renderer/modules/support-operations-module.js
           node --check renderer/modules/support-document-engine.js
+          node --check renderer/modules/support-helpdesk-module.js
+          node --check renderer/core/institutional-identity-service.js
           node --check ciadi-windows/main.cjs
           node --check ciadi-windows/preload.cjs
           node --check ciadi-windows/document-pdf-service.cjs
