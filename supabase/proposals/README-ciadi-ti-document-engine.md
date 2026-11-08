@@ -55,3 +55,11 @@
 ## Ficheiros
 
 - `ciadi-ti-document-engine-proposal.sql`: SQL proposto, corrigido nesta revisão, ainda sujeito a validação num ambiente isolado.
+
+## Revisão adicional — privilégios e testes isolados
+
+- A função RPC de emissão está no schema personalizado `ciadi_ti`. Por isso, a proposta concede explicitamente `USAGE` nesse schema a `service_role`, além de `EXECUTE` na função; sem ambos, a Edge Function pode não conseguir invocar a RPC.
+- As Edge Functions de confiança precisam de consultar os metadados documentais e registar eventos. A proposta concede a `service_role` apenas `SELECT` em `documents` e `SELECT/INSERT` em `document_events`; não concede actualização ou eliminação directa de documentos emitidos.
+- Foi acrescentado um harness PostgreSQL isolado em `supabase/tests/`, com objectos mínimos compatíveis com Supabase, execução da proposta e verificações de RLS, emissão, sequência, registo de evento e imutabilidade.
+- O harness é uma simulação PostgreSQL, não substitui um teste Supabase local/real: não valida o comportamento interno real do Storage, JWT/Edge Runtime, Data API, Advisors ou concorrência de múltiplas emissões.
+- A exposição do schema `ciadi_ti` à Data API continua a ser uma configuração explícita a confirmar. Não expor o schema a `anon`; conceder apenas o acesso autenticado estritamente necessário.
