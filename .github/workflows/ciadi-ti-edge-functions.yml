@@ -1,0 +1,33 @@
+name: CIADI TI Edge Functions — checks
+
+on:
+  push:
+    branches:
+      - feature/ciadi-ti-document-engine-edge-functions-20261108
+    paths:
+      - 'supabase/config.toml'
+      - 'supabase/functions/**'
+      - '.github/workflows/ciadi-ti-edge-functions.yml'
+  pull_request:
+    branches:
+      - feature/ciadi-ti-document-engine-postgres-tests-20261108
+    paths:
+      - 'supabase/config.toml'
+      - 'supabase/functions/**'
+      - '.github/workflows/ciadi-ti-edge-functions.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deno:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Verificar tipos das Edge Functions
+        run: deno check --config supabase/functions/deno.json supabase/functions/ciadi-ti-issue-document/index.ts supabase/functions/ciadi-ti-verify-document/index.ts supabase/functions/_shared/document.test.ts
+      - name: Testes unitários de segurança documental
+        run: deno test --config supabase/functions/deno.json supabase/functions/_shared/document.test.ts
