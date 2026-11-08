@@ -36,7 +36,7 @@ declare
 begin
   select * into v_doc
   from ciadi_ti.documents
-  where id = :'draft_id'::uuid;
+  where title = 'Relatório de teste';
 
   if v_doc.status <> 'issued'
      or v_doc.document_number !~ '^SUP-REL/[0-9]{4}/[0-9]{6}$'
@@ -57,7 +57,7 @@ reset role;
 
 do $$
 begin
-  if (select title from ciadi_ti.documents where id = :'draft_id'::uuid) <> 'Relatório de teste' then
+  if (select title from ciadi_ti.documents where title = 'Relatório de teste') <> 'Relatório de teste' then
     raise exception 'RLS allowed an issued document to be changed';
   end if;
 end
@@ -108,7 +108,7 @@ reset role;
 do $$
 begin
   if (select count(*) from ciadi_ti.document_events
-      where document_id = :'draft_id'::uuid and event_type = 'issued') <> 1 then
+      where document_id = (select id from ciadi_ti.documents where title = 'Relatório de teste') and event_type = 'issued') <> 1 then
     raise exception 'Expected exactly one issued event';
   end if;
 end
