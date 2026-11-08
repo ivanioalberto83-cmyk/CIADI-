@@ -16,6 +16,7 @@ Esta entrega consolida a primeira camada operacional do Helpdesk da estação Su
 ## Identidade
 - Nome institucional, paleta, tipografia, endereço, site e email num único serviço.
 - Funções comuns para escapar conteúdo e compor cabeçalho documental.
+- O motor documental disponibiliza consulta do arquivo, pesquisa por referência/título/código, filtro por estado, indicadores de rascunhos/emitidos, consulta do histórico de eventos e exportação do PDF oficial para documentos emitidos.
 - A identidade central está disponível no código; a migração integral de todos os modelos documentais continua a exigir inventário e validação individual.
 
 ## Dependência de dados
