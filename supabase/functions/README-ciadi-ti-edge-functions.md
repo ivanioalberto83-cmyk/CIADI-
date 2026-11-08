@@ -20,7 +20,7 @@
 - Valida limite de 10 MiB, MIME, assinatura PDF e marcador EOF.
 - Carrega para o bucket privado com `upsert: false`; consulta Storage `.info(path)` e confirma tamanho/MIME.
 - Calcula SHA-256 e chama `ciadi_ti.issue_document`. A transacção valida e consome a sessão, atribui o número previamente reservado, emite o documento e regista o evento.
-- Em caso de falha antes da emissão, tenta remover o objecto carregado.
+- A finalização é idempotente para o mesmo token e os mesmos bytes: em caso de resposta perdida, a repetição recupera o estado emitido ou reusa o mesmo objecto se o rascunho continuar pendente. Em resultados ambíguos, o PDF é preservado; nunca é apagado automaticamente.
 
 ### `ciadi-ti-verify-document`
 - Endpoint público deliberado, com `auth: "none"`; a validação depende de token aleatório de 256 bits e hash SHA-256.
@@ -35,7 +35,7 @@
 3. O motor documental inclui o número reservado e o QR no HTML A4.
 4. O processo principal Electron gera os bytes PDF em memória, sem gravar ficheiro ainda.
 5. A função `ciadi-ti-issue-document` arquiva o PDF e emite-o transaccionalmente.
-6. Só depois da confirmação o utilizador pode exportar o PDF emitido para o disco.
+6. Só depois da confirmação o utilizador pode exportar os bytes do PDF original arquivado; o processo Electron não volta a compor um PDF emitido.
 
 ## Configuração necessária no projecto
 
@@ -53,7 +53,7 @@
 - Header `apikey: <publishable key>`
 - JSON `{ "document_id": "<UUID>" }`
 
-Resposta: `documentId`, `documentNumber`, `verificationUrl`, `qrDataUrl`, `expiresAt`.
+Resposta: `documentId`, `documentNumber`, `verificationUrl`, `qrDataUrl`, `expiresAt`. O token é devolvido apenas na URL HTTPS para ser incorporado no QR.
 
 `POST /functions/v1/ciadi-ti-issue-document`
 
@@ -72,7 +72,7 @@ Resposta pública allowlisted: `valid`, `status`, `issuer`, `document_number`, `
 - O SQL continua uma proposta, não aplicada. O código depende das tabelas, RPC e bucket previstos no PR #36.
 - A exposição Data API do schema `ciadi_ti` ainda tem de ser confirmada.
 - O endpoint público ainda não tem rate limiting persistente; antes de produção deve ser protegido por regra de tráfego/rate limit e monitorização.
-- Se a resposta da emissão se perder depois da transacção, a recuperação idempotente do QR ainda não está implementada; resolver antes de homologação.
+- A recuperação idempotente cobre a repetição com o mesmo token e os mesmos bytes do PDF. Se a sessão expirar ou o PDF já carregado não corresponder aos novos bytes, é necessária revisão/limpeza controlada antes de preparar outra emissão.
 - Números reservados por sessões expiradas podem criar lacunas na sequência; os números nunca são reutilizados.
 - O envio electrónico não está ligado: falta escolher e configurar o canal institucional e o registo de entrega.
 - Não existe ainda uma página web institucional de verificação; o endpoint público devolve JSON allowlisted.
