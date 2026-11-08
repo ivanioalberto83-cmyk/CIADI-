@@ -38,6 +38,7 @@ Esta entrega consolida a primeira camada operacional do Helpdesk da estação Su
 - Criar contagens físicas em rascunho e marcar a contagem como concluída; a reconciliação final permanece separada.
 - Os formulários de pedido de aquisição e de contagem física permitem adicionar/remover várias linhas dinamicamente; o serviço valida e grava o conjunto de linhas e mantém o fluxo de recuperação para cabeçalhos que fiquem gravados se a inserção das linhas falhar.
 - Consultar a vista de saldos existente `stock_balances`.
+- Apresentar alertas por artigo/armazém abaixo do stock mínimo configurado e distinguir artigos sem saldo; a regra exclui artigos com stock mínimo igual a zero.
 
 - A recepção/conferência de mercadoria não foi implementada nesta fase: a auditoria não encontrou uma tabela de recepções/entregas nem uma RPC de recepção no schema consultado. O movimento de entrada existente não será apresentado como recepção formal de encomenda.
 
