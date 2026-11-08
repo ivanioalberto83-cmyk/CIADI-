@@ -29,6 +29,7 @@
       "index.html",
       "main.cjs",
       "preload.cjs",
+      "document-pdf-service.cjs",
       "package.json",
       "node_modules/electron-updater/**/*",
       "biometric-k20pro.html",
