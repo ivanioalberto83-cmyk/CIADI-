@@ -7,3 +7,20 @@ test('escapa valores não confiáveis no cabeçalho documental',()=>{assert.does
 test('valida atribuição de técnico e exige identificadores',()=>{assert.equal(hd.validateAssignment({assignedTo:'',actorId:'user-1'}).valid,false);const r=hd.validateAssignment({assignedTo:'tech-1',actorId:'user-1'});assert.equal(r.valid,true);assert.equal(r.value.assignedTo,'tech-1');});
 test('valida estados do ciclo de vida do chamado',()=>{assert.equal(hd.validateTicketStatus('in_progress').valid,true);assert.equal(hd.validateTicketStatus('invalid').valid,false);});
 test('valida intervenções e exige mensagem e actor autenticado',()=>{assert.equal(hd.validateIntervention({message:'',actorId:'user-1'}).valid,false);assert.equal(hd.validateIntervention({message:'',actorId:''}).valid,false);const r=hd.validateIntervention({message:'Diagnóstico efectuado e equipamento testado.',actorId:'user-1'});assert.equal(r.valid,true);});
+
+test('repositório disponibiliza atribuição, alteração de estado e intervenção',async()=>{
+ const calls=[];
+ const db={from(table){return{
+  update(values){calls.push({operation:'update',table,values});return{eq(column,value){calls[calls.length-1].where={column,value};return{select(){return{single:async()=>({data:values,error:null})}}}}}},
+  insert(values){calls.push({operation:'insert',table,values});return{select(){return{single:async()=>({data:values,error:null})}}}}
+ };}};
+ const repo=hd.createRepository({supabase:{schema:()=>db}});
+ await repo.assign(12,'technician-1','actor-1');
+ await repo.updateStatus(12,'in_progress','actor-1');
+ await repo.addIntervention(12,{message:'Diagnóstico efectuado e equipamento testado.'},'actor-1');
+ assert.deepEqual(calls.map(x=>x.operation),['update','update','insert']);
+ assert.equal(calls[0].values.assigned_to,'technician-1');
+ assert.equal(calls[1].values.status,'in_progress');
+ assert.equal(calls[2].values.event_type,'intervention');
+ assert.equal(calls[2].values.created_by,'actor-1');
+});
