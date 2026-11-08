@@ -320,15 +320,6 @@ begin
     raise exception 'O PDF não foi encontrado no arquivo privado ou não é PDF.';
   end if;
 
-  insert into ciadi_ti.document_sequences (document_type_code, issue_year, last_value)
-  values (v_doc.document_type_code, v_year, 1)
-  on conflict (document_type_code, issue_year)
-  do update set last_value = ciadi_ti.document_sequences.last_value + 1
-  returning last_value into v_next;
-
-  v_number := 'SUP-' || v_doc.document_type_code || '/' ||
-    v_year::text || '/' || lpad(v_next::text, 6, '0');
-
   update ciadi_ti.documents
   set status = 'issued',
       document_number = v_number,
