@@ -138,6 +138,7 @@ declare
   v_line jsonb;
   v_request_line ciadi_ti.purchase_request_lines%rowtype;
   v_received numeric(14,3);
+  v_prior_received numeric(14,3);
   v_accepted numeric(14,3);
   v_damaged numeric(14,3);
   v_returned numeric(14,3);
@@ -201,6 +202,18 @@ begin
     if v_received is null or v_accepted is null or v_received < 0 or v_accepted < 0 or v_damaged < 0 or v_returned < 0 then
       raise exception 'As quantidades recebida, aceite, danificada e devolvida devem ser não negativas.' using errcode = '22023';
     end if;
+
+    -- O cabeçalho do pedido está bloqueado FOR UPDATE, serializando recepções
+    -- concorrentes do mesmo pedido e impedindo ultrapassar a quantidade encomendada.
+    select coalesce(sum(l.received_quantity), 0) into v_prior_received
+    from ciadi_ti.goods_receipt_lines l
+    join ciadi_ti.goods_receipts r on r.id = l.receipt_id
+    where l.purchase_request_line_id = v_request_line.id
+      and r.status <> 'cancelled';
+    if v_prior_received + v_received > v_request_line.quantity then
+      raise exception 'A quantidade recebida acumulada não pode exceder a quantidade encomendada.' using errcode = '23514';
+    end if;
+
     if v_accepted > v_received or v_damaged > v_received or v_returned > v_received or v_accepted + v_damaged + v_returned > v_received then
       raise exception 'As quantidades aceite, danificada e devolvida não podem exceder a quantidade recebida.' using errcode = '23514';
     end if;
@@ -344,6 +357,7 @@ declare
   v_movement_id uuid;
   v_movement_ids jsonb := '[]'::jsonb;
   v_created integer := 0;
+  v_variance numeric(14,3);
   v_type text;
   v_reference text;
 begin
@@ -364,15 +378,20 @@ begin
   v_reference := 'IC-' || v_count.id::text;
   for v_line in
     select * from ciadi_ti.inventory_count_lines
-    where count_id = v_count.id and variance <> 0
+    where count_id = v_count.id and counted_quantity <> system_quantity
     order by item_id, id
   loop
-    v_type := case when v_line.variance > 0 then 'ajuste_positivo' else 'ajuste_negativo' end;
+    -- Não confiar no campo variance recebido da aplicação: recalcular no servidor.
+    v_variance := v_line.counted_quantity - v_line.system_quantity;
+    update ciadi_ti.inventory_count_lines
+    set variance = v_variance
+    where id = v_line.id;
+    v_type := case when v_variance > 0 then 'ajuste_positivo' else 'ajuste_negativo' end;
     v_movement_id := ciadi_ti.post_stock_movement(
       v_line.item_id,
       v_count.warehouse_id,
       v_type,
-      abs(v_line.variance),
+      abs(v_variance),
       v_reference,
       coalesce(v_line.notes, v_count.notes, 'Reconciliação de inventário CIADI'),
       null,
