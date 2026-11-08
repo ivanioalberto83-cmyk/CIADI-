@@ -114,11 +114,12 @@ function createProcurementService({db,role,actorId,now=()=>new Date().toISOStrin
     },
     async createInventoryCount(input){
       ensureRole();ensureActor();
-      const lines=normalizeLines((input?.lines||[]).map(line=>({...line,estimated_unit_cost:null}))).map(line=>({
-        item_id:line.item_id,system_quantity:positiveNumber(line.system_quantity??0,'Quantidade no sistema'),
-        counted_quantity:nonNegativeOrNull(line.counted_quantity,'Quantidade contada'),
-        notes:String(line.notes||'').trim()||null
-      }));
+      if(!Array.isArray(input?.lines)||!input.lines.length)throw new Error('Adicione pelo menos um artigo à contagem.');
+      const lines=input.lines.map(line=>{
+        const systemQuantity=Number(line.system_quantity),countedQuantity=Number(line.counted_quantity);
+        if(!line.item_id||!Number.isFinite(systemQuantity)||systemQuantity<0||!Number.isFinite(countedQuantity)||countedQuantity<0)throw new Error('Artigo e quantidades não negativas são obrigatórios na contagem.');
+        return {item_id:line.item_id,system_quantity:systemQuantity,counted_quantity:countedQuantity,notes:String(line.notes||'').trim()||null};
+      });
       const count=await insertOne('inventory_counts',{
         warehouse_id:cleanText(input?.warehouse_id,80),status:'draft',counted_by:actorId,
         notes:String(input?.notes||'').trim()||null
@@ -160,14 +161,14 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
   root.innerHTML='<div class="card p-5">A consultar o Aprovisionamento Informático…</div>';
   if(!supabase?.schema){root.innerHTML='<div class="card p-5"><h2 class="text-xl font-black">Aprovisionamento Informático</h2><p class="text-amber-700 mt-2">O cliente Supabase não disponibiliza acesso ao schema ciadi_ti. Não foram feitas alterações.</p><button id="proc-back" class="border rounded-xl px-3 py-2 mt-4">Voltar</button></div>';root.querySelector('#proc-back').onclick=()=>renderHome();return;}
   const db=supabase.schema('ciadi_ti');
-  let actorRole=null;
+  let actorRole=null,actorId=null;
   try{
     const auth=await supabase.auth?.getUser?.();
     const user=auth?.data?.user;
-    if(user?.id){const profile=await supabase.from('perfis').select('tipo').eq('id',user.id).maybeSingle();if(!profile.error)actorRole=profile.data?.tipo||null;}
-  }catch(_error){actorRole=null;}
+    if(user?.id){actorId=user.id;const profile=await supabase.from('perfis').select('tipo').eq('id',user.id).maybeSingle();if(!profile.error)actorRole=profile.data?.tipo||null;}
+  }catch(_error){actorRole=null;actorId=null;}
   const canManage=String(actorRole||'').toLowerCase()==='suporte_informatica';
-  const procurementService=canManage?createProcurementService({db,role:actorRole}):null;
+  const procurementService=canManage?createProcurementService({db,role:actorRole,actorId}):null;
   const specs=[
     ['items','id,sku,name,item_type,tracking_mode,minimum_stock,active','name'],
     ['assets','id,item_id,serial_number,asset_tag,status,acquired_at,warranty_until','created_at'],
