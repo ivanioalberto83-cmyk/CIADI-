@@ -25,7 +25,8 @@
 2. Guardar objectos em `suporte-informatica/<document_uuid>.pdf`.
 3. Criar `ciadi_ti.documents` para metadados e estado do documento.
 4. Criar `ciadi_ti.document_sequences` para numeração por código documental e ano.
-5. Criar `ciadi_ti.document_events` como histórico de eventos, com escrita apenas pelo servidor confiável.\n6. Criar `ciadi_ti.document_issuance_sessions` para tokens QR temporários, com hash, actor, validade de 10 minutos e consumo atómico na emissão.
+5. Criar `ciadi_ti.document_events` como histórico de eventos, com escrita apenas pelo servidor confiável.
+6. Criar `ciadi_ti.document_issuance_sessions` para tokens QR temporários, com hash, actor, validade de 10 minutos e consumo atómico na emissão.
 6. Permitir ao cliente autenticado ler documentos do módulo e criar/editar apenas os seus rascunhos. Sem política de eliminação.
 7. A emissão é transaccional, via função restrita a `service_role`; valida o perfil, reserva número, confirma o PDF no bucket e grava hashes.
 8. QR Code contém token aleatório; apenas o hash é guardado. A verificação pública deve passar por Edge Function e devolver metadados mínimos, nunca o PDF nem dados internos.
