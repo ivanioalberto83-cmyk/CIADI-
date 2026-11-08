@@ -49,7 +49,67 @@
       other:list.filter(row=>!['draft','issued'].includes(row?.status)).length
     });
   }
-  function createDocumentDraft({templateCode,values,actorId,now}){const t=TEMPLATES.find(x=>x.code===templateCode);if(!t)return Object.freeze({ok:false,errors:['Modelo documental não encontrado.']});const validation=validateValues(t,values);if(!validation.valid)return Object.freeze({ok:false,errors:validation.errors});if(!clean(actorId))return Object.freeze({ok:false,errors:['Autor obrigatório.']});const createdAt=now||new Date().toISOString();return Object.freeze({ok:true,document:Object.freeze({id:null,number:null,title:t.title,templateCode,templateVersion:t.version,values:Object.freeze({...values}),status:'draft',createdBy:clean(actorId),createdAt,issuedAt:null,verification:null,history:Object.freeze([{event:'draft_created',actorId:clean(actorId),at:createdAt}])})});}
+  const CATALOG_FIELDS=Object.freeze({
+    procurement:[
+      f('requester','Requisitante'),f('department','Área solicitante'),f('destination','Polo / destino'),
+      f('supplier','Fornecedor','text',false),f('item_description','Material / serviço','textarea'),
+      f('quantity','Quantidade','number'),f('estimated_total','Valor estimado (Kz)','number',false),
+      f('justification','Justificação','textarea'),f('priority','Prioridade','select',true,['Normal','Alta','Urgente']),
+      f('observations','Observações','textarea',false)
+    ],
+    stock:[
+      f('requester','Requisitante'),f('warehouse','Armazém'),f('movement_type','Tipo de movimento','select',true,['Entrada','Saída','Transferência','Devolução']),
+      f('item_description','Artigo / material','textarea'),f('quantity','Quantidade','number'),f('reference','Referência documental'),
+      f('observations','Observações','textarea',false)
+    ],
+    losses:[
+      f('equipment','Equipamento / artigo'),f('asset_tag','Código patrimonial','text',false),f('location','Polo / localização'),
+      f('occurrence_date','Data da ocorrência','date'),f('occurrence_type','Tipo de ocorrência','select',true,['Quebra','Avaria','Perda','Extravio','Dano','Inutilização']),
+      f('description','Descrição da ocorrência','textarea'),f('impact','Impacto','textarea'),f('actions','Acções tomadas','textarea'),
+      f('recommendations','Recomendações','textarea',false)
+    ],
+    assets:[
+      f('asset_tag','Código patrimonial'),f('description','Descrição do equipamento'),f('serial_number','Número de série','text',false),
+      f('brand_model','Marca / modelo','text',false),f('assigned_to','Responsável'),f('location','Polo / localização'),
+      f('condition','Estado','select',true,['Novo','Bom','Regular','Danificado','Inoperacional']),
+      f('handover_date','Data','date'),f('observations','Observações','textarea',false)
+    ],
+    technical:[
+      f('requester','Solicitante'),f('affected_service','Serviço afectado'),f('equipment','Equipamento / sistema','text',false),
+      f('problem','Problema / pedido','textarea'),f('diagnosis','Diagnóstico','textarea',false),f('actions','Intervenção realizada','textarea'),
+      f('technician','Técnico responsável'),f('result','Resultado / resolução','textarea'),f('date','Data','date')
+    ],
+    security:[
+      f('system','Sistema / recurso'),f('incident_date','Data da ocorrência','date'),f('incident_type','Tipo de registo'),
+      f('impact','Impacto / risco','textarea'),f('actions','Medidas tomadas','textarea'),f('evidence_reference','Referência da evidência','text',false),
+      f('result','Resultado / estado','textarea'),f('responsible','Responsável')
+    ],
+    administration:[
+      f('period','Período de referência'),f('department','Área / polo'),f('subject','Assunto'),f('objective','Objectivo','textarea'),
+      f('activities','Actividades / factos','textarea'),f('results','Resultados','textarea'),f('pending','Pendências','textarea',false),
+      f('recommendations','Recomendações','textarea',false),f('author','Responsável'),f('date','Data','date')
+    ],
+    analytics:[
+      f('period','Período analisado'),f('scope','Âmbito','textarea'),f('methodology','Metodologia','textarea'),f('data_sources','Fontes de dados','textarea'),
+      f('findings','Resultados apurados','textarea'),f('analysis','Análise','textarea'),f('recommendations','Recomendações','textarea'),
+      f('author','Responsável pela análise'),f('date','Data','date')
+    ]
+  });
+  function createCatalogTemplate(definition,legacyTemplate=null) {
+    if(!definition||!/^SUP-[A-Z0-9-]{3,20}$/.test(clean(definition.code))||!clean(definition.title)) {
+      throw new Error('Definição de documento do catálogo inválida.');
+    }
+    const fields=legacyTemplate?.fields||CATALOG_FIELDS[definition.motorId];
+    if(!Array.isArray(fields)||!fields.length)throw new Error('Não existe perfil de formulário para o motor documental.');
+    const template=Object.freeze({
+      code:clean(definition.code),title:clean(definition.title),version:1,
+      fields:Object.freeze(fields.map(field=>Object.freeze({...field,options:Object.freeze([...(field.options||[])])})))
+    });
+    const validation=validateTemplate(template);
+    if(!validation.valid)throw new Error(validation.errors.join(' '));
+    return template;
+  }
+  function createDocumentDraft({templateCode,templateDefinition=null,values,actorId,now}){const t=templateDefinition||TEMPLATES.find(x=>x.code===templateCode);if(!t)return Object.freeze({ok:false,errors:['Modelo documental não encontrado.']});const validation=validateValues(t,values);if(!validation.valid)return Object.freeze({ok:false,errors:validation.errors});if(!clean(actorId))return Object.freeze({ok:false,errors:['Autor obrigatório.']});const createdAt=now||new Date().toISOString();return Object.freeze({ok:true,document:Object.freeze({id:null,number:null,title:t.title,templateCode:t.code,templateVersion:t.version,values:Object.freeze({...values}),status:'draft',createdBy:clean(actorId),createdAt,issuedAt:null,verification:null,history:Object.freeze([{event:'draft_created',actorId:clean(actorId),at:createdAt}])})});}
   function createDocumentService({repository,qrEncoder,pdfRenderer,pdfExporter,sender,deliveryRecorder}={}) {
     return Object.freeze({
       async save(document) {
@@ -175,5 +235,5 @@
       }
     });
   }
-  return Object.freeze({BRAND,TEMPLATES,validateTemplate,validateValues,makeVerificationPayload,renderDocumentHtml,createDocumentDraft,filterDocumentArchive,summarizeDocumentArchive,createDocumentService});
+  return Object.freeze({BRAND,TEMPLATES,validateTemplate,validateValues,makeVerificationPayload,renderDocumentHtml,createDocumentDraft,createCatalogTemplate,filterDocumentArchive,summarizeDocumentArchive,createDocumentService});
 });
