@@ -70,6 +70,7 @@ O UI consulta o schema `ciadi_ti`, tabelas `helpdesk_tickets` e `helpdesk_ticket
 - Inventário: uma contagem `counted` pode ser reconciliada; as diferenças positivas/negativas geram ajustes através de `post_stock_movement()` e a contagem passa a `reconciled` na mesma transacção.
 - Auditoria: a proposta regista criação e mudança de estado das recepções em `ciadi_ti.audit_events`; os movimentos continuam no razão de stock existente.
 - A interface apresenta contagens, estados e divergências; os totais dependem dos registos efectivamente consultados e não são apresentados como totais globais quando a consulta está limitada.
+- A página Auditoria e Relatórios inclui gráficos de recepções por estado, divergências (faltas, excessos, danos e devoluções), estado das contagens e eventos recentes de aprovisionamento; a área Aprovisionamento também apresenta gráficos operacionais. Ambas as vistas limitam a consulta a 100 registos por fonte e identificam essa amostra.
 
 ### Proposta de base de dados
 - Ficheiro: `supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql`.
