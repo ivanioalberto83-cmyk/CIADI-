@@ -139,6 +139,9 @@
       if (typeof input.warehouseId !== 'string' || !input.warehouseId.trim()) {
         throw new Error('Armazém obrigatório para a recepção.');
       }
+      if (typeof input.deliveryReference !== 'string' || !input.deliveryReference.trim()) {
+        throw new Error('Documento de entrega do fornecedor obrigatório para a recepção.');
+      }
       if (!Array.isArray(input.lines) || input.lines.length === 0) {
         throw new Error('A recepção deve conter pelo menos uma linha.');
       }
@@ -172,7 +175,7 @@
       const result = await db.rpc('create_goods_receipt', {
         p_purchase_request_id: input.purchaseRequestId,
         p_warehouse_id: input.warehouseId,
-        p_delivery_reference: String(input.deliveryReference || '').trim() || null,
+        p_delivery_reference: input.deliveryReference.trim(),
         p_delivery_date: input.deliveryDate || null,
         p_notes: String(input.notes || '').trim() || null,
         p_lines: lines
