@@ -8,3 +8,6 @@ verify_jwt = false
 # Public endpoint: the high-entropy document token is validated by the handler.
 [functions.ciadi-ti-verify-document]
 verify_jwt = false
+
+[functions.ciadi-ti-prepare-document]
+verify_jwt = false
