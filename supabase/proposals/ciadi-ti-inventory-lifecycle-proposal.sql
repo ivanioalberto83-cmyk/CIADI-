@@ -147,6 +147,9 @@ begin
   if auth.uid() is null or not ciadi_ti.has_support_access() then
     raise exception 'Acesso não autorizado à recepção de mercadorias.' using errcode = '42501';
   end if;
+  if nullif(btrim(p_delivery_reference), '') is null then
+    raise exception 'Documento de entrega do fornecedor obrigatório para a recepção.' using errcode = '22023';
+  end if;
   if jsonb_typeof(p_lines) is distinct from 'array' then
     raise exception 'As linhas da recepção devem ser fornecidas numa lista.' using errcode = '22023';
   end if;
