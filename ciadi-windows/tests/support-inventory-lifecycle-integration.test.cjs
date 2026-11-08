@@ -23,6 +23,8 @@ test('a estação Suporte Informático integra recepção, conferência, publica
   assert.match(source, /data-receipt-finalize/);
   assert.match(source, /data-reconcile-count/);
   assert.match(source, /returned_quantity/);
+  assert.match(source, /Aprovisionamento e inventário/);
+  assert.match(source, /lifecycleHtml/);
 });
 
 test('a proposta SQL activa RLS e mantém a publicação do stock em RPC transaccional', () => {
