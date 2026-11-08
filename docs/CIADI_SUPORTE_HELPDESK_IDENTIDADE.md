@@ -16,7 +16,7 @@ Esta entrega cria a primeira camada funcional do Helpdesk da estação Suporte I
 - Os documentos existentes continuam compatíveis; migração integral dos modelos para o serviço central é uma etapa seguinte.
 
 ## Dependência de dados
-O UI consulta o schema `ciadi_ti`, tabela `helpdesk_tickets`. Se a estrutura não existir, informa que o serviço não está activado e não simula gravação. Não aplicar o SQL de proposta automaticamente.
+O UI consulta o schema `ciadi_ti`, tabelas `helpdesk_tickets` e `helpdesk_ticket_events`. A proposta SQL está em `supabase/proposals/ciadi-ti-helpdesk-proposal.sql` e inclui referência sequencial no servidor, histórico automático e RLS. Se a estrutura não existir, informa que o serviço não está activado e não simula gravação. Não aplicar o SQL de proposta automaticamente.
 
 ## Segurança e limites
 - Sem alteração ao Supabase remoto, Storage, RLS, permissões, contas, produção ou outras estações.
