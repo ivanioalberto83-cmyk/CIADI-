@@ -203,14 +203,16 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
   ];
   const results=await Promise.all(specs.map(async([table,columns,order])=>{try{const q=await db.from(table).select(columns).order(order,{ascending:false}).limit(100);return{table,rows:q.data||[],error:q.error};}catch(error){return{table,rows:[],error};}}));
   const by=Object.fromEntries(results.map(x=>[x.table,x]));
-  const errors=results.filter(x=>x.error);
+  let balances={rows:[],error:null};
+  try{const q=await db.from('stock_balances').select('*').limit(100);balances={rows:q.data||[],error:q.error||null};}catch(error){balances={rows:[],error};}
+  const errors=[...results.filter(x=>x.error),...(balances.error?[{table:'stock_balances',error:balances.error}]:[])];
   const items=by.items.rows,assets=by.assets.rows,requests=by.purchase_requests.rows,movements=by.stock_movements.rows;
-  const balances={rows:summarizeStockBalances(items,by.warehouses.rows,movements)};
   const metrics=summarizeProcurement(requests),movementStats=summarizeStockMovements(movements);
   const count=(name)=>by[name].rows.length;
   const table=(title,rows,cols)=>'<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">'+title+'</h3>'+(rows.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">'+cols.map(x=>'<th class="p-2">'+x[1]+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr class="border-b">'+cols.map(x=>'<td class="p-2">'+esc(row[x[0]]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem registos disponíveis.</p>')+'</section>';
+  const countTable='<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">Contagens de inventário</h3>'+(by.inventory_counts.rows.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-2">Data</th><th>Armazém</th><th>Estado</th><th>Contado em</th><th>Acção</th></tr></thead><tbody>'+by.inventory_counts.rows.map(row=>'<tr class="border-b"><td class="p-2">'+esc(row.created_at)+'</td><td>'+esc(row.warehouse_id)+'</td><td>'+esc(row.status)+'</td><td>'+esc(row.counted_at||'—')+'</td><td>'+(canManage&&row.status==='draft'?'<button data-counted="'+esc(row.id)+'" class="border rounded-lg px-2 py-1">Marcar contagem concluída</button>':'—')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem contagens de inventário.</p>')+'</section>';
   const requestTable='<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">Pedidos de aquisição</h3>'+(requests.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-2">N.º pedido</th><th>Estado</th><th>Justificação</th><th>Estimativa (Kz)</th><th>Acção</th></tr></thead><tbody>'+requests.map(row=>'<tr class="border-b"><td class="p-2">'+esc(row.request_number)+'</td><td>'+esc(row.status)+'</td><td>'+esc(row.justification)+'</td><td>'+esc(row.estimated_total??'—')+'</td><td>'+(canManage&&row.requested_by===actorId&&['draft','returned'].includes(row.status)?'<button data-submit-request="'+esc(row.id)+'" class="border rounded-lg px-2 py-1">Submeter</button>':'—')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem pedidos de aquisição.</p>')+'</section>';
-  const dynamicTable=(title,rows)=>{const cols=rows.length?Object.keys(rows[0]):[];return '<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">'+title+'</h3>'+(rows.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">'+cols.map(x=>'<th class="p-2">'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr class="border-b">'+cols.map(x=>'<td class="p-2">'+esc(row[x]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem movimentos de stock na amostra consultada.</p>')+'</section>';};
+  const dynamicTable=(title,rows)=>{const cols=rows.length?Object.keys(rows[0]):[];return '<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">'+title+'</h3>'+(rows.length?'<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">'+cols.map(x=>'<th class="p-2">'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr class="border-b">'+cols.map(x=>'<td class="p-2">'+esc(row[x]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="text-sm text-slate-500">Sem saldos disponíveis na vista stock_balances.</p>')+'</section>';};
   const forms=canManage
     ? '<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">Registar no catálogo</h3><div class="grid xl:grid-cols-3 gap-4">'+
       '<form data-proc-form="item" class="border rounded-xl p-4 space-y-2"><b>Novo artigo</b><input name="sku" required placeholder="Referência / SKU" class="w-full border rounded-lg p-2"><input name="name" required placeholder="Designação" class="w-full border rounded-lg p-2"><select name="item_type" required class="w-full border rounded-lg p-2"><option value="equipamento">Equipamento</option><option value="peca">Peça</option><option value="consumivel">Consumível</option><option value="licenca">Licença</option><option value="servico">Serviço</option></select><select name="tracking_mode" required class="w-full border rounded-lg p-2"><option value="quantity">Por quantidade</option><option value="serialized">Por número de série</option><option value="lot">Por lote</option></select><input name="minimum_stock" type="number" min="0" step="0.01" value="0" required placeholder="Stock mínimo" class="w-full border rounded-lg p-2"><button class="bg-orange text-white rounded-lg px-3 py-2 font-bold" type="submit">Guardar artigo</button></form>'+
@@ -234,14 +236,20 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
   table('Equipamentos individualizados',assets,[['asset_tag','Património'],['serial_number','N.º série'],['item_id','Artigo (ID)'],['status','Estado'],['warranty_until','Garantia até']])+
   table('Fornecedores',by.suppliers.rows,[['name','Fornecedor'],['nif','NIF'],['email','Email'],['phone','Telefone'],['active','Activo']])+
   table('Armazéns',by.warehouses.rows,[['code','Código'],['name','Armazém'],['polo','Polo'],['active','Activo']])+
-  table('Saldos estimados por artigo, armazém e lote (amostra de movimentos)',balances.rows,[['sku','SKU'],['item_name','Artigo'],['warehouse_name','Armazém'],['lot_code','Lote'],['quantity','Quantidade estimada'],['minimum_stock','Stock mínimo'],['below_minimum','Abaixo do mínimo']])+
+  dynamicTable('Saldos de stock por artigo e armazém',balances.rows)+
   table('Movimentos de stock',movements,[['created_at','Data'],['movement_type','Movimento'],['item_id','Artigo (ID)'],['warehouse_id','Armazém (ID)'],['quantity_delta','Variação'],['reference','Referência']])+
-  table('Contagens de inventário',by.inventory_counts.rows,[['created_at','Criada em'],['warehouse_id','Armazém (ID)'],['status','Estado'],['counted_at','Contada em'],['reconciled_at','Reconciliada em']])+
+  countTable+
   table('Eventos de auditoria do inventário',by.audit_events.rows,[['occurred_at','Data'],['table_name','Tabela'],['action','Acção'],['record_id','Registo']])+
   requestTable+table('Linhas dos pedidos',by.purchase_request_lines.rows,[['request_id','Pedido (ID)'],['description','Descrição'],['quantity','Quantidade'],['unit_of_measure','Unidade'],['estimated_unit_cost','Custo unitário (Kz)']])+table('Linhas das contagens de inventário',by.inventory_count_lines.rows,[['count_id','Contagem (ID)'],['item_id','Artigo (ID)'],['system_quantity','Quantidade sistema'],['counted_quantity','Quantidade contada'],['variance','Diferença']])+
   (errors.length?'<div class="card p-4 mt-5 border border-amber-300"><b>Consultas com erro</b><ul class="list-disc pl-5 text-sm">'+errors.map(x=>'<li>'+esc(x.table)+': '+esc(x.error?.message||'Erro de consulta')+'</li>').join('')+'</ul></div>':'')+
   '<p class="text-xs text-slate-400 mt-4">Consultas limitadas aos 100 registos mais recentes/ordenados por tabela. Os totais apresentados correspondem à amostra carregada, não a contagens globais. Nenhum registo foi criado ou alterado.</p>';
   root.querySelector('#proc-back').addEventListener('click',()=>renderHome().catch(e=>notify(e.message)));
+  root.querySelectorAll('[data-counted]').forEach(button=>button.addEventListener('click',async()=>{
+    if(!procurementService)return;
+    button.disabled=true;
+    try{await procurementService.markInventoryCounted(button.dataset.counted);notify('Contagem física marcada como concluída. A reconciliação permanece pendente.');await renderProcurement();}
+    catch(error){button.disabled=false;notify('Não foi possível concluir a contagem: '+(error?.message||'erro desconhecido'));}
+  }));
   root.querySelectorAll('[data-submit-request]').forEach(button=>button.addEventListener('click',async()=>{
     if(!procurementService)return;
     button.disabled=true;
@@ -271,6 +279,10 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
       else if(form.dataset.procForm==='supplier')await procurementService.createSupplier(values);
       else if(form.dataset.procForm==='warehouse')await procurementService.createWarehouse(values);
       if(form.dataset.procForm==='item')notify('Artigo criado com sucesso.');
+      else if(form.dataset.procForm==='purchase')notify('Pedido de aquisição guardado em rascunho.');
+      else if(form.dataset.procForm==='movement')notify('Movimento de stock registado.');
+      else if(form.dataset.procForm==='transfer')notify('Transferência concluída: saída e entrada registadas.');
+      else if(form.dataset.procForm==='count')notify('Contagem de inventário guardada em rascunho.');
       else if(form.dataset.procForm==='supplier')notify('Fornecedor criado com sucesso.');
       else if(form.dataset.procForm==='warehouse')notify('Armazém criado com sucesso.');
       await renderProcurement();
