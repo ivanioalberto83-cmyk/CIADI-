@@ -142,7 +142,7 @@ test('cria recepção em rascunho através de RPC e não aceita linhas sem refer
       purchaseRequestLineId: 'line-1', received_quantity: 1,
       accepted_quantity: 1, damaged_quantity: 0, returned_quantity: 0
     }]
-  }), /documento de entrega/);
+  }), /documento de entrega/i);
 });
 
 test('marca recepção conferida através de RPC sem alterar stock antes da finalização', async () => {
