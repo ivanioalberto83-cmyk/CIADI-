@@ -75,7 +75,7 @@ function createDocumentPdfService({ dialog, windowFactory, fs }) {
           margins: { top: 0, right: 0, bottom: 0, left: 0 }
         });
         await fs.writeFile(selection.filePath, renderedBytes);
-        return Object.freeze({ saved: true, filePath: selection.filePath, source: 'rendered' });
+        return Object.freeze({ saved: true, filePath: selection.filePath });
       } finally {
         if (typeof pdfWindow.close === 'function') await pdfWindow.close();
       }
