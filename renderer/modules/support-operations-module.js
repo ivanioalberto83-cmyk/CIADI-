@@ -104,7 +104,7 @@ async function renderDocuments(){
   const catalog=await loadDocumentCatalog();
   const templates=engine.TEMPLATES;
   const motors=catalog.listMotors(),catalogItems=catalog.listDocuments();
-  root.innerHTML='<div class="card p-5"><div class="flex items-center justify-between gap-3 mb-5"><div><p class="text-xs font-black uppercase tracking-widest text-orange">Suporte Informática · CIADI</p><h2 class="text-2xl font-black">Motor Documental Institucional</h2><p class="text-sm text-slate-500">116 tipos catalogados em oito motores; dez modelos-base com formulário funcional.</p></div><button id="documents-back" class="border rounded-xl px-3 py-2">Voltar</button></div><section class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">'+motors.map(m=>'<details class="border rounded-xl p-3"><summary class="font-bold cursor-pointer">'+esc(m.title)+' <span class="text-xs text-slate-500">('+catalog.getDocumentsByMotor(m.id).length+')</span></summary><p class="text-xs text-slate-500 mt-2">'+esc(m.description)+'</p><ul class="text-xs mt-2 space-y-1">'+catalog.getDocumentsByMotor(m.id).map(d=>'<li>'+esc(d.code)+' — '+esc(d.title)+' <span class="text-amber-700">· '+(d.legacyTemplateCode?'formulário-base disponível':'catalogado')+'</span></li>').join('')+'</ul></details>').join('')+'</section><div class="text-xs text-slate-500 mb-4">Catálogo: '+catalogItems.length+' tipos. Os itens assinalados como catalogados ainda não têm todos os formulários e fluxos próprios ligados.</div><label class="block text-sm font-bold mb-2" for="it-template">Modelo com formulário disponível</label><select id="it-template" class="w-full border rounded-xl p-3 mb-4">'+templates.map((t,i)=>'<option value="'+i+'">'+esc(t.code)+' — '+esc(t.title)+'</option>').join('')+'</select><div id="it-document-fields" class="grid md:grid-cols-2 gap-4"></div><div class="flex flex-wrap gap-2 mt-5"><button id="it-document-preview" class="bg-orange text-white rounded-xl px-4 py-3 font-bold">Guardar rascunho e pré-visualizar</button><button id="it-document-issue" class="bg-slate-900 text-white rounded-xl px-4 py-3 font-bold" disabled>Emitir com QR Code</button><button id="it-document-print" class="border rounded-xl px-4 py-3" disabled>Exportar PDF</button><button id="it-document-send" class="border rounded-xl px-4 py-3 opacity-50" disabled>Enviar (canal por configurar)</button></div><div id="it-document-errors" class="text-sm text-red-700 mt-3"></div><div id="it-document-state" class="text-sm text-slate-500 mt-2">Ainda não foi criado qualquer documento.</div><section id="it-document-preview-area" class="mt-6"></section><p class="text-xs text-amber-700 mt-4">A emissão reserva número e QR no servidor antes de gerar o PDF final. O PDF é arquivado e emitido numa operação transaccional. O envio electrónico ainda depende da configuração e homologação de um canal institucional.</p></div>';
+  root.innerHTML='<div class="card p-5"><div class="flex items-center justify-between gap-3 mb-5"><div><p class="text-xs font-black uppercase tracking-widest text-orange">Suporte Informática · CIADI</p><h2 class="text-2xl font-black">Motor Documental Institucional</h2><p class="text-sm text-slate-500">116 tipos catalogados em oito motores; dez modelos-base com formulário funcional.</p></div><button id="documents-back" class="border rounded-xl px-3 py-2">Voltar</button></div><section class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">'+motors.map(m=>'<details class="border rounded-xl p-3"><summary class="font-bold cursor-pointer">'+esc(m.title)+' <span class="text-xs text-slate-500">('+catalog.getDocumentsByMotor(m.id).length+')</span></summary><p class="text-xs text-slate-500 mt-2">'+esc(m.description)+'</p><ul class="text-xs mt-2 space-y-1">'+catalog.getDocumentsByMotor(m.id).map(d=>'<li>'+esc(d.code)+' — '+esc(d.title)+' <span class="text-amber-700">· '+(d.legacyTemplateCode?'formulário-base disponível':'catalogado')+'</span></li>').join('')+'</ul></details>').join('')+'</section><div class="text-xs text-slate-500 mb-4">Catálogo: '+catalogItems.length+' tipos. Os itens assinalados como catalogados ainda não têm todos os formulários e fluxos próprios ligados.</div><section class="border rounded-xl p-4 mb-5"><div class="flex flex-wrap items-center justify-between gap-3 mb-3"><div><h3 class="font-black text-lg">Arquivo documental CIADI</h3><p class="text-xs text-slate-500">Pesquisa de rascunhos e documentos emitidos, com histórico de eventos.</p></div><button id="it-archive-refresh" class="border rounded-lg px-3 py-2 text-sm">Actualizar arquivo</button></div><div class="grid sm:grid-cols-2 gap-3 mb-3"><input id="it-archive-search" class="border rounded-lg p-2" type="search" placeholder="Pesquisar por título, referência ou código"><select id="it-archive-status" class="border rounded-lg p-2"><option value="all">Todos os estados</option><option value="draft">Rascunhos</option><option value="issued">Emitidos</option></select></div><div id="it-archive-summary" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm mb-3"></div><div id="it-archive-results" class="overflow-x-auto text-sm">A carregar arquivo documental…</div><div id="it-archive-history" class="mt-4"></div></section><label class="block text-sm font-bold mb-2" for="it-template">Modelo com formulário disponível</label><select id="it-template" class="w-full border rounded-xl p-3 mb-4">'+templates.map((t,i)=>'<option value="'+i+'">'+esc(t.code)+' — '+esc(t.title)+'</option>').join('')+'</select><div id="it-document-fields" class="grid md:grid-cols-2 gap-4"></div><div class="flex flex-wrap gap-2 mt-5"><button id="it-document-preview" class="bg-orange text-white rounded-xl px-4 py-3 font-bold">Guardar rascunho e pré-visualizar</button><button id="it-document-issue" class="bg-slate-900 text-white rounded-xl px-4 py-3 font-bold" disabled>Emitir com QR Code</button><button id="it-document-print" class="border rounded-xl px-4 py-3" disabled>Exportar PDF</button><button id="it-document-send" class="border rounded-xl px-4 py-3 opacity-50" disabled>Enviar (canal por configurar)</button></div><div id="it-document-errors" class="text-sm text-red-700 mt-3"></div><div id="it-document-state" class="text-sm text-slate-500 mt-2">Ainda não foi criado qualquer documento.</div><section id="it-document-preview-area" class="mt-6"></section><p class="text-xs text-amber-700 mt-4">A emissão reserva número e QR no servidor antes de gerar o PDF final. O PDF é arquivado e emitido numa operação transaccional. O envio electrónico ainda depende da configuração e homologação de um canal institucional.</p></div>';
   const select=root.querySelector('#it-template'),fields=root.querySelector('#it-document-fields'),errors=root.querySelector('#it-document-errors'),preview=root.querySelector('#it-document-preview-area'),print=root.querySelector('#it-document-print'),issue=root.querySelector('#it-document-issue'),send=root.querySelector('#it-document-send'),state=root.querySelector('#it-document-state');
   let latestDraft=null,latestHtml='',latestValues=null,latestTemplate=null;
   const repository={
@@ -117,6 +117,22 @@ async function renderDocuments(){
       }).select('id,document_type_code,title,status,created_at,created_by').single();
       if(error)throw error;
       return data;
+    },
+    async listDocuments(){
+      if(!supabase?.schema)throw new Error('Cliente Supabase indisponível.');
+      const {data,error}=await supabase.schema('ciadi_ti').from('documents')
+        .select('id,document_type_code,title,status,document_number,created_at,created_by,issued_at')
+        .order('created_at',{ascending:false}).limit(200);
+      if(error)throw error;
+      return data||[];
+    },
+    async listDocumentEvents(documentId){
+      if(!supabase?.schema)throw new Error('Cliente Supabase indisponível.');
+      const {data,error}=await supabase.schema('ciadi_ti').from('document_events')
+        .select('id,event_type,actor_id,details,occurred_at')
+        .eq('document_id',documentId).order('occurred_at',{ascending:true}).limit(200);
+      if(error)throw error;
+      return data||[];
     },
     async prepareIssuance(documentId){
       const {data,error}=await supabase.functions.invoke('ciadi-ti-prepare-document',{body:{document_id:documentId}});
@@ -167,6 +183,54 @@ async function renderDocuments(){
     return desktop.exportIssuedPdf({document:{id:documentId,status:'issued'},bytes,mimeType,filename});
   };
   const service=engine.createDocumentService({repository,pdfRenderer,pdfExporter});
+  const archiveSearch=root.querySelector('#it-archive-search');
+  const archiveStatus=root.querySelector('#it-archive-status');
+  const archiveSummary=root.querySelector('#it-archive-summary');
+  const archiveResults=root.querySelector('#it-archive-results');
+  const archiveHistory=root.querySelector('#it-archive-history');
+  let archiveRows=[];
+  function drawArchive(){
+    const filtered=engine.filterDocumentArchive(archiveRows,{query:archiveSearch.value,status:archiveStatus.value});
+    const summary=engine.summarizeDocumentArchive(archiveRows);
+    archiveSummary.innerHTML=[['Total',summary.total],['Rascunhos',summary.drafts],['Emitidos',summary.issued],['Outros estados',summary.other]]
+      .map(([label,value])=>'<article class="border rounded-lg p-2"><small class="text-slate-500">'+label+'</small><div class="text-xl font-black">'+value+'</div></article>').join('');
+    archiveResults.innerHTML=filtered.length
+      ? '<table class="w-full min-w-[680px]"><thead><tr class="text-left border-b"><th class="py-2">Referência</th><th>Documento</th><th>Estado</th><th>Data</th><th>Acções</th></tr></thead><tbody>'+filtered.map(row=>'<tr class="border-b"><td class="py-2 font-bold">'+esc(row.document_number||'RASCUNHO')+'</td><td>'+esc(row.title)+'<div class="text-xs text-slate-500">'+esc(row.document_type_code)+'</div></td><td>'+esc(row.status)+'</td><td>'+esc(row.created_at||'')+'</td><td class="whitespace-nowrap"><button data-doc-history="'+esc(row.id)+'" class="border rounded px-2 py-1 mr-1">Histórico</button>'+(row.status==='issued'?'<button data-doc-export="'+esc(row.id)+'" class="border rounded px-2 py-1">PDF</button>':'')+'</td></tr>').join('')+'</tbody></table>'
+      : '<p class="text-sm text-slate-500 py-3">Não foram encontrados documentos para estes filtros.</p>';
+  }
+  async function refreshArchive(){
+    archiveResults.textContent='A consultar o arquivo documental…';
+    try{archiveRows=await repository.listDocuments();drawArchive();}
+    catch(error){archiveRows=[];archiveSummary.innerHTML='';archiveResults.innerHTML='<p class="text-amber-700">Não foi possível consultar o arquivo: '+esc(error?.message||'erro desconhecido')+'</p>';}
+  }
+  archiveSearch.addEventListener('input',drawArchive);
+  archiveStatus.addEventListener('change',drawArchive);
+  root.querySelector('#it-archive-refresh').addEventListener('click',refreshArchive);
+  archiveResults.addEventListener('click',async event=>{
+    const historyButton=event.target.closest('[data-doc-history]');
+    const exportButton=event.target.closest('[data-doc-export]');
+    if(historyButton){
+      const id=historyButton.dataset.docHistory;
+      archiveHistory.textContent='A consultar histórico…';
+      try{
+        const events=await repository.listDocumentEvents(id);
+        archiveHistory.innerHTML='<section class="border rounded-xl p-4"><h4 class="font-bold mb-2">Histórico do documento</h4>'+(events.length?'<ol class="space-y-2">'+events.map(item=>'<li class="border-l-2 border-orange pl-3"><b>'+esc(item.event_type)+'</b><div class="text-xs text-slate-500">'+esc(item.occurred_at||'')+' · '+esc(item.actor_id||'Sistema')+'</div><pre class="text-xs whitespace-pre-wrap mt-1">'+esc(JSON.stringify(item.details||{}))+'</pre></li>').join('')+'</ol>':'<p class="text-sm text-slate-500">Ainda não existem eventos registados.</p>')+'</section>';
+      }catch(error){archiveHistory.innerHTML='<p class="text-amber-700">Não foi possível consultar o histórico: '+esc(error?.message||'erro desconhecido')+'</p>';}
+      return;
+    }
+    if(exportButton){
+      const row=archiveRows.find(item=>item.id===exportButton.dataset.docExport);
+      if(!row||row.status!=='issued')return;
+      exportButton.disabled=true;
+      try{
+        const filename=String(row.document_number||row.id).replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf';
+        const result=await service.exportIssuedPdf({id:row.id,status:row.status,number:row.document_number},filename);
+        notify(result?.saved?'PDF oficial exportado.':result?.cancelled?'Exportação cancelada.':'Pedido de exportação concluído.');
+      }catch(error){notify('Não foi possível exportar o PDF: '+(error?.message||'erro desconhecido'));}
+      finally{exportButton.disabled=false;}
+    }
+  });
+
   function drawFields(){
     const t=templates[Number(select.value)];
     fields.innerHTML=t.fields.map(f=>'<label class="block text-sm font-semibold">'+esc(f.label)+(f.required?' *':'')+(f.type==='textarea'?'<textarea data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1" rows="3"></textarea>':f.type==='select'?'<select data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1"><option value="">Seleccionar…</option>'+f.options.map(o=>'<option value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select>':'<input data-field="'+esc(f.key)+'" type="'+(f.type==='number'?'number':f.type==='date'?'date':'text')+'" '+(f.type==='number'?'min="0" step="any"':'')+' class="block w-full border rounded-xl p-3 mt-1">')+'</label>').join('');
@@ -175,6 +239,7 @@ async function renderDocuments(){
   }
   select.addEventListener('change',drawFields);
   drawFields();
+  refreshArchive();
   root.querySelector('#documents-back').addEventListener('click',()=>renderHome().catch(e=>notify(e.message)));
   root.querySelector('#it-document-preview').addEventListener('click',async()=>{
     const t=templates[Number(select.value)],values={};
