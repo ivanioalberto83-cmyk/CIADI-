@@ -84,3 +84,30 @@ test('recusa HTML vazio na geração dos bytes PDF', async () => {
   await assert.rejects(() => h.service.renderPdfBytes({ html: '' }), /HTML.*obrigatório/);
   assert.equal(h.calls.length, 0);
 });
+
+
+test('exporta os bytes do PDF arquivado sem voltar a renderizar HTML', async () => {
+  const h = harness();
+  const archived = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]);
+  const result = await h.service.exportIssuedPdf({
+    document: { id: 'doc-archive', status: 'issued', number: 'SUP-REL/2026/000001' },
+    bytes: archived,
+    mimeType: 'application/pdf',
+    filename: 'oficial.pdf'
+  });
+  assert.deepEqual(result, { saved: true, filePath: '/tmp/CIADI-documento.pdf', source: 'archive' });
+  assert.equal(h.writes.length, 1);
+  assert.deepEqual([...h.writes[0].bytes], [...archived]);
+  assert.equal(h.calls.some(x => x[0] === 'printToPDF'), false);
+});
+
+test('recusa bytes arquivados que não tenham assinatura PDF', async () => {
+  const h = harness();
+  await assert.rejects(() => h.service.exportIssuedPdf({
+    document: { id: 'doc-archive', status: 'issued' },
+    bytes: new Uint8Array([1, 2, 3, 4, 5]),
+    mimeType: 'application/pdf',
+    filename: 'invalid.pdf'
+  }), /assinatura PDF/);
+  assert.equal(h.writes.length, 0);
+});
