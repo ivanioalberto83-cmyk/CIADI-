@@ -16,18 +16,129 @@ function summarizeStockMovements(rows){
 function validateDocumentModel(m){const errors=[];if(!m||typeof m.code!=='string'||!/^[A-Z0-9][A-Z0-9-]{2,19}$/.test(m.code))errors.push('Código documental inválido.');if(!Number.isInteger(m?.version)||m.version<1)errors.push('Versão inválida.');if(!Array.isArray(m?.fields)||!m.fields.length)errors.push('O modelo deve ter campos.');const keys=new Set();for(const f of m?.fields||[]){if(!f||typeof f.key!=='string'||!/^[a-z][a-z0-9_]{1,39}$/.test(f.key))errors.push('Identificador de campo inválido.');else if(keys.has(f.key))errors.push('Identificador de campo repetido.');else keys.add(f.key);}return{valid:!errors.length,errors};}
 function summarizeProcurement(rows){const a=Array.isArray(rows)?rows:[];return{total:a.length,pending:a.filter(x=>['submitted','returned'].includes(String(x.status).toLowerCase())).length,submitted:a.filter(x=>String(x.status).toLowerCase()==='submitted').length,returned:a.filter(x=>String(x.status).toLowerCase()==='returned').length,approved:a.filter(x=>String(x.status).toLowerCase()==='approved').length,rejected:a.filter(x=>String(x.status).toLowerCase()==='rejected').length,received:a.filter(x=>String(x.status).toLowerCase()==='received').length};}
 
-function createProcurementService({db,role}={}){
+function createProcurementService({db,role,actorId,now=()=>new Date().toISOString()}={}){
   if(!db?.from)throw new Error('Cliente de dados do aprovisionamento obrigatório.');
   const allowedRoles=new Set(['suporte_informatica']);
+  const validMovementTypes=new Set(['entrada','saida','ajuste_positivo','ajuste_negativo','devolucao_entrada','devolucao_saida']);
   function ensureRole(){if(!allowedRoles.has(String(role||'').toLowerCase()))throw new Error('Perfil sem autorização para gerir o aprovisionamento.');}
+  function ensureActor(){if(!actorId)throw new Error('Sessão sem identificador de utilizador autenticado.');}
+  function cleanText(value,max=2000){const text=String(value??'').trim();if(!text||text.length>max)throw new Error('Campo obrigatório ou com dimensão inválida.');return text;}
+  function positiveNumber(value,label){const n=Number(value);if(!Number.isFinite(n)||n<=0)throw new Error(label+' deve ser superior a zero.');return n;}
+  function nonNegativeOrNull(value,label){if(value===undefined||value===null||value==='')return null;const n=Number(value);if(!Number.isFinite(n)||n<0)throw new Error(label+' inválido.');return n;}
   function pick(source,keys){const out={};for(const key of keys)if(source&&source[key]!==undefined)out[key]=source[key];return out;}
-  async function insertOne(table,payload){const result=await db.from(table).insert(payload).select().single();if(result?.error)throw result.error;if(!result?.data)throw new Error('A base de dados não devolveu o registo criado.');return result;}
+  async function insertOne(table,payload){const result=await db.from(table).insert(payload).select().single();if(result?.error)throw result.error;if(!result?.data)throw new Error('A base de dados não devolveu o registo criado.');return result.data;}
+  async function insertMany(table,payload){if(!payload.length)return[];const result=await db.from(table).insert(payload).select();if(result?.error)throw result.error;return result?.data||[];}
+  function normalizeLines(lines){
+    if(!Array.isArray(lines)||!lines.length)throw new Error('Adicione pelo menos uma linha ao pedido.');
+    return lines.map(line=>{
+      const quantity=positiveNumber(line.quantity,'Quantidade');
+      const unitCost=nonNegativeOrNull(line.estimated_unit_cost,'Custo unitário');
+      return {item_id:line.item_id||null,description:cleanText(line.description||line.name,500),quantity,unit_of_measure:String(line.unit_of_measure||'unidade').trim()||'unidade',estimated_unit_cost:unitCost};
+    });
+  }
+  async function ownedRequest(requestId){
+    ensureActor();
+    const result=await db.from('purchase_requests').select('id,request_number,status,requested_by').eq('id',requestId).eq('requested_by',actorId).maybeSingle();
+    if(result?.error)throw result.error;
+    if(!result?.data)throw new Error('Pedido não encontrado ou não pertence ao utilizador autenticado.');
+    return result.data;
+  }
   return Object.freeze({
-    async createItem(input){ensureRole();const p=pick(input,['sku','name','description','category_id','item_type','tracking_mode','unit_of_measure','brand','model','minimum_stock','active','notes']);const validTypes=['equipamento','peca','consumivel','licenca','servico'];const validTracking=['serialized','lot','quantity'];if(!String(p.sku||'').trim()||!String(p.name||'').trim()||!validTypes.includes(p.item_type)||!validTracking.includes(p.tracking_mode)||!Number.isFinite(Number(p.minimum_stock??0))||Number(p.minimum_stock??0)<0)throw new Error('Dados do artigo inválidos.');p.sku=String(p.sku).trim();p.name=String(p.name).trim();p.minimum_stock=Number(p.minimum_stock??0);return insertOne('items',p);},
-    async createSupplier(input){ensureRole();const p=pick(input,['name','nif','contact_name','email','phone','address','notes','active']);if(!String(p.name||'').trim())throw new Error('Nome do fornecedor obrigatório.');p.name=String(p.name).trim();return insertOne('suppliers',p);},
-    async createWarehouse(input){ensureRole();const p=pick(input,['code','name','polo','location_description','active']);if(!String(p.code||'').trim()||!String(p.name||'').trim())throw new Error('Código e nome do armazém são obrigatórios.');p.code=String(p.code).trim();p.name=String(p.name).trim();return insertOne('warehouses',p);}
+    async createItem(input){ensureRole();const p=pick(input,['sku','name','description','category_id','item_type','tracking_mode','unit_of_measure','brand','model','minimum_stock','active','notes']);const validTypes=['equipamento','peca','consumivel','licenca','servico'];const validTracking=['serialized','lot','quantity'];if(!String(p.sku||'').trim()||!String(p.name||'').trim()||!validTypes.includes(p.item_type)||!validTracking.includes(p.tracking_mode)||!Number.isFinite(Number(p.minimum_stock??0))||Number(p.minimum_stock??0)<0)throw new Error('Dados do artigo inválidos.');p.sku=String(p.sku).trim();p.name=String(p.name).trim();p.minimum_stock=Number(p.minimum_stock??0);p.created_by=actorId||undefined;return insertOne('items',p);},
+    async createSupplier(input){ensureRole();const p=pick(input,['name','nif','contact_name','email','phone','address','notes','active']);if(!String(p.name||'').trim())throw new Error('Nome do fornecedor obrigatório.');p.name=String(p.name).trim();p.created_by=actorId||undefined;return insertOne('suppliers',p);},
+    async createWarehouse(input){ensureRole();const p=pick(input,['code','name','polo','location_description','active']);if(!String(p.code||'').trim()||!String(p.name||'').trim())throw new Error('Código e nome do armazém são obrigatórios.');p.code=String(p.code).trim();p.name=String(p.name).trim();p.created_by=actorId||undefined;return insertOne('warehouses',p);},
+    async createPurchaseRequest(input){
+      ensureRole();ensureActor();
+      const lines=normalizeLines(input?.lines);
+      const estimatedTotal=lines.every(line=>line.estimated_unit_cost!==null)
+        ? lines.reduce((sum,line)=>sum+line.quantity*line.estimated_unit_cost,0):null;
+      const request=await insertOne('purchase_requests',{
+        requested_by:actorId,supplier_id:input?.supplier_id||null,status:'draft',
+        justification:cleanText(input?.justification,4000),estimated_total:estimatedTotal
+      });
+      try{
+        const savedLines=await insertMany('purchase_request_lines',lines.map(line=>({...line,request_id:request.id})));
+        return Object.freeze({request,lines:savedLines});
+      }catch(error){
+        error.partialRequestId=request.id;
+        error.partialRequestNumber=request.request_number;
+        throw error;
+      }
+    },
+    async addPurchaseRequestLines(requestId,lines){
+      ensureRole();const request=await ownedRequest(requestId);
+      if(!['draft','returned'].includes(request.status))throw new Error('Só é possível acrescentar linhas a pedidos em rascunho ou devolvidos.');
+      const normalized=normalizeLines(lines);
+      const saved=await insertMany('purchase_request_lines',normalized.map(line=>({...line,request_id:request.id})));
+      return Object.freeze({request,lines:saved});
+    },
+    async submitPurchaseRequest(requestId){
+      ensureRole();const request=await ownedRequest(requestId);
+      if(!['draft','returned'].includes(request.status))throw new Error('O pedido não está num estado que permita submissão.');
+      const lines=await db.from('purchase_request_lines').select('id').eq('request_id',request.id);
+      if(lines?.error)throw lines.error;
+      if(!lines?.data?.length)throw new Error('O pedido não pode ser submetido sem linhas.');
+      const result=await db.from('purchase_requests').update({status:'submitted'}).eq('id',request.id).eq('requested_by',actorId).in('status',['draft','returned']).select().single();
+      if(result?.error)throw result.error;
+      if(!result?.data)throw new Error('O pedido não foi actualizado; confirme o estado e a autoria.');
+      return result.data;
+    },
+    async postStockMovement(input){
+      ensureRole();ensureActor();
+      if(typeof db.rpc!=='function')throw new Error('RPC post_stock_movement indisponível no schema ciadi_ti.');
+      if(!validMovementTypes.has(input?.movement_type))throw new Error('Tipo de movimento não permitido neste fluxo. Transferências usam a operação própria.');
+      const quantity=positiveNumber(input.quantity,'Quantidade');
+      const unitCost=nonNegativeOrNull(input.unit_cost,'Custo unitário');
+      const result=await db.rpc('post_stock_movement',{
+        p_item_id:cleanText(input.item_id,80),p_warehouse_id:cleanText(input.warehouse_id,80),
+        p_movement_type:input.movement_type,p_quantity:quantity,p_reference:String(input.reference||'').trim()||null,
+        p_notes:String(input.notes||'').trim()||null,p_unit_cost:unitCost,p_lot_code:String(input.lot_code||'').trim()||null
+      });
+      if(result?.error)throw result.error;
+      if(!result?.data)throw new Error('A função não devolveu o identificador do movimento.');
+      return result.data;
+    },
+    async transferStock(input){
+      ensureRole();ensureActor();
+      if(typeof db.rpc!=='function')throw new Error('RPC transfer_stock indisponível no schema ciadi_ti.');
+      if(input.from_warehouse_id===input.to_warehouse_id)throw new Error('A origem e o destino têm de ser armazéns diferentes.');
+      const result=await db.rpc('transfer_stock',{
+        p_item_id:cleanText(input.item_id,80),p_from_warehouse_id:cleanText(input.from_warehouse_id,80),
+        p_to_warehouse_id:cleanText(input.to_warehouse_id,80),p_quantity:positiveNumber(input.quantity,'Quantidade'),
+        p_reference:String(input.reference||'').trim()||null,p_notes:String(input.notes||'').trim()||null,
+        p_lot_code:String(input.lot_code||'').trim()||null
+      });
+      if(result?.error)throw result.error;
+      if(!result?.data)throw new Error('A função não devolveu os movimentos de transferência.');
+      return result.data;
+    },
+    async createInventoryCount(input){
+      ensureRole();ensureActor();
+      const lines=normalizeLines((input?.lines||[]).map(line=>({...line,estimated_unit_cost:null}))).map(line=>({
+        item_id:line.item_id,system_quantity:positiveNumber(line.system_quantity??0,'Quantidade no sistema'),
+        counted_quantity:nonNegativeOrNull(line.counted_quantity,'Quantidade contada'),
+        notes:String(line.notes||'').trim()||null
+      }));
+      const count=await insertOne('inventory_counts',{
+        warehouse_id:cleanText(input?.warehouse_id,80),status:'draft',counted_by:actorId,
+        notes:String(input?.notes||'').trim()||null
+      });
+      try{
+        const savedLines=await insertMany('inventory_count_lines',lines.map(line=>({...line,count_id:count.id})));
+        return Object.freeze({count,lines:savedLines});
+      }catch(error){error.partialCountId=count.id;throw error;}
+    },
+    async markInventoryCounted(countId){
+      ensureRole();ensureActor();
+      const result=await db.from('inventory_counts').update({status:'counted',counted_by:actorId,counted_at:now()})
+        .eq('id',countId).eq('status','draft').select().single();
+      if(result?.error)throw result.error;
+      if(!result?.data)throw new Error('Contagem não encontrada ou já não está em rascunho.');
+      return result.data;
+    }
   });
 }
+
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function bars(rows){if(!rows.length)return'<p class="text-sm text-slate-500">Sem registos disponíveis.</p>';const max=Math.max(1,...rows.map(x=>x.value));return'<div class="space-y-3">'+rows.map(x=>'<div><div class="flex justify-between text-xs mb-1"><span>'+esc(x.label)+'</span><b>'+x.value+'</b></div><div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-orange" style="width:'+Math.round(x.value/max*100)+'%"></div></div></div>').join('')+'</div>';}
 function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Suporte Informática'}={}){if(!root)throw new Error('Contentor do módulo obrigatório.');async function loadAudit(){if(!supabase?.from)return{rows:[],error:new Error('Supabase indisponível.')};const r=await supabase.from('auditoria').select('id,acao,tabela,created_at').order('created_at',{ascending:false}).limit(300);return{rows:r.data||[],error:r.error||null};}async function renderHome(){root.innerHTML='<div class="card p-6">A carregar o Centro de Operações de TI…</div>';let a;try{a=await loadAudit();}catch(e){a={rows:[],error:e};}let documentCatalog=null;try{documentCatalog=await loadDocumentCatalog();}catch(e){}const stats=aggregateAudit(a.rows);const services=[['Aplicação CIADI',{}],['Supabase',{}],['Rede institucional',{}],['Backups e recuperação',{}],['Sites e plataformas',{}]];const verifiedServices=services.filter(([,status])=>normalizeStatus(status)!=='Por verificar').length;root.innerHTML='<div class="mb-5"><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Tecnologia e Sistemas</span><h2 class="text-3xl font-black mt-1">Centro de Operações de TI</h2><p class="text-slate-500">Monitorização, assistência interna, aprovisionamento técnico e controlo documental.</p><span class="text-xs text-slate-500">Estação: '+esc(stationLabel)+'</span></div><div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4"><article class="card p-5"><div class="text-sm text-slate-500">Registos de auditoria lidos</div><div class="text-3xl font-black">'+stats.total+'</div><small>Últimos 300 registos consultados</small></article><article class="card p-5"><div class="text-sm text-slate-500">Serviços verificados</div><div class="text-3xl font-black">'+verifiedServices+' / '+services.length+'</div><small>Os restantes aguardam integração</small></article><article class="card p-5"><div class="text-sm text-slate-500">Modelos documentais</div><div class="text-3xl font-black">'+(documentCatalog?documentCatalog.listDocuments().length:0)+'</div><small>'+(documentCatalog?'tipos catalogados em oito motores':'Catálogo indisponível')+'</small></article><article class="card p-5"><div class="text-sm text-slate-500">Aprovisionamento técnico</div><div class="text-2xl font-black">Por verificar</div><small>Esquema de dados por confirmar</small></article></div><div class="grid xl:grid-cols-2 gap-5 mt-5"><section class="card p-5"><div class="flex justify-between mb-4"><h3 class="font-black text-lg">Estado dos serviços</h3><button id="support-refresh" class="border rounded-xl px-3 py-2 text-sm">Actualizar</button></div>'+services.map(([n,c])=>'<div class="flex justify-between border-b py-3"><b>'+n+'</b><span class="text-xs font-bold">'+normalizeStatus(c)+'</span></div>').join('')+'<p class="text-xs text-slate-400 mt-3">Sem evidência, o estado permanece Por verificar.</p></section><section class="card p-5"><h3 class="font-black text-lg mb-4">Auditoria • Acções</h3>'+(a.error?'<p class="text-amber-700">Erro ao consultar auditoria: '+esc(a.error.message)+'</p>':bars(stats.byAction.slice(0,7)))+'</section></div><div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mt-5"><button data-helpdesk class="card p-5 text-left"><b>Helpdesk e incidentes</b><p class="text-sm text-slate-500 mt-2">Chamados, assistência, incidentes e histórico técnico.</p></button><button data-go="auditoria" class="card p-5 text-left"><b>Auditoria e relatórios</b><p class="text-sm text-slate-500 mt-2">Registos e análises.</p></button><button data-procurement class="card p-5 text-left"><b>Aprovisionamento informático</b><p class="text-sm text-slate-500 mt-2">Consultar inventário, equipamentos, fornecedores, armazéns e pedidos de aquisição.</p></button><button data-documents class="card p-5 text-left"><b>Motores documentais</b><p class="text-sm text-slate-500 mt-2">Modelos técnicos, validação e pré-visualização para impressão.</p></button><article class="card p-5"><b>Inventário e manutenção</b><p class="text-sm text-slate-500 mt-2">Equipamentos e intervenções técnicas.</p></article><article class="card p-5"><b>Segurança e backups</b><p class="text-sm text-slate-500 mt-2">Incidentes e evidências de recuperação.</p></article></div>';root.querySelector('#support-refresh')?.addEventListener('click',()=>renderHome().catch(e=>notify(e.message)));root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>b.dataset.go==='auditoria'?renderAudit().catch(e=>notify(e.message)):navigate(b.dataset.go)));root.querySelector('[data-documents]')?.addEventListener('click',()=>renderDocuments().catch(e=>notify(e.message)));root.querySelector('[data-procurement]')?.addEventListener('click',()=>renderProcurement().catch(e=>notify(e.message)));root.querySelector('[data-helpdesk]')?.addEventListener('click',()=>renderHelpdesk().catch(e=>notify(e.message)));}async function renderAudit(){
