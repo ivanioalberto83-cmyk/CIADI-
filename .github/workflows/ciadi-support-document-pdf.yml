@@ -1,0 +1,31 @@
+name: CIADI Support Document PDF Tests
+
+on:
+  push:
+    branches:
+      - feature/ciadi-support-document-pdf-export-20261108
+    paths:
+      - 'ciadi-windows/document-pdf-service.cjs'
+      - 'ciadi-windows/tests/document-pdf-service.test.cjs'
+      - '.github/workflows/ciadi-support-document-pdf.yml'
+  pull_request:
+    branches:
+      - feature/ciadi-support-document-motors-phase3-20261106
+    paths:
+      - 'ciadi-windows/document-pdf-service.cjs'
+      - 'ciadi-windows/tests/document-pdf-service.test.cjs'
+      - '.github/workflows/ciadi-support-document-pdf.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  document-pdf-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Executar testes do serviço PDF documental
+        run: node --test ciadi-windows/tests/document-pdf-service.test.cjs
