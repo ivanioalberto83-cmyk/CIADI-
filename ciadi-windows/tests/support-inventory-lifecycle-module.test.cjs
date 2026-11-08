@@ -92,3 +92,56 @@ test('agrega indicadores de aprovisionamento por recepção, divergência e inve
   assert.equal(result.discrepancies.shortages, 1);
   assert.equal(result.inventory.varianceLines, 2);
 });
+
+test('cria recepção em rascunho através de RPC e não aceita linhas sem referência à encomenda', async () => {
+  const calls = [];
+  const db = { rpc: async (name, args) => {
+    calls.push({ name, args });
+    return { data: { id: 'receipt-2', status: 'draft' }, error: null };
+  }};
+  const service = lifecycle.createInventoryLifecycleService({ db, role: 'suporte_informatica', actorId: 'user-1' });
+  const result = await service.createGoodsReceipt({
+    purchaseRequestId: 'request-1',
+    warehouseId: 'warehouse-1',
+    deliveryReference: 'GUIA-22',
+    deliveryDate: '2026-11-08',
+    notes: 'Entrega parcial',
+    lines: [{
+      purchaseRequestLineId: 'line-1', ordered_quantity: 5,
+      received_quantity: 4, accepted_quantity: 3, damaged_quantity: 1,
+      unit_cost: 2500, lot_code: 'L-22', notes: 'Uma unidade danificada'
+    }]
+  });
+  assert.equal(result.id, 'receipt-2');
+  assert.deepEqual(calls, [{
+    name: 'create_goods_receipt',
+    args: {
+      p_purchase_request_id: 'request-1',
+      p_warehouse_id: 'warehouse-1',
+      p_delivery_reference: 'GUIA-22',
+      p_delivery_date: '2026-11-08',
+      p_notes: 'Entrega parcial',
+      p_lines: [{
+        purchase_request_line_id: 'line-1', received_quantity: 4,
+        accepted_quantity: 3, damaged_quantity: 1, unit_cost: 2500,
+        lot_code: 'L-22', notes: 'Uma unidade danificada'
+      }]
+    }
+  }]);
+  await assert.rejects(() => service.createGoodsReceipt({
+    purchaseRequestId: 'request-1', warehouseId: 'warehouse-1',
+    lines: [{ received_quantity: 1, accepted_quantity: 1, damaged_quantity: 0 }]
+  }), /referência à linha da encomenda/);
+});
+
+test('marca recepção conferida através de RPC sem alterar stock antes da finalização', async () => {
+  const calls = [];
+  const db = { rpc: async (name, args) => {
+    calls.push({ name, args });
+    return { data: { receipt_id: 'receipt-3', status: 'checked' }, error: null };
+  }};
+  const service = lifecycle.createInventoryLifecycleService({ db, role: 'suporte_informatica', actorId: 'user-1' });
+  const result = await service.checkGoodsReceipt('receipt-3');
+  assert.equal(result.status, 'checked');
+  assert.deepEqual(calls, [{ name: 'check_goods_receipt', args: { p_receipt_id: 'receipt-3' } }]);
+});
