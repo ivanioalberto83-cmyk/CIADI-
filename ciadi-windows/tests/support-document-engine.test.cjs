@@ -55,8 +55,8 @@ test('emissão prepara número e QR antes de compor e arquivar o PDF final',asyn
   assert.equal(issued.document.number,'SUP-SUP-INC/2026/000001');
   assert.equal(issued.qrDataUrl,'data:image/svg+xml;base64,PHN2Zy8+');
   assert.deepEqual(calls.map(x=>x[0]),['prepare','qr','html','pdf','finalize']);
-  assert.match(calls[2][1].verificationUrl,/^https:\\/\\//);
-  assert.match(calls[2][1].qrDataUrl,/^data:image\\//);
+  assert.ok(calls[2][1].verificationUrl.startsWith('https://'));
+  assert.ok(calls[2][1].qrDataUrl.startsWith('data:image/'));
   assert.equal(calls[4][1].token,'abcdefghijklmnopqrstuvwxyz1234567890');
   assert.equal(calls[4][1].artifact.mimeType,'application/pdf');
 });
