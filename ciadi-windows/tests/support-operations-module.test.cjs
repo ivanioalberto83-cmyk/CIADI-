@@ -228,3 +228,31 @@ test('só acrescenta linhas a contagens próprias ainda em rascunho',async()=>{
   assert.equal(saved[0].system_quantity,0);
   assert.equal(calls[0].table,'inventory_count_lines');
 });
+
+
+test('recolhe várias linhas dinâmicas de compra e contagem sem perder campos', () => {
+  const row = values => ({
+    querySelector(selector) {
+      const key = selector.match(/name="([^"]+)"/)?.[1];
+      return key && Object.prototype.hasOwnProperty.call(values, key) ? { value: values[key] } : null;
+    }
+  });
+  const purchase = support.collectProcurementLineRows([
+    row({ item_id: 'item-1', description: 'Portátil', quantity: '2', unit_of_measure: 'unidade', estimated_unit_cost: '250000' }),
+    row({ item_id: '', description: 'Mala', quantity: '2', unit_of_measure: 'unidade', estimated_unit_cost: '12000' })
+  ], 'purchase');
+  assert.deepEqual(purchase, [
+    { item_id: 'item-1', description: 'Portátil', quantity: '2', unit_of_measure: 'unidade', estimated_unit_cost: '250000' },
+    { item_id: '', description: 'Mala', quantity: '2', unit_of_measure: 'unidade', estimated_unit_cost: '12000' }
+  ]);
+  const count = support.collectProcurementLineRows([
+    row({ item_id: 'item-1', system_quantity: '5', counted_quantity: '4', notes: 'Caixa aberta' }),
+    row({ item_id: 'item-2', system_quantity: '0', counted_quantity: '0', notes: '' })
+  ], 'count');
+  assert.deepEqual(count, [
+    { item_id: 'item-1', system_quantity: '5', counted_quantity: '4', notes: 'Caixa aberta' },
+    { item_id: 'item-2', system_quantity: '0', counted_quantity: '0', notes: '' }
+  ]);
+  assert.deepEqual(support.collectProcurementLineRows([], 'purchase'), []);
+  assert.throws(() => support.collectProcurementLineRows([], 'unknown'), /Tipo de linha inválido/);
+});
