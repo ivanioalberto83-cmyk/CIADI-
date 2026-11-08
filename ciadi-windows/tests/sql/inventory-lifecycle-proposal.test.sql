@@ -9,6 +9,7 @@ declare
   v_item_b uuid := '40000000-0000-4000-8000-000000000002';
   v_request uuid := '50000000-0000-4000-8000-000000000001';
   v_line uuid := '60000000-0000-4000-8000-000000000001';
+  v_line_b uuid := '60000000-0000-4000-8000-000000000002';
   v_receipt uuid;
   v_bad_receipt uuid;
   v_count uuid := '70000000-0000-4000-8000-000000000001';
@@ -30,7 +31,9 @@ begin
   insert into ciadi_ti.purchase_requests(id, requested_by, supplier_id, status, justification)
   values (v_request, v_user, v_supplier, 'approved', 'Homologação do ciclo de recepção');
   insert into ciadi_ti.purchase_request_lines(id, request_id, item_id, description, quantity, estimated_unit_cost)
-  values (v_line, v_request, v_item_a, 'Artigo A', 10, 1000);
+  values
+    (v_line, v_request, v_item_a, 'Artigo A', 10, 1000),
+    (v_line_b, v_request, v_item_b, 'Artigo B', 10, 500);
 
   if not ciadi_ti.has_support_access() then
     raise exception 'Perfil de suporte não foi reconhecido pelo helper.';
@@ -106,6 +109,23 @@ begin
     raise exception 'Só as 6 unidades aceites deveriam entrar em stock; saldo obtido: %.', v_balance;
   end if;
 
+  -- O total acumulado de recepções não pode exceder a quantidade encomendada.
+  begin
+    perform ciadi_ti.create_goods_receipt(
+      v_request, v_warehouse, 'GUIA-CI-EXCESSO', current_date, 'Tentativa de excesso acumulado',
+      jsonb_build_array(jsonb_build_object(
+        'purchase_request_line_id', v_line,
+        'received_quantity', 3,
+        'accepted_quantity', 3,
+        'damaged_quantity', 0,
+        'returned_quantity', 0
+      ))
+    );
+    raise exception 'A recepção acumulada acima das 10 unidades encomendadas deveria falhar.';
+  exception when sqlstate '23514' then
+    null;
+  end;
+
   -- A mesma recepção não pode ser finalizada duas vezes.
   begin
     perform ciadi_ti.finalize_goods_receipt(v_receipt);
@@ -118,7 +138,7 @@ begin
   v_result := ciadi_ti.create_goods_receipt(
     v_request, v_warehouse, 'GUIA-CI-002', current_date, 'Conferência incompleta',
     jsonb_build_array(jsonb_build_object(
-      'purchase_request_line_id', v_line,
+      'purchase_request_line_id', v_line_b,
       'received_quantity', 5,
       'accepted_quantity', 4,
       'damaged_quantity', 0,
@@ -138,7 +158,7 @@ begin
     perform ciadi_ti.create_goods_receipt(
       v_request, v_warehouse, 'GUIA-CI-003', current_date, 'Quantidades inválidas',
       jsonb_build_array(jsonb_build_object(
-        'purchase_request_line_id', v_line,
+        'purchase_request_line_id', v_line_b,
         'received_quantity', 4,
         'accepted_quantity', 3,
         'damaged_quantity', 1,
@@ -156,8 +176,8 @@ begin
   values (v_count, v_warehouse, 'counted', v_user, now(), 'Contagem de homologação');
   insert into ciadi_ti.inventory_count_lines(count_id, item_id, system_quantity, counted_quantity, variance)
   values
-    (v_count, v_item_a, 6, 8, 2),
-    (v_count, v_item_b, 5, 3, -2);
+    (v_count, v_item_a, 6, 8, 200),
+    (v_count, v_item_b, 5, 3, -200);
   v_result := ciadi_ti.reconcile_inventory_count(v_count);
   if (v_result->>'movements_created')::integer <> 2 or v_result->>'status' <> 'reconciled' then
     raise exception 'A reconciliação deveria criar dois ajustes e fechar a contagem.';
