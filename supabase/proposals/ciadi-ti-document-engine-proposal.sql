@@ -133,7 +133,7 @@ create policy ciadi_ti_documents_create_draft
   with check (
     ciadi_ti.has_support_access()
     and created_by = (select auth.uid())
-    and status = 'draft'
+    and "status" = 'draft'
   );
 
 create policy ciadi_ti_documents_update_own_draft
@@ -141,12 +141,12 @@ create policy ciadi_ti_documents_update_own_draft
   using (
     ciadi_ti.has_support_access()
     and created_by = (select auth.uid())
-    and status = 'draft'
+    and "status" = 'draft'
   )
   with check (
     ciadi_ti.has_support_access()
     and created_by = (select auth.uid())
-    and status = 'draft'
+    and "status" = 'draft'
   );
 
 create policy ciadi_ti_document_events_read
@@ -360,7 +360,7 @@ create policy ciadi_ti_documents_create_draft
   with check (
     ciadi_ti.has_support_access()
     and created_by = (select auth.uid())
-    and status = 'draft'
+    and "status" = 'draft'
   );
 
 create policy ciadi_ti_documents_update_own_draft
@@ -368,12 +368,12 @@ create policy ciadi_ti_documents_update_own_draft
   using (
     ciadi_ti.has_support_access()
     and created_by = (select auth.uid())
-    and status = 'draft'
+    and "status" = 'draft'
   )
   with check (
     ciadi_ti.has_support_access()
     and created_by = (select auth.uid())
-    and status = 'draft'
+    and "status" = 'draft'
   );
 
 create policy ciadi_ti_document_events_read
