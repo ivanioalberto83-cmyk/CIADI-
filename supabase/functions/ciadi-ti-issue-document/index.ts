@@ -76,6 +76,8 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
 
   const storagePath = "suporte-informatica/" + documentId + ".pdf";
   const storage = ctx.supabaseAdmin.storage.from(DOCUMENT_BUCKET);
+  const pdfBuffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(pdfBuffer).set(bytes);
   const { error: uploadError } = await storage.upload(
     storagePath,
     new Blob([pdfBuffer], { type: "application/pdf" }),
