@@ -107,17 +107,23 @@
         if(typeof pdfExporter!=='function') throw new Error('Exportação PDF não configurada.');
         return pdfExporter({html,filename});
       },
-      async exportIssuedPdf(document,html,filename) {
+      async exportIssuedPdf(document,filename) {
         if(!document||document.status!=='issued') throw new Error('A exportação PDF exige um documento emitido.');
-        if(!clean(html)||!clean(filename)) throw new Error('Conteúdo e nome do PDF são obrigatórios.');
+        if(typeof repository?.downloadIssuedPdf!=='function') throw new Error('Download do PDF oficial arquivado não configurado.');
         if(typeof pdfExporter!=='function') throw new Error('Exportação PDF não configurada.');
-        return pdfExporter({html,filename,documentId:document.id});
-      },
-      async archive(document,artifact) {
-        if(!document||document.status!=='issued') throw new Error('Só documentos emitidos podem ser arquivados.');
-        if(typeof repository?.archiveIssued!=='function') throw new Error('Arquivo privado documental não configurado.');
-        if(!artifact?.bytes||!clean(artifact.filename)||!clean(artifact.sha256)) throw new Error('PDF, nome e hash SHA-256 são obrigatórios para arquivo.');
-        return repository.archiveIssued({documentId:document.id,artifact});
+        const archived=await repository.downloadIssuedPdf(document.id);
+        if(!archived?.bytes || archived.mimeType!=='application/pdf') throw new Error('O arquivo oficial não devolveu um PDF válido.');
+        const bytes=archived.bytes;
+        const byteLength=bytes instanceof ArrayBuffer ? bytes.byteLength
+          : ArrayBuffer.isView(bytes) ? bytes.byteLength
+          : (typeof Blob!=='undefined' && bytes instanceof Blob) ? bytes.size : 0;
+        if(!byteLength || byteLength>10485760) throw new Error('O PDF arquivado está vazio ou excede 10 MiB.');
+        return pdfExporter({
+          bytes,
+          filename:clean(filename)||archived.filename||document.number+'.pdf',
+          documentId:document.id,
+          mimeType:'application/pdf'
+        });
       },
       async verify(documentId,token) {
         if(typeof repository?.verifyToken!=='function') throw new Error('Serviço de autenticação documental não configurado.');
