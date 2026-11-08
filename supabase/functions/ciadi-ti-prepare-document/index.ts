@@ -61,16 +61,14 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
   const tokenHash = await sha256Hex(new TextEncoder().encode(token));
   const createdAt = new Date();
   const expiresAt = new Date(createdAt.getTime() + 10 * 60 * 1000);
-  const { error: insertError } = await db.from("document_issuance_sessions").insert({
-    document_id: documentId,
-    actor_id: actorId,
-    token_hash: tokenHash,
-    created_at: createdAt.toISOString(),
-    expires_at: expiresAt.toISOString(),
+  const { data: documentNumber, error: prepareError } = await db.rpc("prepare_document_issuance", {
+    p_document_id: documentId,
+    p_actor_id: actorId,
+    p_verification_token_hash: tokenHash,
   });
-  if (insertError) {
-    console.error("CIADI TI issuance session creation failed:", insertError.message);
-    return jsonResponse({ error: "Não foi possível preparar a emissão documental." }, 500);
+  if (prepareError || typeof documentNumber !== "string" || !documentNumber) {
+    console.error("CIADI TI issuance preparation failed:", prepareError?.message || "invalid RPC result");
+    return jsonResponse({ error: "Não foi possível reservar o número e preparar a emissão documental." }, 500);
   }
 
   const verificationUrl = new URL("/functions/v1/ciadi-ti-verify-document", supabaseUrl);
