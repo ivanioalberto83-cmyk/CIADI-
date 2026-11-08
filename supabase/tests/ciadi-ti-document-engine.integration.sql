@@ -69,7 +69,7 @@ begin
   begin
     update ciadi_ti.documents
     set title = 'Alteração privilegiada'
-    where id = :'draft_id'::uuid;
+    where title = 'Relatório de teste';
     raise exception 'Expected immutable-document trigger to reject update';
   exception
     when raise_exception then
