@@ -56,3 +56,5 @@ Resposta pública allowlisted:
 - A consulta Data API a `ciadi_ti` depende da exposição do schema; isso tem de ser validado no ambiente de teste.
 - Não foi executado Deno local neste ambiente; o workflow GitHub Actions faz `deno check` e testes unitários.
 - Nenhum segredo é incluído no repositório. Não configurar nem publicar funções em produção nesta fase.
+
+- Dependências Deno: versão directa de `@supabase/server` fixada em `deno.json`; árvore resolvida fixada em `deno.lock`. O workflow valida os tipos e executa os testes usando esse lockfile.
