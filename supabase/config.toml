@@ -1,0 +1,10 @@
+project_id = "egpkkttbcaukqnnxyhjv"
+
+# The SDK performs authentication inside each handler. Keep the platform
+# legacy JWT gate off so both modern signing keys and user JWTs are supported.
+[functions.ciadi-ti-issue-document]
+verify_jwt = false
+
+# Public endpoint: the high-entropy document token is validated by the handler.
+[functions.ciadi-ti-verify-document]
+verify_jwt = false
