@@ -4,14 +4,14 @@ const lifecycle = require('../../renderer/modules/support-inventory-lifecycle-mo
 
 test('resume recepções sem confundir quantidade entregue com quantidade aceite', () => {
   const result = lifecycle.summarizeGoodsReceipts([
-    { status: 'draft', received_quantity: 4, accepted_quantity: 0, damaged_quantity: 0 },
-    { status: 'checked', received_quantity: 8, accepted_quantity: 6, damaged_quantity: 2 },
-    { status: 'posted', received_quantity: 5, accepted_quantity: 5, damaged_quantity: 0 }
+    { status: 'draft', received_quantity: 4, accepted_quantity: 0, damaged_quantity: 0, returned_quantity: 0 },
+    { status: 'checked', received_quantity: 8, accepted_quantity: 6, damaged_quantity: 2, returned_quantity: 0 },
+    { status: 'posted', received_quantity: 5, accepted_quantity: 5, damaged_quantity: 0, returned_quantity: 0 }
   ]);
   assert.deepEqual(result, {
     total: 3, draft: 1, checked: 1, posted: 1,
-    receivedQuantity: 17, acceptedQuantity: 11, damagedQuantity: 2,
-    discrepancies: 1
+    receivedQuantity: 17, acceptedQuantity: 11, damagedQuantity: 2, returnedQuantity: 0,
+    returns: 0, discrepancies: 1
   });
 });
 
@@ -19,21 +19,25 @@ test('identifica faltas, excessos e artigos danificados na conferência', () => 
   const result = lifecycle.summarizeReceiptDiscrepancies([
     { ordered_quantity: 10, received_quantity: 8, accepted_quantity: 8, damaged_quantity: 0 },
     { ordered_quantity: 4, received_quantity: 6, accepted_quantity: 4, damaged_quantity: 2 },
-    { ordered_quantity: 3, received_quantity: 3, accepted_quantity: 2, damaged_quantity: 1 }
+    { ordered_quantity: 3, received_quantity: 3, accepted_quantity: 2, damaged_quantity: 1, returned_quantity: 0 },
+    { ordered_quantity: 4, received_quantity: 4, accepted_quantity: 3, damaged_quantity: 0, returned_quantity: 1 }
   ]);
   assert.deepEqual(result, {
-    lines: 3, shortages: 1, excesses: 1, damagedLines: 2,
-    shortageQuantity: 2, excessQuantity: 2, damagedQuantity: 3
+    lines: 4, shortages: 1, excesses: 1, damagedLines: 2, returnedLines: 1,
+    shortageQuantity: 2, excessQuantity: 2, damagedQuantity: 3, returnedQuantity: 1
   });
 });
 
 test('não permite aceitar mais unidades do que as recebidas nem quantidades negativas', () => {
   assert.throws(() => lifecycle.validateReceiptLines([
-    { ordered_quantity: 5, received_quantity: 2, accepted_quantity: 3, damaged_quantity: 0 }
+    { ordered_quantity: 5, received_quantity: 2, accepted_quantity: 3, damaged_quantity: 0, returned_quantity: 0 }
   ]), /aceite não pode exceder/);
   assert.throws(() => lifecycle.validateReceiptLines([
-    { ordered_quantity: 5, received_quantity: -1, accepted_quantity: 0, damaged_quantity: 0 }
+    { ordered_quantity: 5, received_quantity: -1, accepted_quantity: 0, damaged_quantity: 0, returned_quantity: 0 }
   ]), /quantidades não negativas/);
+  assert.throws(() => lifecycle.validateReceiptLines([
+    { ordered_quantity: 5, received_quantity: 4, accepted_quantity: 2, damaged_quantity: 1, returned_quantity: 2 }
+  ]), /aceite, danificada e devolvida/);
 });
 
 test('a finalização da recepção delega a gravação transaccional de stock ao RPC do servidor', async () => {
@@ -108,7 +112,7 @@ test('cria recepção em rascunho através de RPC e não aceita linhas sem refer
     notes: 'Entrega parcial',
     lines: [{
       purchaseRequestLineId: 'line-1', ordered_quantity: 5,
-      received_quantity: 4, accepted_quantity: 3, damaged_quantity: 1,
+      received_quantity: 4, accepted_quantity: 3, damaged_quantity: 1, returned_quantity: 0,
       unit_cost: 2500, lot_code: 'L-22', notes: 'Uma unidade danificada'
     }]
   });
@@ -123,7 +127,7 @@ test('cria recepção em rascunho através de RPC e não aceita linhas sem refer
       p_notes: 'Entrega parcial',
       p_lines: [{
         purchase_request_line_id: 'line-1', received_quantity: 4,
-        accepted_quantity: 3, damaged_quantity: 1, unit_cost: 2500,
+        accepted_quantity: 3, damaged_quantity: 1, returned_quantity: 0, unit_cost: 2500,
         lot_code: 'L-22', notes: 'Uma unidade danificada'
       }]
     }
