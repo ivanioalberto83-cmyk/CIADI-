@@ -83,4 +83,5 @@ O UI consulta o schema `ciadi_ti`, tabelas `helpdesk_tickets` e `helpdesk_ticket
 - Não foi executada qualquer migração, RPC, INSERT, UPDATE, alteração RLS, alteração de contas ou operação de Storage no Supabase remoto.
 - Não foram testados perfis reais contra as novas RPCs; a proposta requer revisão SQL, validação de grants e confirmação de exposição do schema `ciadi_ti` à Data API.
 - A proposta não marca automaticamente a encomenda como integralmente recebida: permite recepções parciais sem alterar o estado financeiro aprovado.
-- A interface e o motor têm testes automatizados de contrato; a execução real de ponta a ponta depende da aplicação aprovada da proposta num ambiente isolado e da homologação dos dados.
+- A proposta SQL foi aplicada e testada num PostgreSQL 16 isolado em CI: recepção parcial, classificação de unidades, conferência, devoluções, publicação apenas das unidades aceites, bloqueio de dupla finalização, reconciliação positiva/negativa, autenticação, perfis, RLS e grants.
+- A homologação isolada não equivale à aplicação no Supabase remoto. A migração, Data API, perfis reais e operação ponta-a-ponta continuam pendentes de autorização e validação.
