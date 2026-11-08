@@ -44,6 +44,7 @@ function createDocumentPdfService({ dialog, windowFactory, fs }) {
       const safeName = String(filename || 'documento-ciadi.pdf')
         .replace(/[\\/:*?"<>|]/g, '_')
         .replace(/[\u0000-\u001f]/g, '_')
+        .replace(/\.+$/g, '') || 'documento-ciadi.pdf';
       const suggestedName = safeName.toLowerCase().endsWith('.pdf') ? safeName : safeName + '.pdf';
       const selection = await dialog.showSaveDialog({
         title: 'Exportar documento CIADI em PDF',
