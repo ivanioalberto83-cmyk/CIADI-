@@ -51,6 +51,25 @@ begin
 end;
 $$;
 
+create or replace function ciadi_ti.record_helpdesk_ticket_updated()
+returns trigger language plpgsql security definer
+set search_path = pg_catalog, ciadi_ti
+as $
+begin
+  if new.status is distinct from old.status then
+    insert into ciadi_ti.helpdesk_ticket_events(ticket_id,event_type,message,from_status,to_status,created_by)
+    values(new.id,'status_changed','Estado alterado de ' || old.status || ' para ' || new.status || '.',old.status,new.status,coalesce(auth.uid(),new.created_by));
+  end if;
+  if new.assigned_to is distinct from old.assigned_to then
+    insert into ciadi_ti.helpdesk_ticket_events(ticket_id,event_type,message,created_by)
+    values(new.id,'technician_assigned',
+      case when new.assigned_to is null then 'Atribuição de técnico removida.' else 'Técnico responsável actualizado.' end,
+      coalesce(auth.uid(),new.created_by));
+  end if;
+  return new;
+end;
+$;
+
 create or replace function ciadi_ti.record_helpdesk_ticket_created()
 returns trigger language plpgsql security definer
 set search_path = pg_catalog, ciadi_ti
@@ -66,6 +85,11 @@ drop trigger if exists helpdesk_ticket_number_before_insert on ciadi_ti.helpdesk
 create trigger helpdesk_ticket_number_before_insert
 before insert on ciadi_ti.helpdesk_tickets
 for each row execute function ciadi_ti.assign_helpdesk_ticket_number();
+
+drop trigger if exists helpdesk_ticket_updated_after_update on ciadi_ti.helpdesk_tickets;
+create trigger helpdesk_ticket_updated_after_update
+after update of status, assigned_to on ciadi_ti.helpdesk_tickets
+for each row execute function ciadi_ti.record_helpdesk_ticket_updated();
 
 drop trigger if exists helpdesk_ticket_created_after_insert on ciadi_ti.helpdesk_tickets;
 create trigger helpdesk_ticket_created_after_insert
@@ -102,9 +126,23 @@ using (
   )
 );
 
+drop policy if exists helpdesk_event_insert on ciadi_ti.helpdesk_ticket_events;
+create policy helpdesk_event_insert on ciadi_ti.helpdesk_ticket_events
+for insert to authenticated
+with check (
+  created_by = (select auth.uid())
+  and event_type = 'intervention'
+  and exists (
+    select 1 from ciadi_ti.helpdesk_tickets t
+    where t.id = ticket_id
+      and (t.created_by = (select auth.uid()) or ciadi_ti.has_support_access())
+  )
+);
+
 comment on table ciadi_ti.helpdesk_tickets is 'Chamados do Helpdesk institucional CIADI; proposta para homologação.';
 comment on table ciadi_ti.helpdesk_ticket_events is 'Histórico imutável de eventos e intervenções do Helpdesk CIADI.';
 comment on function ciadi_ti.assign_helpdesk_ticket_number() is 'Atribui referência sequencial no servidor; não reutilizar números.';
 comment on function ciadi_ti.record_helpdesk_ticket_created() is 'Regista automaticamente a abertura do chamado no histórico.';
+comment on function ciadi_ti.record_helpdesk_ticket_updated() is 'Regista alterações de estado e atribuição no histórico; eventos sem UPDATE/DELETE para utilizadores.';
 
 commit;
