@@ -91,6 +91,19 @@ function createProcurementService({db,role,actorId,now=()=>new Date().toISOStrin
       const saved=await insertMany('purchase_request_lines',normalized.map(line=>({...line,request_id:request.id})));
       return Object.freeze({request,lines:saved});
     },
+    async addInventoryCountLines(countId,lines){
+      ensureRole();ensureActor();
+      const count=await db.from('inventory_counts').select('id,status,counted_by').eq('id',countId).eq('counted_by',actorId).maybeSingle();
+      if(count?.error)throw count.error;
+      if(!count?.data||count.data.status!=='draft')throw new Error('Contagem não encontrada, não pertence ao utilizador ou já foi concluída.');
+      if(!Array.isArray(lines)||!lines.length)throw new Error('Adicione pelo menos um artigo à contagem.');
+      const normalized=lines.map(line=>{
+        const systemQuantity=Number(line.system_quantity),countedQuantity=Number(line.counted_quantity);
+        if(!line.item_id||!Number.isFinite(systemQuantity)||systemQuantity<0||!Number.isFinite(countedQuantity)||countedQuantity<0)throw new Error('Artigo e quantidades não negativas são obrigatórios na contagem.');
+        return {count_id:count.data.id,item_id:line.item_id,system_quantity:systemQuantity,counted_quantity:countedQuantity,notes:String(line.notes||'').trim()||null};
+      });
+      return insertMany('inventory_count_lines',normalized);
+    },
     async submitPurchaseRequest(requestId){
       ensureRole();const request=await ownedRequest(requestId);
       if(!['draft','returned'].includes(request.status))throw new Error('O pedido não está num estado que permita submissão.');
@@ -152,7 +165,7 @@ function createProcurementService({db,role,actorId,now=()=>new Date().toISOStrin
     async markInventoryCounted(countId){
       ensureRole();ensureActor();
       const result=await db.from('inventory_counts').update({status:'counted',counted_by:actorId,counted_at:now()})
-        .eq('id',countId).eq('status','draft').select().single();
+        .eq('id',countId).eq('counted_by',actorId).eq('status','draft').select().single();
       if(result?.error)throw result.error;
       if(!result?.data)throw new Error('Contagem não encontrada ou já não está em rascunho.');
       return result.data;
@@ -219,12 +232,13 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
       '<form data-proc-form="supplier" class="border rounded-xl p-4 space-y-2"><b>Novo fornecedor</b><input name="name" required placeholder="Nome / firma" class="w-full border rounded-lg p-2"><input name="nif" placeholder="NIF" class="w-full border rounded-lg p-2"><input name="email" type="email" placeholder="Email" class="w-full border rounded-lg p-2"><input name="phone" placeholder="Telefone" class="w-full border rounded-lg p-2"><button class="bg-orange text-white rounded-lg px-3 py-2 font-bold" type="submit">Guardar fornecedor</button></form>'+
       '<form data-proc-form="warehouse" class="border rounded-xl p-4 space-y-2"><b>Novo armazém</b><input name="code" required placeholder="Código" class="w-full border rounded-lg p-2"><input name="name" required placeholder="Designação" class="w-full border rounded-lg p-2"><input name="polo" placeholder="Polo / centro" class="w-full border rounded-lg p-2"><input name="location_description" placeholder="Localização" class="w-full border rounded-lg p-2"><button class="bg-orange text-white rounded-lg px-3 py-2 font-bold" type="submit">Guardar armazém</button></form></div><p class="text-xs text-slate-500 mt-3">A gravação depende das políticas RLS e das permissões efectivas do utilizador. Nenhuma aprovação financeira é disponibilizada nesta estação.</p></section>'
     : '<section class="card p-4 mt-5"><b>Modo de consulta</b><p class="text-sm text-slate-500 mt-1">O perfil autenticado não foi identificado como Suporte Informática, Administração ou Gestão. Não são apresentados controlos de gravação.</p></section>';
-  const itemOptions=items.map(item=>'<option value="'+esc(item.id)+'">'+esc(item.sku)+' — '+esc(item.name)+'</option>').join('');
-  const warehouseOptions=by.warehouses.rows.map(item=>'<option value="'+esc(item.id)+'">'+esc(item.code)+' — '+esc(item.name)+'</option>').join('');
+  const itemOptions=items.filter(item=>item.active).map(item=>'<option value="'+esc(item.id)+'">'+esc(item.sku)+' — '+esc(item.name)+'</option>').join('');
+  const warehouseOptions=by.warehouses.rows.filter(item=>item.active).map(item=>'<option value="'+esc(item.id)+'">'+esc(item.code)+' — '+esc(item.name)+'</option>').join('');
   const supplierOptions=by.suppliers.rows.filter(item=>item.active).map(item=>'<option value="'+esc(item.id)+'">'+esc(item.name)+'</option>').join('');
   const workflowForms=canManage
     ? '<section class="card p-5 mt-5"><h3 class="font-black text-lg mb-3">Operações de Aprovisionamento</h3><div class="grid xl:grid-cols-2 gap-4">'+
       '<form data-proc-form="purchase" class="border rounded-xl p-4 space-y-2"><b>Novo pedido de aquisição</b><select name="supplier_id" class="w-full border rounded-lg p-2"><option value="">Fornecedor por definir</option>'+supplierOptions+'</select><textarea name="justification" required maxlength="4000" placeholder="Justificação da necessidade" class="w-full border rounded-lg p-2"></textarea><div class="grid sm:grid-cols-2 gap-2"><select name="item_id" class="border rounded-lg p-2"><option value="">Artigo não catalogado</option>'+itemOptions+'</select><input name="description" required maxlength="500" placeholder="Descrição da linha" class="border rounded-lg p-2"></div><div class="grid sm:grid-cols-3 gap-2"><input name="quantity" type="number" min="0.001" step="0.001" required placeholder="Quantidade" class="border rounded-lg p-2"><input name="unit_of_measure" value="unidade" required placeholder="Unidade" class="border rounded-lg p-2"><input name="estimated_unit_cost" type="number" min="0" step="0.01" placeholder="Custo unitário (Kz)" class="border rounded-lg p-2"></div><button class="bg-orange text-white rounded-lg px-3 py-2 font-bold" type="submit">Guardar pedido em rascunho</button><p class="text-xs text-slate-500">A submissão não aprova a compra. A decisão continua reservada à Administração.</p></form>'+
+      '<form data-proc-form="purchase-lines" class="border rounded-xl p-4 space-y-2"><b>Completar pedido em rascunho</b><input name="request_id" required placeholder="ID do pedido em rascunho" class="w-full border rounded-lg p-2"><input name="description" required maxlength="500" placeholder="Descrição da linha em falta" class="w-full border rounded-lg p-2"><div class="grid sm:grid-cols-3 gap-2"><input name="quantity" type="number" min="0.001" step="0.001" required placeholder="Quantidade" class="border rounded-lg p-2"><input name="unit_of_measure" value="unidade" required placeholder="Unidade" class="border rounded-lg p-2"><input name="estimated_unit_cost" type="number" min="0" step="0.01" placeholder="Custo unitário (Kz)" class="border rounded-lg p-2"></div><button class="border rounded-lg px-3 py-2 font-bold" type="submit">Adicionar linha ao rascunho</button><p class="text-xs text-slate-500">Usar se a gravação das linhas falhar depois de criado o cabeçalho do pedido.</p></form>'+
       '<form data-proc-form="movement" class="border rounded-xl p-4 space-y-2"><b>Registar movimento de stock</b><select name="item_id" required class="w-full border rounded-lg p-2"><option value="">Seleccionar artigo</option>'+itemOptions+'</select><select name="warehouse_id" required class="w-full border rounded-lg p-2"><option value="">Seleccionar armazém</option>'+warehouseOptions+'</select><select name="movement_type" required class="w-full border rounded-lg p-2"><option value="entrada">Entrada</option><option value="saida">Saída</option><option value="ajuste_positivo">Ajuste positivo</option><option value="ajuste_negativo">Ajuste negativo</option><option value="devolucao_entrada">Devolução de entrada</option><option value="devolucao_saida">Devolução de saída</option></select><div class="grid sm:grid-cols-2 gap-2"><input name="quantity" type="number" min="0.001" step="0.001" required placeholder="Quantidade" class="border rounded-lg p-2"><input name="unit_cost" type="number" min="0" step="0.01" placeholder="Custo unitário (Kz)" class="border rounded-lg p-2"></div><input name="lot_code" placeholder="Lote (se aplicável)" class="w-full border rounded-lg p-2"><input name="reference" placeholder="Referência documental" class="w-full border rounded-lg p-2"><textarea name="notes" placeholder="Observações" class="w-full border rounded-lg p-2"></textarea><button class="bg-orange text-white rounded-lg px-3 py-2 font-bold" type="submit">Registar movimento</button><p class="text-xs text-slate-500">O saldo e a disponibilidade são validados pela função transaccional do banco.</p></form>'+
       '<form data-proc-form="transfer" class="border rounded-xl p-4 space-y-2"><b>Transferir stock entre armazéns</b><select name="item_id" required class="w-full border rounded-lg p-2"><option value="">Seleccionar artigo</option>'+itemOptions+'</select><div class="grid sm:grid-cols-2 gap-2"><select name="from_warehouse_id" required class="border rounded-lg p-2"><option value="">Armazém de origem</option>'+warehouseOptions+'</select><select name="to_warehouse_id" required class="border rounded-lg p-2"><option value="">Armazém de destino</option>'+warehouseOptions+'</select></div><input name="quantity" type="number" min="0.001" step="0.001" required placeholder="Quantidade" class="w-full border rounded-lg p-2"><input name="lot_code" placeholder="Lote (se aplicável)" class="w-full border rounded-lg p-2"><input name="reference" placeholder="Referência documental" class="w-full border rounded-lg p-2"><textarea name="notes" placeholder="Observações" class="w-full border rounded-lg p-2"></textarea><button class="bg-orange text-white rounded-lg px-3 py-2 font-bold" type="submit">Executar transferência</button><p class="text-xs text-slate-500">A saída e a entrada são registadas numa única operação transaccional.</p></form>'+
       '<form data-proc-form="count" class="border rounded-xl p-4 space-y-2"><b>Nova contagem de inventário</b><select name="warehouse_id" required class="w-full border rounded-lg p-2"><option value="">Seleccionar armazém</option>'+warehouseOptions+'</select><select name="item_id" required class="w-full border rounded-lg p-2"><option value="">Seleccionar artigo</option>'+itemOptions+'</select><div class="grid sm:grid-cols-2 gap-2"><input name="system_quantity" type="number" min="0" step="0.001" required placeholder="Quantidade no sistema" class="border rounded-lg p-2"><input name="counted_quantity" type="number" min="0" step="0.001" required placeholder="Quantidade contada" class="border rounded-lg p-2"></div><textarea name="notes" placeholder="Observações da contagem" class="w-full border rounded-lg p-2"></textarea><button class="bg-orange text-white rounded-lg px-3 py-2 font-bold" type="submit">Guardar contagem em rascunho</button><p class="text-xs text-slate-500">A reconciliação final continua separada da contagem física.</p></form></div></section>'
@@ -263,6 +277,9 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
     if(form.dataset.procForm==='item')values.minimum_stock=Number(values.minimum_stock);
     try{
       if(form.dataset.procForm==='item')await procurementService.createItem(values);
+      else if(form.dataset.procForm==='purchase-lines'){
+        await procurementService.addPurchaseRequestLines(values.request_id,[{description:values.description,quantity:values.quantity,unit_of_measure:values.unit_of_measure,estimated_unit_cost:values.estimated_unit_cost}]);
+      }
       else if(form.dataset.procForm==='purchase'){
         const result=await procurementService.createPurchaseRequest({supplier_id:values.supplier_id||null,justification:values.justification,lines:[{item_id:values.item_id||null,description:values.description,quantity:values.quantity,unit_of_measure:values.unit_of_measure,estimated_unit_cost:values.estimated_unit_cost}]});
 
@@ -279,6 +296,7 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
       else if(form.dataset.procForm==='supplier')await procurementService.createSupplier(values);
       else if(form.dataset.procForm==='warehouse')await procurementService.createWarehouse(values);
       if(form.dataset.procForm==='item')notify('Artigo criado com sucesso.');
+      else if(form.dataset.procForm==='purchase-lines')notify('Linha adicionada ao pedido em rascunho.');
       else if(form.dataset.procForm==='purchase')notify('Pedido de aquisição guardado em rascunho.');
       else if(form.dataset.procForm==='movement')notify('Movimento de stock registado.');
       else if(form.dataset.procForm==='transfer')notify('Transferência concluída: saída e entrada registadas.');
@@ -286,7 +304,7 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
       else if(form.dataset.procForm==='supplier')notify('Fornecedor criado com sucesso.');
       else if(form.dataset.procForm==='warehouse')notify('Armazém criado com sucesso.');
       await renderProcurement();
-    }catch(error){notify('Não foi possível gravar: '+(error?.message||'erro desconhecido'));}
+    }catch(error){const partial=error?.partialRequestNumber?' O cabeçalho do pedido '+error.partialRequestNumber+' foi criado; use o formulário de completar pedido com o ID '+error.partialRequestId+'.':error?.partialCountId?' A contagem foi criada em rascunho com o ID '+error.partialCountId+'.':'';notify('Não foi possível concluir a gravação: '+(error?.message||'erro desconhecido')+partial);}
   }));
 }
 async function loadDocumentEngine(){if(typeof window!=='undefined'&&window.CIADI_SUPPORT_DOCUMENT_ENGINE)return window.CIADI_SUPPORT_DOCUMENT_ENGINE;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='renderer/modules/support-document-engine.js';s.onload=resolve;s.onerror=()=>reject(new Error('Não foi possível carregar o motor documental CIADI.'));document.head.appendChild(s);});if(!window.CIADI_SUPPORT_DOCUMENT_ENGINE)throw new Error('Motor documental CIADI indisponível.');return window.CIADI_SUPPORT_DOCUMENT_ENGINE;}
