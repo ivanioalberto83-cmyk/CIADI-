@@ -138,3 +138,35 @@ test('resume o arquivo documental por estado',()=>{
   ]);
   assert.deepEqual(summary,{total:4,drafts:1,issued:2,other:1});
 });
+
+test('cria formulários reutilizáveis para todos os tipos documentais não-dashboard do catálogo',()=>{
+  const catalog=require('../../renderer/modules/support-document-catalog.js');
+  const definitions=catalog.listDocuments().filter(item=>item.outputKind!=='dashboard');
+  assert.ok(definitions.length>10);
+  const codes=new Set();
+  for(const definition of definitions){
+    const legacy=definition.legacyTemplateCode
+      ? engine.TEMPLATES.find(item=>item.code===definition.legacyTemplateCode)
+      : null;
+    const template=engine.createCatalogTemplate(definition,legacy);
+    assert.equal(engine.validateTemplate(template).valid,true,definition.code);
+    assert.equal(template.code,definition.code);
+    assert.equal(template.title,definition.title);
+    assert.ok(template.fields.length>0);
+    assert.equal(codes.has(template.code),false);
+    codes.add(template.code);
+  }
+});
+test('rascunho de modelo do catálogo guarda o código institucional do tipo documental',()=>{
+  const catalog=require('../../renderer/modules/support-document-catalog.js');
+  const definition=catalog.findDocument('SUP-COM-001');
+  const template=engine.createCatalogTemplate(definition);
+  const values={};
+  for(const field of template.fields){
+    if(field.required)values[field.key]=field.type==='number'?'1':field.type==='select'?field.options[0]:'Valor de teste';
+  }
+  const draft=engine.createDocumentDraft({templateCode:template.code,templateDefinition:template,values,actorId:'user-1'});
+  assert.equal(draft.ok,true);
+  assert.equal(draft.document.templateCode,'SUP-COM-001');
+  assert.equal(draft.document.title,definition.title);
+});
