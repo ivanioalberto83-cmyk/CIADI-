@@ -256,3 +256,17 @@ test('recolhe várias linhas dinâmicas de compra e contagem sem perder campos',
   assert.deepEqual(support.collectProcurementLineRows([], 'purchase'), []);
   assert.throws(() => support.collectProcurementLineRows([], 'unknown'), /Tipo de linha inválido/);
 });
+
+
+test('identifica stock abaixo do mínimo sem alertar artigos com mínimo zero', () => {
+  const result = support.summarizeStockAlerts([
+    { sku: 'TI-01', item_name: 'Portátil', warehouse_name: 'Central', minimum_stock: 5, quantity_on_hand: 0, below_minimum: true },
+    { sku: 'TI-02', item_name: 'Rato', warehouse_name: 'Central', minimum_stock: 10, quantity_on_hand: 3, below_minimum: true },
+    { sku: 'TI-03', item_name: 'Cabo', warehouse_name: 'Central', minimum_stock: 0, quantity_on_hand: 0, below_minimum: true },
+    { sku: 'TI-04', item_name: 'Teclado', warehouse_name: 'Central', minimum_stock: 2, quantity_on_hand: 4, below_minimum: false }
+  ]);
+  assert.equal(result.total, 2);
+  assert.equal(result.outOfStock, 1);
+  assert.equal(result.belowMinimum, 1);
+  assert.deepEqual(result.items.map(x => x.sku), ['TI-01', 'TI-02']);
+});
