@@ -551,3 +551,47 @@ test('painel da Recepção permite confirmar ou devolver encaminhamentos pendent
   assert.match(source, /confirmReferral\(/);
   assert.match(source, /returnReferral\(/);
 });
+
+
+test('adaptador financeiro da Recepção usa exclusivamente RPCs centrais para facturação, pagamentos e caixa', async () => {
+  const calls = [];
+  const supabase = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      return { data: { ok: true, name }, error: null };
+    }
+  };
+  const finance = reception.createReceptionFinanceRepository({ supabase });
+  await finance.createInvoice({
+    companyId: 'company-1', documentType: 'FT', seriesId: 'series-1', clientId: 'client-1',
+    patientId: 'patient-1', appointmentId: 'appointment-1', issueDate: '2026-11-09T10:00:00Z',
+    dueDate: '2026-11-30', observations: 'Atendimento', lines: [{ serviceId: 'service-1', quantity: 1 }]
+  });
+  await finance.issueInvoice('document-1');
+  await finance.registerPayment({ documentId: 'document-1', amount: 5000, method: 'numerario', reference: 'PAG-001', cashboxId: 'cash-1', notes: '' });
+  await finance.openCashbox({ cashboxId: 'cash-1', openingBalance: 1000 });
+  await finance.closeCashbox({ shiftId: 'shift-1', countedBalance: 6000, justification: '' });
+  assert.deepEqual(calls.map(call => call.name), [
+    'ciadi_faturacao_criar_documento',
+    'ciadi_faturacao_emitir_documento',
+    'finance_registar_pagamento',
+    'ciadi_abrir_caixa',
+    'ciadi_fechar_caixa'
+  ]);
+  assert.equal(calls[0].args.p_empresa_id, 'company-1');
+  assert.equal(calls[0].args.p_linhas[0].servico_id, 'service-1');
+  assert.equal(calls[2].args.p_valor, 5000);
+  assert.equal(calls[3].args.p_saldo_inicial, 1000);
+  assert.equal(calls[4].args.p_saldo_contado, 6000);
+});
+
+test('adaptador financeiro rejeita dados incompletos e propaga bloqueios do motor central', async () => {
+  let calls = 0;
+  const finance = reception.createReceptionFinanceRepository({
+    supabase: { async rpc() { calls += 1; return { data: null, error: new Error('Sem permissão para esta operação') }; } }
+  });
+  await assert.rejects(() => finance.createInvoice({ companyId: 'company-1' }), /cliente|série|documento|linha/i);
+  await assert.rejects(() => finance.registerPayment({ documentId: 'document-1', amount: 0, method: 'numerario' }), /valor/i);
+  await assert.rejects(() => finance.issueInvoice('document-1'), /sem permissão/i);
+  assert.equal(calls, 1);
+});
