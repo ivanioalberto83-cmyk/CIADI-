@@ -40,6 +40,22 @@ test('envio exige documento emitido e destinatário',async()=>{
   await assert.rejects(()=>s.send({status:'issued'},''),/Destinatário obrigatório/);
 });
 
+test('envio não começa sem registo de entrega e regista depois do envio',async()=>{
+  let sent=0,recorded=0;
+  const document={id:'doc-1',status:'issued'};
+  const artifact={bytes:new Uint8Array([37,80,68,70]),mimeType:'application/pdf'};
+  const withoutRecorder=engine.createDocumentService({sender:async()=>{sent++;return {messageId:'mail-1'};}});
+  await assert.rejects(()=>withoutRecorder.send(document,'destino@ciadi.ao',artifact),/envio não foi iniciado/);
+  assert.equal(sent,0);
+  const service=engine.createDocumentService({
+    sender:async()=>{sent++;return {messageId:'mail-2'};},
+    deliveryRecorder:async input=>{recorded++;assert.equal(input.result.messageId,'mail-2');}
+  });
+  await service.send(document,'destino@ciadi.ao',artifact);
+  assert.equal(sent,1);
+  assert.equal(recorded,1);
+});
+
 test('emissão prepara número e QR antes de compor e arquivar o PDF final',async()=>{
   const calls=[];
   const repository={
