@@ -390,3 +390,67 @@ test('proposta SQL inclui estado auditável de confirmação e devolução de en
   assert.match(sql, /referral_accepted/i);
   assert.match(sql, /referral_returned/i);
 });
+
+
+test('repositório de integração lê os motores financeiros e de aprovisionamento existentes sem criar registos', async () => {
+  const calls = [];
+  function queryFor(schema, table) {
+    const query = {
+      select(columns) { calls.push({ schema, table, method: 'select', columns }); return query; },
+      eq(column, value) { calls.push({ schema, table, method: 'eq', column, value }); return query; },
+      order(column, options) { calls.push({ schema, table, method: 'order', column, options }); return query; },
+      limit(value) { calls.push({ schema, table, method: 'limit', value }); return query; },
+      then(resolve) {
+        const rows = {
+          finance_servicos: [{ id: 'service-1', nome: 'Consulta' }],
+          finance_caixas: [{ id: 'cash-1', nome: 'Recepção Talatona' }],
+          finance_documentos: [{ id: 'doc-1', document_no: 'FT 1/2026' }],
+          stock_balances: [{ item_id: 'item-1', quantity_on_hand: 4 }],
+          purchase_requests: [{ id: 'request-1', status: 'pending' }]
+        }[table] || [];
+        return Promise.resolve({ data: rows, error: null }).then(resolve);
+      }
+    };
+    return query;
+  }
+  const supabase = {
+    from(table) { return queryFor('public', table); },
+    schema(name) {
+      assert.equal(name, 'ciadi_ti');
+      return { from(table) { return queryFor(name, table); } };
+    },
+    async rpc() { throw new Error('A leitura de painéis não deve executar RPC de escrita.'); }
+  };
+  const repository = reception.createReceptionBusinessRepository({ supabase });
+  const [services, cashboxes, documents, stock, requests] = await Promise.all([
+    repository.getActiveServices('company-1'),
+    repository.getCashboxes('company-1'),
+    repository.getRecentDocuments('company-1'),
+    repository.getStockBalances(),
+    repository.getPurchaseRequests()
+  ]);
+  assert.equal(services[0].id, 'service-1');
+  assert.equal(cashboxes[0].id, 'cash-1');
+  assert.equal(documents[0].id, 'doc-1');
+  assert.equal(stock[0].item_id, 'item-1');
+  assert.equal(requests[0].id, 'request-1');
+  assert.ok(calls.some(call => call.table === 'finance_servicos' && call.method === 'eq' && call.column === 'ativo' && call.value === true));
+  assert.ok(calls.some(call => call.table === 'finance_caixas' && call.method === 'eq' && call.column === 'empresa_id' && call.value === 'company-1'));
+  assert.ok(calls.some(call => call.table === 'finance_documentos' && call.method === 'eq' && call.column === 'empresa_id' && call.value === 'company-1'));
+  assert.ok(calls.some(call => call.schema === 'ciadi_ti' && call.table === 'stock_balances'));
+  assert.ok(calls.some(call => call.schema === 'ciadi_ti' && call.table === 'purchase_requests'));
+  assert.equal(calls.some(call => ['insert', 'update', 'delete'].includes(call.method)), false);
+});
+
+test('repositório financeiro exige empresa para impedir consultas sem âmbito empresarial', async () => {
+  let queries = 0;
+  const supabase = {
+    from() { queries += 1; throw new Error('Não deveria consultar sem empresa.'); },
+    schema() { return { from() { queries += 1; throw new Error('Não deveria consultar sem empresa.'); } }; }
+  };
+  const repository = reception.createReceptionBusinessRepository({ supabase });
+  await assert.rejects(() => repository.getActiveServices(''), /empresa/i);
+  await assert.rejects(() => repository.getCashboxes(null), /empresa/i);
+  await assert.rejects(() => repository.getRecentDocuments(undefined), /empresa/i);
+  assert.equal(queries, 0);
+});
