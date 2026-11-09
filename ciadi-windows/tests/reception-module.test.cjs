@@ -197,6 +197,7 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
   function query(table) {
     const q = {
       select(columns) { calls.push(['select', table, columns]); return q; },
+      in(column, values) { calls.push(['in', table, column, values]); return q; },
       gte(column, value) { calls.push(['gte', table, column, value]); return q; },
       lte(column, value) { calls.push(['lte', table, column, value]); return q; },
       order(column, options) { calls.push(['order', table, column, options]); return q; },
@@ -218,7 +219,7 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
   const result = await repository.searchAppointments({ term: 'Maria', dateFrom: '2026-11-09', dateTo: '2026-11-09' });
   assert.equal(result.length, 1);
   assert.equal(result[0].id, 'appointment-1');
-  assert.ok(calls.some(call => call[0] === 'ilike' && call[1] === 'pacientes'));
+  assert.ok(calls.some(call => call[0] === 'or' && call[1] === 'pacientes'));
   assert.ok(calls.some(call => call[0] === 'gte' && call[1] === 'agendamentos'));
   assert.equal(calls.some(call => call[0] === 'insert' || call[0] === 'update'), false);
 });
