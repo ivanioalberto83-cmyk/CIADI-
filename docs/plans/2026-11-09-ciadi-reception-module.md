@@ -187,3 +187,16 @@
 - [ ] Definir ligação transaccional de movimento de entrada à requisição e linha, usando o armazém existente e a referência do documento de entrega.
 - [ ] Rever grants, SECURITY DEFINER, actor, empresa/polo e permissões com a Direcção antes de qualquer escrita da Recepção.
 - [ ] Não aplicar DDL, políticas, grants nem dados no Supabase remoto; manter PR #40 Draft.
+
+
+**Resultado da Task 12 — proposta e contrato inicial**
+- [x] TDD red observado: commit `bab2915e2d155849f4dbb655e6d3d3c0e3ea3eb5` falhou nos três testes porque `validatePurchaseReceiptInput` ainda não existia.
+- [x] Implementada validação pura de recepção parcial: estado aprovado, quantidades positivas, bloqueio de excesso, armazém, referência de entrega, chave idempotente e actor obrigatório.
+- [x] TDD green: run `42611308259`, 165 testes aprovados, 0 falhas.
+- [x] TDD red da proposta SQL observado: teste falhou porque o ficheiro aditivo ainda não existia.
+- [x] Criada `supabase/proposals/ciadi-ti-purchase-receipt-extension-proposal.sql`; apenas altera, em proposta, estruturas existentes e mantém a função sem EXECUTE para qualquer role.
+- [x] Corrigida a expressão de teste para tolerar formatação SQL multiline.
+- [x] TDD green final: run `42611771034`, 166 testes aprovados, 0 falhas.
+- [x] Validação do Dashboard no commit anterior: run `42611704689`, sucesso.
+- [ ] Execução da proposta em PostgreSQL isolado, revisão de segurança, definição de permissões Recepção e homologação ponta a ponta continuam pendentes.
+- [ ] Não aplicar ao Supabase remoto; PR #40 permanece Draft.
