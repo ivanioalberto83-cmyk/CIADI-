@@ -42,6 +42,11 @@ create index if not exists front_desk_visits_arrived_idx
 create index if not exists front_desk_visits_polo_status_idx
   on ciadi_reception.front_desk_visits (polo_code, status, arrived_at desc);
 
+-- Uma marcação só pode originar um registo de chegada no balcão.
+create unique index if not exists front_desk_visits_appointment_unique_idx
+  on ciadi_reception.front_desk_visits (appointment_id)
+  where visit_type = 'appointment' and appointment_id is not null;
+
 create table if not exists ciadi_reception.front_desk_visit_events (
   id uuid primary key default gen_random_uuid(),
   visit_id uuid not null references ciadi_reception.front_desk_visits(id) on delete restrict,
@@ -106,8 +111,29 @@ begin
      or length(trim(coalesce(p_purpose, ''))) not between 2 and 160 then
     raise exception 'Dados de chegada inválidos.' using errcode = '22023';
   end if;
-  if p_visit_type = 'appointment' and (p_appointment_id is null or p_patient_id is null) then
-    raise exception 'A chegada com marcação exige referências existentes de marcação e utente.' using errcode = '22023';
+  if p_visit_type = 'appointment' then
+    if p_appointment_id is null or p_patient_id is null then
+      raise exception 'A chegada com marcação exige referências existentes de marcação e utente.' using errcode = '22023';
+    end if;
+
+    -- A recepção não cria marcações: valida e actualiza apenas a marcação existente.
+    perform 1
+      from public.agendamentos a
+      where a.id = p_appointment_id
+        and a.paciente_id = p_patient_id
+        and a.estado in ('agendada', 'confirmada')
+        and a.checkin_em is null
+      for update;
+    if not found then
+      raise exception 'Marcação inexistente, já recebida ou sem estado elegível para check-in.' using errcode = '22023';
+    end if;
+
+    update public.agendamentos
+      set estado = 'check-in',
+          checkin_em = now(),
+          updated_at = now(),
+          atualizado_por = p_actor_id
+      where id = p_appointment_id;
   end if;
 
   insert into ciadi_reception.front_desk_visits (
