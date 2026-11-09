@@ -137,6 +137,173 @@
     });
   }
 
+  function validateReceptionStockExitInput(input = {}) {
+    const errors = [];
+    const mode = clean(input.mode, 32);
+    const itemId = clean(input.itemId, 128);
+    const warehouseId = clean(input.warehouseId, 128);
+    const requestId = clean(input.requestId, 128);
+    const requestLineId = clean(input.requestLineId, 128);
+    const quantity = Number(input.quantity);
+    const justification = clean(input.justification, 1000);
+    const reference = clean(input.reference, 100);
+    const actorId = clean(input.actorId, 128);
+
+    if (!['approved_request', 'direct_justified'].includes(mode)) errors.push('Seleccione o modo de saída do stock.');
+    if (!itemId) errors.push('Artigo obrigatório.');
+    if (!warehouseId) errors.push('Armazém obrigatório.');
+    if (!Number.isFinite(quantity) || quantity <= 0) errors.push('A quantidade de saída deve ser superior a zero.');
+    else if (Math.abs(quantity * 1000 - Math.round(quantity * 1000)) > 0.000001) errors.push('A quantidade não pode exceder três casas decimais.');
+    if (mode === 'approved_request' && (!requestId || !requestLineId)) {
+      errors.push('A saída por requisição exige uma requisição aprovada e a respectiva linha.');
+    }
+    if (mode === 'direct_justified' && justification.length < 10) {
+      errors.push('A saída directa exige uma justificação com pelo menos 10 caracteres.');
+    }
+    if (!actorId) errors.push('É obrigatória uma sessão autenticada.');
+    return Object.freeze({
+      valid: errors.length === 0,
+      errors: Object.freeze(errors),
+      value: errors.length === 0 ? Object.freeze({
+        mode, itemId, warehouseId, requestId: requestId || null,
+        requestLineId: requestLineId || null, quantity,
+        justification: justification || null, reference: reference || null
+      }) : null
+    });
+  }
+
+  function validateReceptionGoodsInput(input = {}) {
+    const errors = [];
+    const requestStatus = clean(input.requestStatus, 32);
+    const requestId = clean(input.requestId, 128);
+    const warehouseId = clean(input.warehouseId, 128);
+    const deliveryReference = clean(input.deliveryReference, 100);
+    const actorId = clean(input.actorId, 128);
+    if (requestStatus !== 'approved') errors.push('Só podem ser recebidas requisições aprovadas.');
+    if (!requestId) errors.push('Requisição de compra obrigatória.');
+    if (!warehouseId) errors.push('Armazém de destino obrigatório.');
+    if (deliveryReference.length < 2) errors.push('Referência da guia/documento de entrega obrigatória.');
+    if (!actorId) errors.push('É obrigatória uma sessão autenticada.');
+    if (!Array.isArray(input.lines) || !input.lines.length) errors.push('A recepção deve conter pelo menos uma linha.');
+    const lines = [];
+    for (const line of Array.isArray(input.lines) ? input.lines : []) {
+      const requestLineId = clean(line?.requestLineId, 128);
+      const orderedQuantity = Number(line?.orderedQuantity);
+      const alreadyReceivedQuantity = Number(line?.alreadyReceivedQuantity ?? 0);
+      const receivedQuantity = Number(line?.receivedQuantity);
+      const acceptedQuantity = Number(line?.acceptedQuantity);
+      const damagedQuantity = Number(line?.damagedQuantity ?? 0);
+      const returnedQuantity = Number(line?.returnedQuantity ?? 0);
+      if (!requestLineId) errors.push('Cada linha deve estar ligada à linha original da requisição.');
+      if (!Number.isFinite(orderedQuantity) || orderedQuantity <= 0) errors.push('A quantidade encomendada deve ser superior a zero.');
+      if (!Number.isFinite(alreadyReceivedQuantity) || alreadyReceivedQuantity < 0) errors.push('A quantidade já recebida não pode ser negativa.');
+      if (!Number.isFinite(receivedQuantity) || receivedQuantity <= 0) errors.push('A quantidade recebida deve ser superior a zero.');
+      for (const [label, value] of [['aceite', acceptedQuantity], ['danificada', damagedQuantity], ['devolvida', returnedQuantity]]) {
+        if (!Number.isFinite(value) || value < 0) errors.push('A quantidade ' + label + ' não pode ser negativa.');
+      }
+      if ([orderedQuantity, alreadyReceivedQuantity, receivedQuantity].every(Number.isFinite)) {
+        const remainingQuantity = Math.round((orderedQuantity - alreadyReceivedQuantity) * 1000) / 1000;
+        if (remainingQuantity <= 0) errors.push('A linha já está totalmente recebida.');
+        else if (receivedQuantity - remainingQuantity > 0.0005) errors.push('A quantidade recebida excede a quantidade ainda em falta.');
+        if ([acceptedQuantity, damagedQuantity, returnedQuantity].every(Number.isFinite) &&
+            Math.abs(acceptedQuantity + damagedQuantity + returnedQuantity - receivedQuantity) > 0.0005) {
+          errors.push('As quantidades recebidas têm de ficar integralmente classificadas como aceites, danificadas ou devolvidas.');
+        }
+        const unitCost = line?.unitCost === undefined || line?.unitCost === null || line?.unitCost === ''
+          ? null : Number(line.unitCost);
+        if (unitCost !== null && (!Number.isFinite(unitCost) || unitCost < 0)) errors.push('O custo unitário não pode ser negativo.');
+        lines.push({
+          requestLineId, orderedQuantity, alreadyReceivedQuantity, receivedQuantity,
+          acceptedQuantity, damagedQuantity, returnedQuantity,
+          remainingQuantity: Math.max(0, Math.round((remainingQuantity - receivedQuantity) * 1000) / 1000),
+          unitCost, lotCode: clean(line?.lotCode, 100) || null, notes: clean(line?.notes, 1000) || null
+        });
+      }
+    }
+    return Object.freeze({
+      valid: errors.length === 0,
+      errors: Object.freeze(errors),
+      value: errors.length === 0 ? Object.freeze({
+        requestId, warehouseId, deliveryReference, actorId,
+        deliveryDate: clean(input.deliveryDate, 20) || null,
+        notes: clean(input.notes, 2000) || null,
+        lines: Object.freeze(lines.map(line => Object.freeze(line)))
+      }) : null
+    });
+  }
+
+  function createReceptionProcurementService({ supabase, actorId, poloCode, idempotencyKeyFactory } = {}) {
+    if (typeof supabase?.schema !== 'function') throw new Error('O schema central ciadi_ti não está disponível.');
+    const db = supabase.schema('ciadi_ti');
+    const actor = clean(actorId, 128);
+    const polo = POLOS.includes(poloCode) ? poloCode : null;
+    const makeKey = typeof idempotencyKeyFactory === 'function'
+      ? idempotencyKeyFactory
+      : () => globalThis.crypto?.randomUUID?.() || '';
+    function ensureActor() {
+      if (!actor) throw new Error('É necessária uma sessão autenticada para operar o aprovisionamento.');
+      if (!polo) throw new Error('O polo da Recepção tem de estar identificado.');
+    }
+    async function invoke(name, args) {
+      ensureActor();
+      if (typeof db.rpc !== 'function') throw new Error('RPC do aprovisionamento indisponível.');
+      const result = await db.rpc(name, args);
+      if (result?.error) throw result.error;
+      if (!result?.data) throw new Error('O servidor não confirmou a operação de aprovisionamento.');
+      return result.data;
+    }
+    function newKey() {
+      const key = clean(makeKey(), 128);
+      if (key.length < 8) throw new Error('Não foi possível gerar uma chave idempotente para esta operação.');
+      return key;
+    }
+    return Object.freeze({
+      async registerStockExit(input = {}) {
+        ensureActor();
+        const validation = validateReceptionStockExitInput({ ...input, actorId: actor });
+        if (!validation.valid) throw new Error(validation.errors.join(' '));
+        const value = validation.value;
+        return invoke('reception_register_stock_exit', {
+          p_exit_mode: value.mode,
+          p_item_id: value.itemId,
+          p_warehouse_id: value.warehouseId,
+          p_quantity: value.quantity,
+          p_request_id: value.requestId,
+          p_request_line_id: value.requestLineId,
+          p_justification: value.justification,
+          p_reference: value.reference,
+          p_idempotency_key: newKey(),
+          p_polo_code: polo
+        });
+      },
+      async receivePurchaseGoods(input = {}) {
+        ensureActor();
+        const validation = validateReceptionGoodsInput({ ...input, actorId: actor });
+        if (!validation.valid) throw new Error(validation.errors.join(' '));
+        const value = validation.value;
+        return invoke('reception_receive_purchase_goods', {
+          p_request_id: value.requestId,
+          p_warehouse_id: value.warehouseId,
+          p_delivery_reference: value.deliveryReference,
+          p_delivery_date: value.deliveryDate,
+          p_notes: value.notes,
+          p_idempotency_key: newKey(),
+          p_polo_code: polo,
+          p_lines: value.lines.map(line => ({
+            request_line_id: line.requestLineId,
+            received_quantity: line.receivedQuantity,
+            accepted_quantity: line.acceptedQuantity,
+            damaged_quantity: line.damagedQuantity,
+            returned_quantity: line.returnedQuantity,
+            unit_cost: line.unitCost,
+            lot_code: line.lotCode,
+            notes: line.notes
+          }))
+        });
+      }
+    });
+  }
+
   function validateVisitorInput(input = {}) {
     const errors = [];
     const displayName = clean(input.displayName, 120);
@@ -1333,6 +1500,7 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput, validatePurchaseReceiptInput,
+    validateReceptionStockExitInput, validateReceptionGoodsInput, createReceptionProcurementService,
     buildReceptionInvoiceHtml, createReceptionInvoicePdfService,
     summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionDocumentHeader, create
   });
