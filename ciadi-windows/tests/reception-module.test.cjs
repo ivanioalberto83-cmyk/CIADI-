@@ -147,7 +147,7 @@ test('dados inválidos são rejeitados antes de qualquer chamada ao Supabase', a
 test('painel diário usa RPC próprio no schema de Recepção', async () => {
   const calls = [];
   const repository = reception.createReceptionRepository({
-    schema(schemaName) {
+    supabase: { schema(schemaName) {
       assert.equal(schemaName, 'ciadi_reception');
       return { async rpc(name, args) { calls.push({ name, args }); return { data: { visits: [], visitors: [], summary: {} }, error: null }; } };
     }
