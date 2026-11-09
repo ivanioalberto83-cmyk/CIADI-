@@ -15,6 +15,7 @@ create table if not exists ciadi_reception.front_desk_visits (
   patient_id uuid,
   display_name text not null check (length(trim(display_name)) between 2 and 120),
   purpose text not null check (length(trim(purpose)) between 2 and 160),
+  destination_specialty_id uuid references public.especialidades(id) on delete restrict,
   polo_code text not null check (polo_code in ('talatona', 'jardim_de_rosas')),
   status text not null default 'waiting'
     check (status in ('waiting', 'in_service', 'referred', 'completed', 'no_show', 'cancelled')),
@@ -63,7 +64,8 @@ create unique index if not exists front_desk_visits_appointment_unique_idx
 create table if not exists ciadi_reception.front_desk_visit_events (
   id uuid primary key default gen_random_uuid(),
   visit_id uuid not null references ciadi_reception.front_desk_visits(id) on delete restrict,
-  event_type text not null check (event_type in ('arrival_registered', 'status_changed')),
+  event_type text not null check (event_type in ('arrival_registered', 'status_changed', 'destination_assigned')),
+  details jsonb not null default '{}'::jsonb,
   from_status text,
   to_status text not null check (to_status in ('waiting', 'in_service', 'referred', 'completed', 'no_show', 'cancelled')),
   actor_id uuid not null,
@@ -75,6 +77,17 @@ comment on table ciadi_reception.front_desk_visit_events is
 
 create index if not exists front_desk_visit_events_visit_idx
   on ciadi_reception.front_desk_visit_events (visit_id, created_at);
+
+-- Compatibilidade idempotente caso a estrutura-base já tenha sido criada antes desta extensão.
+alter table ciadi_reception.front_desk_visits
+  add column if not exists destination_specialty_id uuid references public.especialidades(id) on delete restrict;
+alter table ciadi_reception.front_desk_visit_events
+  add column if not exists details jsonb not null default '{}'::jsonb;
+alter table ciadi_reception.front_desk_visit_events
+  drop constraint if exists front_desk_visit_events_event_type_check;
+alter table ciadi_reception.front_desk_visit_events
+  add constraint front_desk_visit_events_event_type_check
+  check (event_type in ('arrival_registered', 'status_changed', 'destination_assigned'));
 
 create table if not exists ciadi_reception.visitor_entries (
   id uuid primary key default gen_random_uuid(),
@@ -356,6 +369,88 @@ begin
 end;
 $$;
 
+-- Catálogo público de destinos: apenas especialidades activas, sem dados de utentes.
+create or replace function ciadi_reception.reception_get_destinations()
+returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = pg_catalog, ciadi_reception, public, auth
+as $
+declare
+  v_result jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Sessão autenticada necessária.' using errcode = '42501';
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id', e.id, 'name', e.nome) order by e.ordem, e.nome), '[]'::jsonb)
+    into v_result
+  from public.especialidades e
+  where e.ativo is true;
+  return v_result;
+end;
+$;
+
+-- Encaminhamento transaccional: valida destino activo, bloqueia a visita e regista evento auditável.
+create or replace function ciadi_reception.reception_route_visit(
+  p_visit_id uuid,
+  p_destination_specialty_id uuid,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, public, auth
+as $
+declare
+  v_visit ciadi_reception.front_desk_visits%rowtype;
+  v_destination public.especialidades%rowtype;
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+
+  select * into v_destination
+  from public.especialidades
+  where id = p_destination_specialty_id and ativo is true;
+  if not found then
+    raise exception 'O serviço de destino não existe ou está inactivo.' using errcode = '22023';
+  end if;
+
+  select * into v_visit
+  from ciadi_reception.front_desk_visits
+  where id = p_visit_id
+  for update;
+  if not found then
+    raise exception 'Atendimento não encontrado.' using errcode = 'P0002';
+  end if;
+  if v_visit.status not in ('waiting', 'in_service') then
+    raise exception 'Só é possível encaminhar atendimentos em espera ou em serviço.' using errcode = '22023';
+  end if;
+
+  update ciadi_reception.front_desk_visits
+  set destination_specialty_id = v_destination.id,
+      updated_by = p_actor_id,
+      updated_at = now()
+  where id = p_visit_id
+  returning * into v_visit;
+
+  insert into ciadi_reception.front_desk_visit_events (
+    visit_id, event_type, from_status, to_status, actor_id, details
+  ) values (
+    v_visit.id, 'destination_assigned', v_visit.status, v_visit.status, p_actor_id,
+    jsonb_build_object('destination_specialty_id', v_destination.id, 'destination_name', v_destination.nome)
+  );
+
+  return jsonb_build_object(
+    'id', v_visit.id,
+    'destination_specialty_id', v_destination.id,
+    'destination_service', v_destination.nome,
+    'status', v_visit.status,
+    'updated_at', v_visit.updated_at
+  );
+end;
+$;
+
 create or replace function ciadi_reception.reception_get_dashboard(p_polo_code text default null)
 returns jsonb
 language plpgsql
@@ -389,9 +484,11 @@ begin
       select jsonb_agg(jsonb_build_object(
         'id', v.id, 'ticket_number', v.ticket_number, 'service_day', v.service_day, 'visit_type', v.visit_type,
         'display_name', v.display_name, 'purpose', v.purpose, 'polo_code', v.polo_code,
+        'destination_specialty_id', v.destination_specialty_id, 'destination_service', e.nome,
         'status', v.status, 'arrived_at', v.arrived_at, 'service_started_at', v.service_started_at
       ) order by v.arrived_at, v.ticket_number)
       from ciadi_reception.front_desk_visits v
+      left join public.especialidades e on e.id = v.destination_specialty_id
       where v.arrived_at >= v_start and v.arrived_at < v_end
         and (p_polo_code is null or v.polo_code = p_polo_code)
     ), '[]'::jsonb),
