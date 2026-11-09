@@ -137,12 +137,11 @@
       .filter(row => row && row.status === 'waiting')
       .slice()
       .sort((a, b) => {
-        const aNumber = Number(a.ticket_number);
-        const bNumber = Number(b.ticket_number);
-        if (Number.isFinite(aNumber) && Number.isFinite(bNumber) && aNumber !== bNumber) return aNumber - bNumber;
         const aTime = Date.parse(a.arrived_at || '');
         const bTime = Date.parse(b.arrived_at || '');
-        return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+        const timeOrder = (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+        if (timeOrder !== 0) return timeOrder;
+        return Number(a.ticket_number || 0) - Number(b.ticket_number || 0);
       })[0] || null;
   }
 
@@ -305,7 +304,7 @@
                 <thead><tr class="text-left border-b"><th class="py-2">Senha</th><th>Hora</th><th>Responsável</th><th>Finalidade</th><th>Polo</th><th>Estado</th><th>Acção</th></tr></thead>
                 <tbody>${visits.map(visit => `
                   <tr class="border-b">
-                    <td class="py-3 font-black text-orange">#${esc(String(visit.ticket_number || '—').padStart(3, '0'))}</td><td>${esc(visit.arrived_at ? new Date(visit.arrived_at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '—')}</td>
+                    <td class="py-3 font-black text-orange">${esc(visit.polo_code === 'talatona' ? 'TAL' : 'JDR')} #${esc(String(visit.ticket_number || '—').padStart(3, '0'))}</td><td>${esc(visit.arrived_at ? new Date(visit.arrived_at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '—')}</td>
                     <td class="font-semibold">${esc(visit.display_name)}</td>
                     <td>${esc(visit.purpose)}</td>
                     <td>${esc(POLO_LABELS[visit.polo_code] || visit.polo_code || '—')}</td>
@@ -436,7 +435,7 @@
             const nextVisit = selectNextWaitingVisit(dashboard?.visits || []);
             if (!nextVisit) throw new Error('Não existem utentes em espera.');
             await repository.transitionVisit(nextVisit.id, 'waiting', 'in_service', actorId);
-            notify(`Senha #${String(nextVisit.ticket_number || '').padStart(3, '0')} chamada para atendimento.`);
+            notify(`Senha ${nextVisit.polo_code === 'talatona' ? 'TAL' : 'JDR'} #${String(nextVisit.ticket_number || '').padStart(3, '0')} chamada para atendimento.`);
             try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
             return;
           }
