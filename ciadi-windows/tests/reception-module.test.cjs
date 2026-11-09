@@ -835,7 +835,7 @@ test('recepção, conferência e entrada em stock seguem as três RPCs transacci
   });
   assert.equal(receipt.status, 'draft');
   assert.equal(calls[0].method, 'reception_create_goods_receipt');
-  assert.equal(calls[0].args.p_idempotency_key, calls[0].args.p_idempotency_key);
+  assert.match(calls[0].args.p_idempotency_key, /^[A-Za-z0-9-]{8,128}$/);
   assert.equal(calls[0].args.p_lines[0].purchase_request_line_id, 'line-1');
   await service.checkGoodsReceipt('receipt-1');
   await service.finalizeGoodsReceipt('receipt-1');
@@ -887,4 +887,38 @@ test('cria e submete requisição interna usando RPCs próprios sem confundir co
   assert.equal(calls[0].args.p_cost_center_id, 'cc-001');
   assert.equal(calls[0].args.p_lines[0].item_id, 'item-1');
   assert.equal(calls[1].args.p_requisition_id, 'stock-req-1');
+});
+
+
+test('proposta SQL do stock da Recepção separa requisição interna de compra a fornecedor e protege saídas', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
+  assert.match(sql, /create table if not exists ciadi_ti\\.stock_requisitions/i);
+  assert.match(sql, /create table if not exists ciadi_ti\\.stock_requisition_lines/i);
+  assert.match(sql, /reception_create_stock_requisition/i);
+  assert.match(sql, /reception_submit_stock_requisition/i);
+  assert.match(sql, /reception_decide_stock_requisition/i);
+  assert.match(sql, /reception_register_stock_exit/i);
+  assert.match(sql, /approved_request/);
+  assert.match(sql, /direct_justified/);
+  assert.match(sql, /length\\(btrim\\(coalesce\\(p_justification/);
+  assert.match(sql, /sum\\(quantity_delta\\)/i);
+  assert.match(sql, /idempotency_key/i);
+  assert.match(sql, /has_support_access\\(\\)/i);
+  assert.match(sql, /revoke all on function ciadi_ti\\.reception_register_stock_exit/i);
+  assert.doesNotMatch(sql, /grant execute on function ciadi_ti\\.reception_/i);
+  assert.match(sql, /PROPOSTA APENAS/i);
+});
+
+test('proposta SQL de recepção de mercadorias inclui criação idempotente e mantém conferência antes da entrada', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
+  assert.match(sql, /reception_create_goods_receipt/i);
+  assert.match(sql, /goods_receipts_idempotency_key_unique/i);
+  assert.match(sql, /ciadi_ti\\.create_goods_receipt/i);
+  assert.match(sql, /reception_register_stock_return/i);
+  assert.match(sql, /devolucao_entrada/);
+  assert.match(sql, /devolucao_saida/);
 });
