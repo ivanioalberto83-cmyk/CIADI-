@@ -1,8 +1,8 @@
 -- Fixture descartável para homologação do Helpdesk CIADI. Sem dados reais.
 create extension if not exists pgcrypto;
 do $$ begin create role anon nologin; exception when duplicate_object then null; end $$;
-do $ begin create role authenticated nologin; exception when duplicate_object then null; end $;
-do $ begin create role service_role nologin; exception when duplicate_object then null; end $;
+do $authenticated$ begin create role authenticated nologin; exception when duplicate_object then null; end $authenticated$;
+do $service_role$ begin create role service_role nologin; exception when duplicate_object then null; end $service_role$;
 create schema auth;
 create or replace function auth.uid()
 returns uuid language sql stable
