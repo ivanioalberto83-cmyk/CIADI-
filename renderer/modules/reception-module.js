@@ -9,6 +9,13 @@
   const VISIT_TYPES = Object.freeze(['appointment', 'walk_in']);
   const VISIT_STATUSES = Object.freeze(['waiting', 'in_service', 'referred', 'completed', 'no_show', 'cancelled']);
   const VISITOR_STATUSES = Object.freeze(['inside', 'exited']);
+  const ROUTES = Object.freeze([
+    { id: 'pedidos_site', label: 'Pedidos de triagem do site' },
+    { id: 'agendamentos', label: 'Agenda de consultas' },
+    { id: 'pacientes', label: 'Consulta de pacientes' },
+    { id: 'familias', label: 'Portal das famílias' },
+    { id: 'triagens', label: 'Triagens' }
+  ]);
   const TRANSITIONS = Object.freeze({
     waiting: Object.freeze(['in_service', 'no_show', 'cancelled']),
     in_service: Object.freeze(['waiting', 'referred', 'completed']),
@@ -230,7 +237,7 @@
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Atendimento institucional</span>
-                <h2 class="text-2xl font-black mt-1">Recepção e Acolhimento</h2>
+                <h2 class="text-2xl font-black mt-1">Acolhimento e Recepção</h2>
                 <p class="text-sm text-slate-500 mt-2">Gestão de chegadas, fila de espera, visitantes e encaminhamentos.</p>
               </div>
               <div class="flex gap-2 flex-wrap">
@@ -273,6 +280,12 @@
                     <td>${visit.status === 'waiting' ? `<button data-visit-action="in_service" data-visit-id="${esc(visit.id)}" class="text-orange font-bold">Iniciar</button>` : visit.status === 'in_service' ? `<button data-visit-action="completed" data-visit-id="${esc(visit.id)}" class="text-orange font-bold">Concluir</button>` : '—'}</td>
                   </tr>`).join('')}</tbody>
               </table></div>` : '<p class="text-sm text-slate-500 py-5">Não existem chegadas registadas para o filtro seleccionado.</p>'}
+          </section>
+          <section class="card p-5">
+            <h3 class="font-black text-lg mb-3">Áreas institucionais integradas</h3>
+            <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-2">
+              ${ROUTES.map(route => `<button type="button" data-reception-route="${route.id}" class="border rounded-xl p-3 text-left font-semibold hover:border-orange-400">${route.label}<span class="block text-xs font-normal text-slate-500 mt-1">Abrir área autorizada</span></button>`).join('')}
+            </div>
           </section>
           <section class="card p-5">
             <h3 class="font-black text-lg mb-3">Visitantes no centro</h3>
@@ -344,6 +357,11 @@
         const button = event.target.closest('button');
         if (!button) return;
         try {
+          if (button.hasAttribute('data-reception-route')) {
+            const route = ROUTES.find(item => item.id === button.getAttribute('data-reception-route'));
+            if (route) navigate(route.id);
+            return;
+          }
           if (button.hasAttribute('data-reception-retry')) return renderHome();
           if (button.hasAttribute('data-reception-home')) return renderHome();
           if (button.hasAttribute('data-reception-refresh')) return refresh();
@@ -412,7 +430,7 @@
   }
 
   return Object.freeze({
-    POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS,
+    POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput,
     summarizeReception, createReceptionRepository, create
   });
