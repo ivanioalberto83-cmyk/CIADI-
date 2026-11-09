@@ -25,4 +25,6 @@ as $$
       and p.tipo in ('admin','gestor','suporte_informatica')
   );
 $$;
+grant usage on schema auth to authenticated, service_role;
+grant execute on function auth.uid() to authenticated, service_role;
 grant execute on function ciadi_ti.has_support_access() to authenticated;
