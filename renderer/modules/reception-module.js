@@ -150,37 +150,17 @@
       async searchAppointments({ term, dateFrom, dateTo } = {}) {
         const needle = clean(term, 80).replace(/[%,_(),\\]/g, ' ').replace(/\s+/g, ' ').trim();
         if (needle.length < 2) throw new Error('Introduza pelo menos dois caracteres para pesquisar o utente.');
-        if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dateFrom || '') || !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateTo || '')) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom || '') || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo || '')) {
           throw new Error('Seleccione um intervalo de datas válido.');
         }
         if (dateFrom > dateTo) throw new Error('A data inicial não pode ser posterior à data final.');
-        const patientQuery = await supabase.from('pacientes')
-          .select('id,nome_completo,codigo_paciente,nome_responsavel')
-          .or(['nome_completo','codigo_paciente','nome_responsavel'].map(field => `${field}.ilike.%${needle}%`).join(','))
-          .limit(30);
-        if (patientQuery.error) throw patientQuery.error;
-        const patients = Array.isArray(patientQuery.data) ? patientQuery.data : [];
-        if (!patients.length) return Object.freeze([]);
-        const patientIds = patients.map(patient => patient.id).filter(Boolean);
-        const appointmentQuery = await supabase.from('agendamentos')
-          .select('id,paciente_id,profissional_id,especialidade_id,data_hora,duracao_minutos,tipo,estado,modalidade,checkin_em')
-          .in('paciente_id', patientIds)
-          .in('estado', ['agendada', 'confirmada'])
-          .is('checkin_em', null)
-          .gte('data_hora', `${dateFrom}T00:00:00+01:00`)
-          .lte('data_hora', `${dateTo}T23:59:59.999+01:00`)
-          .order('data_hora', { ascending: true })
-          .limit(50);
-        if (appointmentQuery.error) throw appointmentQuery.error;
-        const byPatient = new Map(patients.map(patient => [patient.id, patient]));
-        return Object.freeze((Array.isArray(appointmentQuery.data) ? appointmentQuery.data : []).map(row => {
-          const patient = byPatient.get(row.paciente_id) || {};
-          return Object.freeze({
-            ...row,
-            patient_name: patient.nome_completo || '',
-            responsible_name: patient.nome_responsavel || ''
-          });
-        }));
+        const { data, error } = await db.rpc('reception_search_appointments', {
+          p_search_term: needle,
+          p_date_from: dateFrom,
+          p_date_to: dateTo
+        });
+        if (error) throw error;
+        return Object.freeze(Array.isArray(data) ? data : []);
       },
       async getDashboard(poloCode) {
         if (poloCode && !POLOS.includes(poloCode)) throw new Error('Polo inválido.');
