@@ -275,13 +275,21 @@ begin
         filter (where service_started_at is not null and service_started_at >= arrived_at)), 0)
     ),
     'visits', coalesce((
-      select jsonb_agg(to_jsonb(v) order by v.arrived_at)
+      select jsonb_agg(jsonb_build_object(
+        'id', v.id, 'visit_number', v.visit_number, 'visit_type', v.visit_type,
+        'display_name', v.display_name, 'purpose', v.purpose, 'polo_code', v.polo_code,
+        'status', v.status, 'arrived_at', v.arrived_at, 'service_started_at', v.service_started_at
+      ) order by v.arrived_at)
       from ciadi_reception.front_desk_visits v
       where v.arrived_at >= v_start and v.arrived_at < v_end
         and (p_polo_code is null or v.polo_code = p_polo_code)
     ), '[]'::jsonb),
     'visitors', coalesce((
-      select jsonb_agg(to_jsonb(g) order by g.entered_at)
+      select jsonb_agg(jsonb_build_object(
+        'id', g.id, 'visitor_number', g.visitor_number, 'display_name', g.display_name,
+        'purpose', g.purpose, 'host_department', g.host_department,
+        'polo_code', g.polo_code, 'status', g.status, 'entered_at', g.entered_at
+      ) order by g.entered_at)
       from ciadi_reception.visitor_entries g
       where g.status = 'inside'
         and (p_polo_code is null or g.polo_code = p_polo_code)
