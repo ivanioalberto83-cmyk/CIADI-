@@ -628,3 +628,23 @@ test('repositório financeiro disponibiliza listas activas de clientes, tipos do
   assert.ok(calls.some(call => call.table === 'finance_clientes' && call.column === 'empresa_id' && call.value === 'company-1'));
   assert.ok(calls.some(call => call.table === 'finance_series' && call.column === 'empresa_id' && call.value === 'company-1'));
 });
+
+
+test('painel financeiro da Recepção apresenta formulários centrais e sinaliza limites de autorização', () => {
+  const html = reception.renderReceptionFinancePanel({
+    clients: [{ id: 'client-1', nome: '<Família CIADI>' }],
+    documentTypes: [{ codigo: 'FT', nome: 'Factura' }],
+    series: [{ id: 'series-1', codigo: '2026', nome: 'Série 2026', tipo_documento: 'FT' }],
+    services: [{ id: 'service-1', codigo: 'ABA', nome: 'Terapia ABA', preco_base: 15000 }],
+    cashboxes: [{ id: 'cash-1', codigo: 'CX01', nome: 'Caixa Recepção', estado: 'aberto' }],
+    documents: [{ id: 'doc-1', document_no: 'FT 1', document_status: 'emitido', fiscal_status: 'emitido', total: 15000 }],
+    shifts: []
+  });
+  assert.match(html, /data-reception-invoice-form/);
+  assert.match(html, /data-reception-cashbox-open/);
+  assert.match(html, /data-reception-payment-form/);
+  assert.match(html, /data-reception-cashbox-close/);
+  assert.match(html, /&lt;Família CIADI&gt;/);
+  assert.doesNotMatch(html, /<Família CIADI>/);
+  assert.match(html, /permissões|autorização/i);
+});
