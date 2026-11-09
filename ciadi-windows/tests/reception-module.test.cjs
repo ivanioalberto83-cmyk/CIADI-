@@ -202,6 +202,7 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
     const q = {
       select(columns) { calls.push(['select', table, columns]); return q; },
       in(column, values) { calls.push(['in', table, column, values]); return q; },
+      is(column, value) { calls.push(['is', table, column, value]); return q; },
       gte(column, value) { calls.push(['gte', table, column, value]); return q; },
       lte(column, value) { calls.push(['lte', table, column, value]); return q; },
       order(column, options) { calls.push(['order', table, column, options]); return q; },
@@ -225,6 +226,8 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
   assert.equal(result[0].id, 'appointment-1');
   assert.ok(calls.some(call => call[0] === 'or' && call[1] === 'pacientes'));
   assert.ok(calls.some(call => call[0] === 'gte' && call[1] === 'agendamentos'));
+  assert.ok(calls.some(call => call[0] === 'in' && call[1] === 'agendamentos' && call[2] === 'estado'));
+  assert.ok(calls.some(call => call[0] === 'is' && call[1] === 'agendamentos' && call[2] === 'checkin_em'));
   assert.equal(calls.some(call => call[0] === 'insert' || call[0] === 'update'), false);
 });
 
