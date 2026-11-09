@@ -170,6 +170,75 @@
     return Object.freeze({ called: Object.freeze(called), next });
   }
 
+  function createReceptionBusinessRepository({ supabase } = {}) {
+    if (!supabase || typeof supabase.from !== 'function' || typeof supabase.schema !== 'function') {
+      throw new Error('A ligação aos motores financeiros e de aprovisionamento não está disponível.');
+    }
+
+    async function rows(query) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return Object.freeze(Array.isArray(data) ? data : []);
+    }
+
+    function requireCompany(companyId) {
+      const id = clean(companyId, 128);
+      if (!id) throw new Error('É obrigatório identificar a empresa para consultar dados financeiros.');
+      return id;
+    }
+
+    return Object.freeze({
+      async getActiveServices(companyId) {
+        const id = requireCompany(companyId);
+        return rows(supabase.from('finance_servicos')
+          .select('id,codigo,nome,categoria,unidade,preco_base,taxa_imposto,codigo_imposto')
+          .eq('empresa_id', id)
+          .eq('ativo', true)
+          .order('nome', { ascending: true })
+          .limit(100));
+      },
+      async getCashboxes(companyId) {
+        const id = requireCompany(companyId);
+        return rows(supabase.from('finance_caixas')
+          .select('id,codigo,nome,localizacao,estado,moeda,empresa_id')
+          .eq('empresa_id', id)
+          .order('nome', { ascending: true })
+          .limit(50));
+      },
+      async getRecentDocuments(companyId) {
+        const id = requireCompany(companyId);
+        return rows(supabase.from('finance_documentos')
+          .select('id,document_no,tipo_documento,document_status,data_emissao,total,estado_pagamento,fiscal_status,empresa_id')
+          .eq('empresa_id', id)
+          .order('data_emissao', { ascending: false })
+          .limit(10));
+      },
+      async getStockBalances() {
+        return rows(supabase.schema('ciadi_ti').from('stock_balances')
+          .select('item_id,sku,item_name,unit_of_measure,minimum_stock,warehouse_id,warehouse_code,warehouse_name,quantity_on_hand,below_minimum')
+          .order('item_name', { ascending: true })
+          .limit(100));
+      },
+      async getPurchaseRequests() {
+        return rows(supabase.schema('ciadi_ti').from('purchase_requests')
+          .select('id,request_number,status,justification,estimated_total,finance_decision_at,finance_decision_note,created_at')
+          .order('created_at', { ascending: false })
+          .limit(20));
+      }
+    });
+  }
+
+  function renderReceptionDocumentHeader({ identity = globalThis.CIADI_INSTITUTIONAL_IDENTITY, title, reference = '', date = '' } = {}) {
+    if (!identity || typeof identity.getBrand !== 'function' || typeof identity.renderDocumentHeader !== 'function') {
+      throw new Error('O serviço central de identidade documental CIADI não está disponível.');
+    }
+    const brand = identity.getBrand();
+    if (!brand?.logoDataUrl || !/^data:image\/(png|jpeg|jpg);base64,/i.test(brand.logoDataUrl)) {
+      throw new Error('O logótipo oficial CIADI incorporado não está disponível.');
+    }
+    return identity.renderDocumentHeader({ title, reference, date, logoUrl: brand.logoDataUrl });
+  }
+
   function createReceptionRepository({ supabase } = {}) {
     if (!supabase || typeof supabase.schema !== 'function') {
       throw new Error('A ligação ao serviço de Recepção não está disponível.');
@@ -626,6 +695,6 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput,
-    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, create
+    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, renderReceptionDocumentHeader, create
   });
 });
