@@ -377,6 +377,7 @@ stable
 security invoker
 set search_path = pg_catalog, ciadi_reception, public, auth
 as $route$
+declare
   v_result jsonb;
 begin
   if auth.uid() is null then
@@ -399,7 +400,7 @@ create or replace function ciadi_reception.reception_route_visit(
 language plpgsql
 security invoker
 set search_path = pg_catalog, ciadi_reception, public, auth
-as $
+as $route$
 declare
   v_visit ciadi_reception.front_desk_visits%rowtype;
   v_destination public.especialidades%rowtype;
