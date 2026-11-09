@@ -463,6 +463,141 @@
     return identity.renderDocumentHeader({ title, reference, date, logoUrl: brand.logoDataUrl });
   }
 
+
+  function receptionMoney(value) {
+    const amount = Number(value || 0);
+    return Number.isFinite(amount)
+      ? new Intl.NumberFormat('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount) + ' Kz'
+      : '—';
+  }
+
+  function receptionRelation(value) {
+    return Array.isArray(value) ? (value[0] || {}) : (value || {});
+  }
+
+  function buildReceptionInvoiceHtml({ document, lines = [], emitter = {}, identity } = {}) {
+    const brandService = identity || globalThis.CIADI_INSTITUTIONAL_IDENTITY;
+    if (!brandService || typeof brandService.getBrand !== 'function') {
+      throw new Error('A identidade institucional CIADI não está disponível para compor a factura.');
+    }
+    const brand = brandService.getBrand();
+    if (!brand?.logoDataUrl || !/^data:image\/(png|jpeg|jpg);base64,/i.test(brand.logoDataUrl)) {
+      throw new Error('O logótipo oficial CIADI não está disponível para o documento.');
+    }
+    if (!document?.id || !document.document_no) {
+      throw new Error('A factura não contém identificador e número documental.');
+    }
+    const client = receptionRelation(document.finance_clientes || document.cliente);
+    const series = receptionRelation(document.finance_series || document.serie);
+    const rows = (Array.isArray(lines) ? lines : []).map((line, index) => {
+      const quantity = Number(line.quantidade || line.quantity || 0);
+      const unitPrice = Number(line.preco_unitario || line.unit_price || 0);
+      const discount = Number(line.desconto || line.discount || 0);
+      const taxRate = Number(line.taxa_imposto || line.tax_rate || 0);
+      const base = Math.max(0, quantity * unitPrice - discount);
+      const tax = Number.isFinite(Number(line.imposto)) ? Number(line.imposto) : Math.round(base * taxRate) / 100;
+      const total = Number.isFinite(Number(line.total_linha)) ? Number(line.total_linha) : base + tax;
+      return '<tr><td>' + (index + 1) + '</td><td>' + esc(line.codigo || line.code || '') + '</td><td>' +
+        esc(line.descricao || line.description || line.nome || 'Artigo/serviço') + '</td><td class="num">' +
+        esc(quantity) + ' ' + esc(line.unidade || line.unit || 'UN') + '</td><td class="num">' +
+        esc(receptionMoney(unitPrice)) + '</td><td class="num">' + esc(receptionMoney(discount)) +
+        '</td><td class="num">' + esc(receptionMoney(total)) + '</td></tr>';
+    }).join('');
+    if (!rows) throw new Error('A factura não tem linhas para pré-visualizar.');
+    const qrDataUrl = document.qr_data_url || document.verification_qr_data_url || document.agt_qr_data_url || null;
+    const qr = typeof qrDataUrl === 'string' && /^data:image\//i.test(qrDataUrl)
+      ? '<img alt="QR Code de autenticação" src="' + esc(qrDataUrl) + '" style="width:92px;height:92px;object-fit:contain"><small>Autenticação documental</small>'
+      : '<div class="qr-pending"><strong>QR DE AUTENTICAÇÃO NÃO DISPONÍVEL</strong><span>O motor central ainda não devolveu um código verificável. Esta cópia não substitui o PDF oficial autenticado.</span></div>';
+    const status = document.document_status === 'emitido' && document.fiscal_status === 'emitido'
+      ? 'Emitido no motor financeiro central'
+      : 'RASCUNHO — NÃO EMITIDO';
+    return '<!doctype html><html lang="pt-AO"><head><meta charset="utf-8"><title>' + esc(document.document_no) +
+      ' · CIADI</title><style>@page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#6f351f;font-size:10px;margin:0}.sheet{max-width:182mm;margin:auto}.head{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:4px solid #f58200;padding-bottom:12px}.logo{max-width:128px;max-height:66px;object-fit:contain}.issuer{font-size:9px;line-height:1.5}.docbox{border:1px solid #cbd5e1;padding:10px;text-align:right;min-width:175px}.docbox strong{display:block;font-size:17px;color:#6f351f;margin:4px 0}.status{font-size:8px;color:#64748b}.parties{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;margin:14px 0}.parties b{display:block;color:#f58200;font-size:8px;text-transform:uppercase;margin-bottom:5px}.parties div{line-height:1.5}table{width:100%;border-collapse:collapse;font-size:9px}th,td{padding:7px 5px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#fff0df;color:#6f351f}.num{text-align:right;white-space:nowrap}.totals{width:280px;margin:14px 0 14px auto}.totals div{display:flex;justify-content:space-between;padding:5px;border-bottom:1px solid #e2e8f0}.grand{font-size:15px;font-weight:bold;border-top:2px solid #6f351f}.notes{border:1px solid #e2e8f0;padding:9px;margin-top:14px;white-space:pre-wrap}.foot{display:flex;justify-content:space-between;align-items:end;border-top:1px solid #cbd5e1;margin-top:22px;padding-top:10px;font-size:8px;color:#64748b}.qr-pending{width:135px;border:1px dashed #d97706;padding:8px;color:#92400e;text-align:center}.qr-pending strong{display:block;font-size:8px}.qr-pending span{display:block;font-size:7px;margin-top:5px}.copy-warning{background:#fff7ed;border:1px solid #fed7aa;padding:8px;margin:12px 0;font-size:8px;color:#9a3412}</style></head><body><main class="sheet">' +
+      '<header class="head"><img class="logo" alt="Logótipo CIADI" src="' + esc(brand.logoDataUrl) + '"><div class="issuer"><b>' +
+      esc(emitter.razao_social || brand.name || 'CENTRO INTEGRADO DE APOIO E DESENVOLVIMENTO INDIVIDUAL') + '</b><br>' +
+      esc([emitter.morada, emitter.municipio, emitter.provincia].filter(Boolean).join(' · ')) + '<br>NIF: ' +
+      esc(emitter.nif || '—') + ' · ' + esc(emitter.telefone || '') + '<br>' + esc(emitter.email || '') +
+      '</div><div class="docbox"><span>' + esc(document.tipo_documento || 'Documento') + '</span><strong>' +
+      esc(document.document_no) + '</strong><span>Emissão: ' + esc(document.data_emissao || '—') +
+      '</span><span class="status">' + esc(status) + '</span></div></header>' +
+      '<div class="copy-warning">Documento reproduzido a partir dos registos do motor financeiro CIADI. A autenticação QR e o arquivo digital central só podem ser confirmados quando o servidor disponibilizar o respectivo serviço.</div>' +
+      '<section class="parties"><div><b>Cliente</b>' + esc(client.nome || client.nome_comercial || '—') +
+      '<br>NIF: ' + esc(client.nif || '—') + '<br>' + esc(client.endereco || client.morada || '') +
+      '<br>' + esc(client.email || '') + ' · ' + esc(client.telefone || '') + '</div><div><b>Dados do documento</b>' +
+      'Série: ' + esc(series.codigo || document.documento_serie || '—') + '<br>Data de vencimento: ' +
+      esc(document.data_vencimento || '—') + '<br>Estado fiscal: ' + esc(document.fiscal_status || 'pendente') +
+      '<br>Estado do documento: ' + esc(document.document_status || '—') + '</div></section>' +
+      '<table><thead><tr><th>#</th><th>Código</th><th>Descrição</th><th class="num">Qtd.</th><th class="num">Preço unit.</th><th class="num">Desconto</th><th class="num">Total</th></tr></thead><tbody>' +
+      rows + '</tbody></table><section class="totals"><div><span>Subtotal</span><b>' + esc(receptionMoney(document.subtotal)) +
+      '</b></div><div><span>Impostos</span><b>' + esc(receptionMoney(document.imposto)) +
+      '</b></div><div class="grand"><span>Total</span><b>' + esc(receptionMoney(document.total)) +
+      '</b></div></section>' + (document.observacoes ? '<section class="notes"><b>Observações</b><br>' + esc(document.observacoes) + '</section>' : '') +
+      '<footer class="foot"><div>CIADI · Documento administrativo<br>Emitido/consultado através do sistema institucional.</div><div>' +
+      qr + '</div></footer></main></body></html>';
+  }
+
+  function createReceptionInvoicePdfService({ supabase, desktop = globalThis.ciadiDesktop, identity = globalThis.CIADI_INSTITUTIONAL_IDENTITY } = {}) {
+    if (typeof supabase?.from !== 'function') throw new Error('Ligação ao arquivo financeiro indisponível.');
+    async function load(documentId) {
+      const id = clean(documentId, 128);
+      if (!id) throw new Error('Identificador da factura obrigatório.');
+      const [documentResult, linesResult, emitterResult] = await Promise.all([
+        supabase.from('finance_documentos')
+          .select('*,finance_clientes(nome,nif,email,telefone,endereco,cidade,provincia,pais),finance_series(codigo,nome)')
+          .eq('id', id).single(),
+        supabase.from('finance_documento_linhas').select('*').eq('documento_id', id).order('created_at'),
+        supabase.from('finance_emitente_config').select('*').eq('ativo', true)
+          .order('updated_at', { ascending: false }).limit(1).maybeSingle()
+      ]);
+      if (documentResult?.error) throw documentResult.error;
+      if (linesResult?.error) throw linesResult.error;
+      if (emitterResult?.error) throw emitterResult.error;
+      if (!documentResult?.data) throw new Error('Factura não encontrada no arquivo financeiro.');
+      const document = documentResult.data;
+      const html = buildReceptionInvoiceHtml({
+        document,
+        lines: Array.isArray(linesResult?.data) ? linesResult.data : [],
+        emitter: emitterResult?.data || {},
+        identity
+      });
+      return Object.freeze({ document, html, lines: Object.freeze(linesResult?.data || []), emitter: emitterResult?.data || {} });
+    }
+    async function preview(documentId) {
+      return load(documentId);
+    }
+    async function exportIssuedPdf(documentId) {
+      const loaded = await load(documentId);
+      const { document, html } = loaded;
+      if (document.document_status !== 'emitido' || document.fiscal_status !== 'emitido') {
+        throw new Error('Só é possível exportar PDF de uma factura emitida e validada pelo motor central.');
+      }
+      if (typeof desktop?.documents?.renderPdf !== 'function' || typeof desktop?.documents?.exportIssuedPdf !== 'function') {
+        throw new Error('A geração e exportação de PDF real exige a aplicação CIADI Desktop actualizada.');
+      }
+      const rendered = await desktop.documents.renderPdf({ html });
+      const bytes = rendered instanceof Uint8Array ? rendered
+        : Array.isArray(rendered) ? Uint8Array.from(rendered)
+        : rendered?.data && Array.isArray(rendered.data) ? Uint8Array.from(rendered.data)
+        : null;
+      if (!bytes || bytes.length < 5 || bytes.length > 10485760 ||
+          BufferSafePdfSignature(bytes) !== '%PDF-') {
+        throw new Error('O serviço Desktop não devolveu bytes PDF válidos.');
+      }
+      const safeNumber = String(document.document_no || document.id).replace(/[^A-Za-z0-9_-]/g, '_');
+      return desktop.documents.exportIssuedPdf({
+        document: { id: document.id, status: 'issued', number: document.document_no },
+        bytes,
+        mimeType: 'application/pdf',
+        filename: safeNumber + '.pdf'
+      });
+    }
+    return Object.freeze({ preview, exportIssuedPdf });
+  }
+
+  function BufferSafePdfSignature(bytes) {
+    return String.fromCharCode(...Array.from(bytes.slice(0, 5)));
+  }
+
   function createReceptionRepository({ supabase } = {}) {
     if (!supabase || typeof supabase.schema !== 'function') {
       throw new Error('A ligação ao serviço de Recepção não está disponível.');
@@ -1172,6 +1307,7 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput, validatePurchaseReceiptInput,
+    buildReceptionInvoiceHtml, createReceptionInvoicePdfService,
     summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionDocumentHeader, create
   });
 });
