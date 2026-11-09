@@ -1,0 +1,81 @@
+name: CIADI Setup Homologation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104']
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'renderer/**'
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-setup-homologation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'renderer/**'
+      - 'ciadi-windows/**'
+      - '.github/workflows/ciadi-setup-homologation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Executar testes de contrato, login, perfis e arquitectura
+        run: node --test ciadi-windows/tests/*.test.cjs
+
+  build-windows:
+    needs: contract-tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sincronizar Dashboard e módulos renderer
+        shell: pwsh
+        run: |
+          $source = "CIADI_DASHBOARD_FINANCEIRO.html"
+          if (!(Test-Path $source)) { throw "Dashboard de origem em falta." }
+          Copy-Item $source "ciadi-windows/index.html" -Force
+          New-Item -ItemType Directory -Force -Path "ciadi-windows/renderer" | Out-Null
+          Copy-Item "renderer/*" "ciadi-windows/renderer/" -Recurse -Force
+      - name: Gerar ícone Windows a partir do logótipo CIADI
+        shell: pwsh
+        run: |
+          $html = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
+          $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
+          if (!$match.Success) { throw "Logótipo PNG não encontrado no Dashboard." }
+          $png = [Convert]::FromBase64String($match.Groups[1].Value)
+          $ico = New-Object byte[] (22 + $png.Length)
+          $ico[2] = 1
+          $ico[4] = 1
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]1), 0, $ico, 10, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]32), 0, $ico, 12, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]$png.Length), 0, $ico, 14, 4)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]22), 0, $ico, 18, 4)
+          [Buffer]::BlockCopy($png, 0, $ico, 22, $png.Length)
+          [IO.File]::WriteAllBytes("ciadi-windows/ciadi.ico", $ico)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependências da aplicação
+        working-directory: ciadi-windows
+        run: npm install --no-audit --no-fund
+      - name: Reexecutar testes no ambiente Windows
+        working-directory: ciadi-windows
+        run: npm run test:architecture
+      - name: Compilar Setup sem publicar uma release
+        working-directory: ciadi-windows
+        run: npm run dist:win
+      - name: Guardar Setup para homologação
+        uses: actions/upload-artifact@v4
+        with:
+          name: CIADI-Setup-1.0.4-Homologacao
+          path: ciadi-windows/release/CIADI-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 14
