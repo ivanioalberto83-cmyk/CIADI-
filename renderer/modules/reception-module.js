@@ -1022,11 +1022,16 @@
             if (!businessRepository) businessRepository = createReceptionBusinessRepository({ supabase });
             const rows = typeCode ? await businessRepository.getActiveSeries(activeCompanyId, typeCode) : [];
             businessSnapshot.series = { rows, error: null };
-            renderDashboard();
+            const seriesSelect = container.querySelector('[data-invoice-series]');
+            if (seriesSelect) {
+              seriesSelect.innerHTML = '<option value="">Seleccione a série</option>' +
+                rows.map(row => '<option value="' + esc(row.id) + '">' + esc(row.codigo + ' · ' + (row.nome || row.ano || '')) + '</option>').join('');
+            }
           } catch (error) {
             businessSnapshot.series = { rows: [], error };
+            const seriesSelect = container.querySelector('[data-invoice-series]');
+            if (seriesSelect) seriesSelect.innerHTML = '<option value="">Séries indisponíveis</option>';
             notify(error.message || 'Não foi possível carregar as séries documentais.');
-            renderDashboard();
           }
           return;
         }
