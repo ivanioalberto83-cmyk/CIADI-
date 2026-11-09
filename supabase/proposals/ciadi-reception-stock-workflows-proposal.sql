@@ -438,6 +438,71 @@ begin
 end;
 $$;
 
+create or replace function ciadi_ti.reception_transfer_stock(
+  p_item_id uuid,
+  p_from_warehouse_id uuid,
+  p_to_warehouse_id uuid,
+  p_quantity numeric,
+  p_reference text,
+  p_notes text,
+  p_lot_code text,
+  p_idempotency_key text,
+  p_polo_code text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public, ciadi_ti, auth
+as $
+declare
+  v_key text := btrim(coalesce(p_idempotency_key,''));
+  v_from ciadi_ti.stock_movements%rowtype;
+  v_to ciadi_ti.stock_movements%rowtype;
+  v_result record;
+begin
+  if auth.uid() is null or not ciadi_ti.has_support_access() then
+    raise exception 'As transferências de stock ainda não estão autorizadas para este perfil.' using errcode = '42501';
+  end if;
+  if p_polo_code is null or p_polo_code not in ('talatona','jardim_de_rosas') then
+    raise exception 'Polo CIADI inválido.' using errcode = '22023';
+  end if;
+  if length(v_key) not between 8 and 120 then
+    raise exception 'Chave idempotente inválida.' using errcode = '22023';
+  end if;
+  if p_quantity is null or p_quantity='NaN'::numeric or p_quantity<=0 or round(p_quantity,3)<>p_quantity then
+    raise exception 'Quantidade de transferência inválida.' using errcode = '22023';
+  end if;
+  if p_from_warehouse_id=p_to_warehouse_id then
+    raise exception 'A origem e o destino têm de ser armazéns diferentes.' using errcode = '22023';
+  end if;
+  if not exists(select 1 from ciadi_ti.warehouses where id=p_from_warehouse_id and active=true and polo=p_polo_code)
+     or not exists(select 1 from ciadi_ti.warehouses where id=p_to_warehouse_id and active=true and polo=p_polo_code) then
+    raise exception 'Os dois armazéns têm de estar activos e pertencer ao polo seleccionado.' using errcode = '42501';
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended('stock-transfer:' || v_key,0));
+  select * into v_from from ciadi_ti.stock_movements where idempotency_key=v_key || ':out';
+  select * into v_to from ciadi_ti.stock_movements where idempotency_key=v_key || ':in';
+  if found then
+    if v_from.id is not null and v_to.id is not null
+       and v_from.item_id=p_item_id and v_to.item_id=p_item_id
+       and v_from.warehouse_id=p_from_warehouse_id and v_to.warehouse_id=p_to_warehouse_id
+       and v_from.quantity_delta=-p_quantity and v_to.quantity_delta=p_quantity then
+      return jsonb_build_object('out_movement_id',v_from.id,'in_movement_id',v_to.id,'idempotent_replay',true);
+    end if;
+    raise exception 'A chave idempotente já foi utilizada noutra transferência.' using errcode = '23505';
+  end if;
+  select * into v_result from ciadi_ti.transfer_stock(
+    p_item_id,p_from_warehouse_id,p_to_warehouse_id,p_quantity,p_reference,p_notes,p_lot_code
+  );
+  update ciadi_ti.stock_movements set idempotency_key=v_key || ':out' where id=v_result.out_movement_id;
+  update ciadi_ti.stock_movements set idempotency_key=v_key || ':in' where id=v_result.in_movement_id;
+  return jsonb_build_object(
+    'out_movement_id',v_result.out_movement_id,
+    'in_movement_id',v_result.in_movement_id,
+    'idempotent_replay',false
+  );
+end;
+$;
+
 -- A criação e escrita permanecem fechadas até revisão do modelo de permissões da Recepção.
 revoke all on function ciadi_ti.reception_create_goods_receipt(uuid,uuid,text,date,text,jsonb,text) from public,anon,authenticated;
 revoke all on function ciadi_ti.reception_create_stock_requisition(text,uuid,uuid,text,text,text,jsonb) from public,anon,authenticated;
@@ -445,10 +510,12 @@ revoke all on function ciadi_ti.reception_submit_stock_requisition(uuid) from pu
 revoke all on function ciadi_ti.reception_decide_stock_requisition(uuid,text,text) from public,anon,authenticated;
 revoke all on function ciadi_ti.reception_register_stock_exit(text,uuid,uuid,numeric,uuid,uuid,text,text,text,text) from public,anon,authenticated;
 revoke all on function ciadi_ti.reception_register_stock_return(uuid,uuid,numeric,text,text,text,text,text) from public,anon,authenticated;
+revoke all on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) from public,anon,authenticated;
 
 comment on table ciadi_ti.stock_requisitions is 'Requisição interna de artigos de stock por polo, armazém e centro de custo; distinta da compra a fornecedor.';
 comment on table ciadi_ti.stock_requisition_lines is 'Linhas aprovadas e expedidas de uma requisição interna de stock.';
 comment on function ciadi_ti.reception_register_stock_exit(text,uuid,uuid,numeric,uuid,uuid,text,text,text,text) is 'Regista saída por requisição interna aprovada ou saída directa com justificação obrigatória, com bloqueio de saldo negativo e idempotência.';
 comment on function ciadi_ti.reception_register_stock_return(uuid,uuid,numeric,text,text,text,text,text) is 'Regista devolução para stock ou devolução ao fornecedor, sempre com motivo, saldo e idempotência.';
+comment on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) is 'Transfere stock entre armazéns do mesmo polo com duas linhas ligadas e idempotência.';
 
 commit;
