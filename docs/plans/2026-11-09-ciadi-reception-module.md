@@ -101,3 +101,16 @@
 - [x] Latest module CI: run 42607316292, completed successfully.
 - [ ] Dedicated TV/public route and read-only data endpoint remain pending. Do not expose anonymous access or grant public database permissions before a separate security design and approval.
 - [ ] Sound, automatic refresh, room routing and PostgreSQL integration tests remain pending.
+
+
+### Task 6: Service destination routing
+
+- [x] Audited the live public schema read-only: `public.especialidades` has six active service rows; `public.agendamentos.sala_nome` currently contains generated technical room identifiers, so those values are not suitable for public display.
+- [x] Use the existing active specialty catalogue as the routing destination source; do not invent room names or expose internal room identifiers.
+- [x] Add repository contracts for reading active destinations and assigning a destination to a visit.
+- [x] Add a transaction-safe RPC proposal that locks the visit, validates an active specialty, updates the destination and records an immutable `destination_assigned` event with actor and details.
+- [x] Extend the dashboard queue with a destination selector and routing action; display the specialty label in the privacy-filtered call panel.
+- [x] Keep routing within the Reception schema proposal; no live SQL or permission changes have been applied.
+- [ ] Verify PostgreSQL execution and RLS behaviour in an isolated homologation environment.
+- [ ] Standardize human-readable room identifiers and map specialty-to-room only after operational confirmation.
+- [ ] Add role/polo authorization, public TV endpoint, automatic refresh and sound in subsequent phases.
