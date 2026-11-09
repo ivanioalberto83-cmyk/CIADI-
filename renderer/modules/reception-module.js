@@ -131,6 +131,21 @@
     return Object.freeze(result);
   }
 
+
+  function selectNextWaitingVisit(rows = []) {
+    return (Array.isArray(rows) ? rows : [])
+      .filter(row => row && row.status === 'waiting')
+      .slice()
+      .sort((a, b) => {
+        const aNumber = Number(a.ticket_number);
+        const bNumber = Number(b.ticket_number);
+        if (Number.isFinite(aNumber) && Number.isFinite(bNumber) && aNumber !== bNumber) return aNumber - bNumber;
+        const aTime = Date.parse(a.arrived_at || '');
+        const bTime = Date.parse(b.arrived_at || '');
+        return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+      })[0] || null;
+  }
+
   function createReceptionRepository({ supabase } = {}) {
     if (!supabase || typeof supabase.schema !== 'function') {
       throw new Error('A ligação ao serviço de Recepção não está disponível.');
@@ -280,14 +295,17 @@
           <section class="card p-5">
             <div class="flex items-center justify-between gap-3 mb-3">
               <div><h3 class="font-black text-lg">Fila de atendimento</h3><p class="text-xs text-slate-500">Registos operacionais do dia, sem exposição de notas clínicas.</p></div>
-              <span class="text-xs text-slate-500">${visits.length} registo(s)</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-500">${visits.length} registo(s)</span>
+                ${visits.some(row => row.status === 'waiting') ? '<button type="button" data-reception-call-next class="bg-orange text-white rounded-lg px-3 py-2 text-xs font-bold">Chamar próximo</button>' : ''}
+              </div>
             </div>
             ${visits.length ? `
               <div class="overflow-x-auto"><table class="w-full text-sm">
-                <thead><tr class="text-left border-b"><th class="py-2">Hora</th><th>Responsável</th><th>Finalidade</th><th>Polo</th><th>Estado</th><th>Acção</th></tr></thead>
+                <thead><tr class="text-left border-b"><th class="py-2">Senha</th><th>Hora</th><th>Responsável</th><th>Finalidade</th><th>Polo</th><th>Estado</th><th>Acção</th></tr></thead>
                 <tbody>${visits.map(visit => `
                   <tr class="border-b">
-                    <td class="py-3">${esc(visit.arrived_at ? new Date(visit.arrived_at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '—')}</td>
+                    <td class="py-3 font-black text-orange">#${esc(String(visit.ticket_number || '—').padStart(3, '0'))}</td><td>${esc(visit.arrived_at ? new Date(visit.arrived_at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '—')}</td>
                     <td class="font-semibold">${esc(visit.display_name)}</td>
                     <td>${esc(visit.purpose)}</td>
                     <td>${esc(POLO_LABELS[visit.polo_code] || visit.polo_code || '—')}</td>
@@ -414,6 +432,14 @@
             if (!selectedAppointment) throw new Error('A marcação seleccionada já não está disponível.');
             return renderArrivalForm();
           }
+          if (button.hasAttribute('data-reception-call-next')) {
+            const nextVisit = selectNextWaitingVisit(dashboard?.visits || []);
+            if (!nextVisit) throw new Error('Não existem utentes em espera.');
+            await repository.transitionVisit(nextVisit.id, 'waiting', 'in_service', actorId);
+            notify(`Senha #${String(nextVisit.ticket_number || '').padStart(3, '0')} chamada para atendimento.`);
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
+          }
           if (button.hasAttribute('data-visit-action')) {
             const visit = (dashboard?.visits || []).find(row => String(row.id) === button.getAttribute('data-visit-id'));
             if (!visit) throw new Error('O atendimento seleccionado já não está disponível.');
@@ -495,6 +521,6 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput,
-    summarizeReception, createReceptionRepository, create
+    summarizeReception, selectNextWaitingVisit, createReceptionRepository, create
   });
 });
