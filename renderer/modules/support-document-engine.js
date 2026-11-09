@@ -228,8 +228,9 @@
         if(!clean(destination)) throw new Error('Destinatário obrigatório.');
         if(!document||document.status!=='issued') throw new Error('Só é permitido enviar documentos emitidos.');
         if(!artifact) throw new Error('O PDF final do documento é obrigatório para envio.');
+        // Validate every required adapter before the irreversible delivery side effect.
+        if(typeof deliveryRecorder!=='function') throw new Error('Registo de entrega não configurado; o envio não foi iniciado.');
         const result=await sender({document,destination,artifact});
-        if(typeof deliveryRecorder!=='function') throw new Error('Registo de entrega não configurado; confirme o estado do envio antes de repetir.');
         await deliveryRecorder({documentId:document.id,destination,result});
         return result;
       }
