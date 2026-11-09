@@ -598,7 +598,7 @@
       { key: 'requests', title: 'Requisições de compra', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') }
     ];
     return '<section class="card p-5 space-y-4" data-reception-business-integration>' +
-      '<div><h3 class="font-black text-lg">Facturação, caixa e aprovisionamento</h3><p class="text-xs text-slate-500">Consulta das estruturas centrais existentes. Esta área é apenas de leitura; emissão, pagamentos, compras e movimentos de stock permanecem nos respectivos motores autorizados.</p></div>' +
+      '<div><h3 class="font-black text-lg">Facturação, caixa e aprovisionamento</h3><p class="text-xs text-slate-500">Consulta das estruturas centrais existentes. As operações financeiras têm formulários próprios e continuam sujeitas às autorizações e validações dos respectivos motores.</p></div>' +
       '<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">' +
       cards.map(card => {
         const result = snapshot[card.key];
@@ -1057,9 +1057,14 @@
               lines: [{ serviceId: values.serviceId, quantity: values.quantity }]
             });
             const documentId = created?.documento_id || created?.id;
-            if (!documentId) throw new Error('O motor não devolveu o identificador do documento; confirme o estado no arquivo antes de repetir.');
-            const calculation = await financeRepository.calculateInvoice(documentId);
-            notify('Rascunho criado e cálculo confirmado pelo motor central. ' + JSON.stringify(calculation));
+            if (!documentId) throw new Error('O motor não devolveu o identificador do documento. Consulte o arquivo documental antes de repetir para evitar duplicação.');
+            notify('Rascunho criado pelo motor central: ' + documentId);
+            try {
+              const calculation = await financeRepository.calculateInvoice(documentId);
+              notify('Rascunho criado e cálculo confirmado pelo motor central. ' + JSON.stringify(calculation));
+            } catch (calculationError) {
+              message.textContent = 'O rascunho ' + documentId + ' foi criado, mas o cálculo não foi confirmado: ' + (calculationError.message || 'erro do motor').toString() + '. Não volte a criar o documento; consulte-o no arquivo.';
+            }
             try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
           } catch (error) {
             button.disabled = false;
