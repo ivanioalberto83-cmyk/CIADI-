@@ -255,3 +255,32 @@ Consequência: o adaptador está preparado e testado, mas as operações de escr
 - CI Workstation Modules: sucesso, 169 testes aprovados, 0 falhas.
 - Validação da integração do Dashboard: sucesso.
 - Supabase remoto: apenas consultas SELECT/introspecção; sem DDL, DML, grants, policies, Storage ou deploy.
+
+
+## Continuação — formulários financeiros e ciclo de caixa (09/11/2026)
+
+### Dados e formulários integrados na estação Recepção
+- O repositório de negócio consulta clientes activos, tipos documentais activos, séries activas por empresa/tipo, caixas, documentos recentes e turnos abertos.
+- O painel da Recepção passou a apresentar formulários para criar rascunho de factura, abrir caixa e fechar turno, bem como a lista de documentos em edição.
+- A criação de rascunho chama exclusivamente `ciadi_faturacao_criar_documento`; o cálculo subsequente chama `ciadi_faturacao_calcular_documento`. A UI só confirma a operação quando recebe o identificador e resposta do motor.
+- A abertura de caixa chama `ciadi_abrir_caixa` e exige o UUID do turno devolvido pelo servidor. O fecho chama `ciadi_fechar_caixa` com o turno seleccionado, saldo contado e justificação.
+- O painel identifica a marca institucional CIADI. O documento fiscal não pode ser emitido a partir deste formulário até à integração do PDF oficial e QR de autenticação.
+
+### Incompatibilidade do motor de pagamentos identificada (consulta read-only)
+A leitura das definições SQL remotas identificou um bloqueio adicional:
+- `ciadi_faturacao_emitir_documento` grava `finance_documentos.document_status = 'emitido'`.
+- `finance_registar_pagamento` exige `document_status = 'N'` e `fiscal_status = 'emitido'`.
+- Assim, um documento acabado de emitir pelo motor fiscal não satisfaz a condição de estado da função de pagamento. O formulário de recebimento fica desactivado e apresenta esta incompatibilidade, até correcção e homologação do motor central.
+- A emissão fiscal também permanece desactivada na Recepção enquanto não estiver ligado o fluxo oficial de PDF, logótipo institucional e QR de autenticação.
+
+### Limites mantidos
+- A Recepção não recebeu grants, policies, perfis, capacidades ou permissões novas.
+- As operações de escrita continuam sujeitas às verificações server-side existentes; a UI não contorna RLS nem usa INSERT/UPDATE directo.
+- Não foram efectuadas alterações SQL, DDL/DML, deploy, Storage ou produção.
+- A recepção física de mercadorias continua pendente; a extensão SQL de Aprovisionamento permanece proposta e não aplicada.
+
+### Verificação
+- Teste TDD do painel financeiro: RED antes da implementação.
+- Commit da integração de formulários: `f4f2c17ddb58c416c98b463c16ea3aa960e3b030`.
+- GitHub Actions — CIADI Workstation Modules CI: sucesso, 171 testes aprovados, 0 falhas (run `42632034321`).
+- A execução valida os testes de contrato, tipos das Edge Functions documentais, segurança/validação e sintaxe do motor/ponte Electron; não constitui homologação operacional no Supabase remoto.
