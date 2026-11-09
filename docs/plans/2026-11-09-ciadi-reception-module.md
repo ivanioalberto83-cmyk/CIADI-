@@ -31,11 +31,11 @@
 - RPC contract: `reception_register_arrival`, `reception_transition_visit`, `reception_register_visitor`, `reception_close_visitor`, all invoked through schema `ciadi_reception`.
 
 - [x] Add tests for valid/invalid arrivals, required appointment reference for appointment visits, allowed/forbidden lifecycle transitions, visitor validation, queue metrics, and RPC-only persistence.
-- [ ] Run `node --test ciadi-windows/tests/reception-module.test.cjs`; expected red failures must identify missing exports/behaviour.
+- [x] TDD red observed: commit f0a1550 added the integration contract tests and CI failed specifically because createReceptionBusinessRepository was not yet exported.
 - [x] Implement validation, state transitions, metrics, and a repository that calls only the named RPCs; reject invalid input before any database call.
-- [ ] Re-run the focused test; expected all reception tests pass.
+- [x] TDD green verified by GitHub Actions: 162 tests passed, 0 failed on run 42610491365.
 - [x] `node --check renderer/modules/reception-module.js` passed in GitHub Actions.
-- [ ] Commit the isolated domain-engine deliverable.
+- [x] Implementation committed incrementally on the isolated Recepção feature branch.
 
 ### Task 2: Front-desk dashboard and queue workflow
 
@@ -51,7 +51,7 @@
 
 - [ ] Add focused rendering tests for the empty queue and unavailable schema (not yet covered).
 - [x] Implement the dashboard and forms; Dashboard integration workflow passed. The first full CI run exposed three legacy-contract/fixture failures, which were corrected; the subsequent full suite passed.
-- [ ] Confirm that an unavailable database produces a clear non-operational state and never a fake successful save.
+- [x] Finance integration fails closed when the principal company cannot be resolved; unavailable/RLS-blocked data is shown as unavailable, not as a successful operation.
 
 ### Task 3: Dedicated database proposal
 
@@ -79,7 +79,7 @@
 - Modify: `CIADI_DASHBOARD_FINANCEIRO.html` and `index.html` only if integration is necessary; preserve byte-for-byte equality.
 - Update: `docs/CIADI_RECEPCAO_ARQUITECTURA.md`.
 
-- [x] Full Node architecture suite: 145 passed, 0 failed; Dashboard syntax/integration workflow passed.
+- [x] Earlier Node architecture suite: 145 passed, 0 failed; latest full Node suite: 162 passed, 0 failed (run 42610491365). Dashboard validation passed (run 42610491460).
 - [ ] Inspect the diff for accidental Support Informática, RH, production or permission changes.
 - [ ] Keep the PR Draft until database, profile and end-to-end checks are completed in a controlled environment.
 
@@ -141,6 +141,11 @@
 - [ ] Produce final action-to-RPC mapping with operator, company, polo, cash-shift, approval and idempotency requirements; no remote writes or schema changes. Reception must fail closed where current RLS/RPC checks do not authorize the session.
 
 ### Task 9: Reception billing and cashier
+- [x] Add a read-only adapter for the existing finance_servicos catalogue, scoped by the verified principal company.
+- [x] Add read-only views of finance_caixas and recent finance_documentos, scoped by empresa_id.
+- [x] Display service prices, cashbox state and recent document state in the Reception dashboard.
+- [x] Fail closed when the principal company cannot be resolved; do not present an unscoped finance query as an empty ledger.
+- [ ] Add authorized invoice/payment/cash write actions only after reviewing EXECUTE grants, function bodies, operator capabilities, shift and idempotency.
 - [ ] Service/charge lookup and payer selection using existing master data.
 - [ ] Invoice, receipt and payment proof issued through the central finance engine.
 - [ ] Configured payment methods, cashier opening/closing, cash movements, daily reconciliation and reports by polo/operator.
@@ -148,17 +153,21 @@
 - [ ] Test idempotency and duplicate-payment prevention.
 
 ### Task 10: Reception procurement
-- [ ] Internal requisitions for materials/services with polo, cost centre, purpose, quantities and priority.
+- [x] Add read-only adapters for existing ciadi_ti.stock_balances and ciadi_ti.purchase_requests.
+- [x] Display current stock/minimum indicators and existing purchase request status in the Reception dashboard.
+- [ ] Internal requisitions for materials/services with polo, cost centre, purpose, quantities and priority, extending the existing request contract rather than creating a duplicate ledger.
 - [ ] Track approval and requisition status.
 - [ ] Request replenishment and read stock availability through central Procurement.
 - [ ] Register physical delivery quantities and discrepancies for Reception deliveries.
 - [ ] Keep supplier, purchase order, stock ledger and inventory master records central.
 
 ### Task 11: Central CIADI identity and document templates
-- [ ] Audit the actual approved CIADI logo asset and existing central identity/document service.
+- [x] Audit the actual approved CIADI logo asset and existing central identity/document service; the embedded logoDataUrl is the available approved asset in the codebase.
 - [x] Reuse the existing CIADI_INSTITUTIONAL_IDENTITY service as the single brand source; its embedded logoDataUrl is available to PDF templates.
 - [ ] Use one shared identity configuration and template engine for every Reception document/export.
-- [ ] Embed the approved logo in PDFs, not as a remote runtime dependency.
+- [ ] Wire the shared header helper into every final Reception PDF/export template and verify actual PDF output; the current change establishes and tests the shared document header contract.
 - [ ] Cover invoices/receipts (through Finance), cashier summaries, requisitions, delivery records, visitor declarations, correspondence, protocols and operational reports.
-- [ ] Add tests ensuring no Reception document/export omits the official logo and identity component.
+- [x] Add a tested renderReceptionDocumentHeader helper that requires the central identity service and embeds logoDataUrl in the returned document header.
+- [x] Add a test confirming the document header contains the official embedded logo and fails closed when identity/logo is missing.
+- [x] Dashboard header now displays the central CIADI logo; use only the identity service values.
 - [ ] Use only verified institutional and fiscal details; do not invent legal name, NIF, address or contacts.
