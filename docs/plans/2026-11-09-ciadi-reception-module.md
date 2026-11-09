@@ -4,7 +4,7 @@
 
 **Goal:** Transform the current Recepção navigation page into a professional institutional front-desk module with auditable arrival, queue, visitor, referral and reporting workflows.
 
-**Architecture:** Keep the module independent from clinical and procurement workflows. Reuse existing appointments and patient references only when explicitly linked, while storing front-desk operational events in a dedicated `ciadi_reception` schema. All writes go through named RPCs; until a reviewed permission phase is completed, the database proposal remains unapplied and the module must fail closed when the schema is unavailable.
+**Architecture:** Keep the module independent from clinical workflows and integrated with the central Finance/Billing/Cash and Procurement engines. Reuse existing appointments and patient references only when explicitly linked, while storing front-desk operational events in a dedicated `ciadi_reception` schema. All writes go through named RPCs; until a reviewed permission phase is completed, the database proposal remains unapplied and the module must fail closed when the schema is unavailable.
 
 **Tech Stack:** Existing Electron/HTML dashboard, vanilla JavaScript modules, Supabase JS, PostgreSQL proposal SQL, Node.js built-in test runner.
 
@@ -13,7 +13,7 @@
 - Work only on the Recepção feature branch; do not edit the Support Informática PR or other stations.
 - No writes to the remote Supabase project, no production deployment, no account changes, no RLS activation or permission grants in this phase.
 - Do not store clinical notes or unnecessary child-identifying data in front-desk records.
-- Do not let the reception module modify clinical records, appointments, invoices, cash, procurement or stock.
+- Do not let the reception module modify clinical records, appointments, invoices, cash, procurement or stock directly; use audited central engine contracts, approvals and permissions without duplicate ledgers or stock records.
 - Preserve the current integration contract: `CIADI_RECEPTION_MODULE.create({ root, navigate, notify }).renderHome()`.
 - The station selector is not an authorization mechanism; server-side permissions remain a separate later phase.
 - No paid Supabase branch or staging environment is to be created.
@@ -125,3 +125,34 @@
 - [ ] Verify the test-first red run and the green GitHub Actions run for the new referral tests.
 - [ ] Add service-side acceptance UI only after the destination-service workflow and role authorization are specified.
 - [ ] Keep the SQL proposal unapplied and grants absent.
+
+
+## Scope addition — billing, cashier, procurement and CIADI identity
+
+### Task 8: Read-only audit of central engines
+- [ ] Audit existing Finance/Billing/Cash and Procurement tables, RPCs, functions, approvals, document templates and workflows.
+- [ ] Map exact interfaces for invoices, receipts, cash sessions, payments, requisitions, suppliers, deliveries and stock.
+- [ ] Identify AGT fiscal fields from the existing validated finance implementation; do not invent requirements or claim compliance without review.
+- [ ] Produce an integration map before implementation; no remote writes or schema changes.
+
+### Task 9: Reception billing and cashier
+- [ ] Service/charge lookup and payer selection using existing master data.
+- [ ] Invoice, receipt and payment proof issued through the central finance engine.
+- [ ] Configured payment methods, cashier opening/closing, cash movements, daily reconciliation and reports by polo/operator.
+- [ ] Voids, refunds, reversals and credit notes require reason, actor, audit event and appropriate approval.
+- [ ] Test idempotency and duplicate-payment prevention.
+
+### Task 10: Reception procurement
+- [ ] Internal requisitions for materials/services with polo, cost centre, purpose, quantities and priority.
+- [ ] Track approval and requisition status.
+- [ ] Request replenishment and read stock availability through central Procurement.
+- [ ] Register physical delivery quantities and discrepancies for Reception deliveries.
+- [ ] Keep supplier, purchase order, stock ledger and inventory master records central.
+
+### Task 11: Central CIADI identity and document templates
+- [ ] Audit the actual approved CIADI logo asset and existing central identity/document service.
+- [ ] Use one shared identity configuration and template engine for every Reception document/export.
+- [ ] Embed the approved logo in PDFs, not as a remote runtime dependency.
+- [ ] Cover invoices/receipts (through Finance), cashier summaries, requisitions, delivery records, visitor declarations, correspondence, protocols and operational reports.
+- [ ] Add tests ensuring no Reception document/export omits the official logo and identity component.
+- [ ] Use only verified institutional and fiscal details; do not invent legal name, NIF, address or contacts.
