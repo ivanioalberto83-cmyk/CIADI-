@@ -148,7 +148,7 @@
 
     return Object.freeze({
       async searchAppointments({ term, dateFrom, dateTo } = {}) {
-        const needle = clean(term, 80).replace(/[%,_(),\\\\]/g, ' ').replace(/\\s+/g, ' ').trim();
+        const needle = clean(term, 80).replace(/[%,_(),\\]/g, ' ').replace(/\s+/g, ' ').trim();
         if (needle.length < 2) throw new Error('Introduza pelo menos dois caracteres para pesquisar o utente.');
         if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dateFrom || '') || !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateTo || '')) {
           throw new Error('Seleccione um intervalo de datas válido.');
