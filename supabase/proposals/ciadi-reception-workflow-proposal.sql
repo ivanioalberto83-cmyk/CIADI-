@@ -84,6 +84,63 @@ comment on table ciadi_reception.visitor_entries is
 create index if not exists visitor_entries_inside_idx
   on ciadi_reception.visitor_entries (polo_code, status, entered_at desc);
 
+-- Pesquisa de agenda em modo exclusivamente de leitura. Devolve apenas os campos
+-- operacionais necessários à recepção; não expõe resumo clínico nem notas do utente.
+create or replace function ciadi_reception.reception_search_appointments(
+  p_search_term text,
+  p_date_from date,
+  p_date_to date
+) returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = pg_catalog, ciadi_reception, public, auth
+as $
+declare
+  v_term text;
+  v_result jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Sessão autenticada necessária.' using errcode = '42501';
+  end if;
+  v_term := trim(regexp_replace(coalesce(p_search_term, ''), '[%_(),\\]', ' ', 'g'));
+  if length(v_term) < 2
+     or p_date_from is null
+     or p_date_to is null
+     or p_date_from > p_date_to
+     or p_date_to > p_date_from + 30 then
+    raise exception 'Critérios de pesquisa inválidos; o intervalo máximo é de 31 dias.' using errcode = '22023';
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', a.id,
+    'paciente_id', a.paciente_id,
+    'patient_name', p.nome_completo,
+    'responsible_name', p.nome_responsavel,
+    'data_hora', a.data_hora,
+    'duracao_minutos', a.duracao_minutos,
+    'tipo', a.tipo,
+    'estado', a.estado,
+    'modalidade', a.modalidade
+  ) order by a.data_hora), '[]'::jsonb)
+  into v_result
+  from public.agendamentos a
+  join public.pacientes p on p.id = a.paciente_id
+  where a.data_hora >= (p_date_from::timestamp at time zone 'Africa/Luanda')
+    and a.data_hora < ((p_date_to + 1)::timestamp at time zone 'Africa/Luanda')
+    and a.estado in ('agendada', 'confirmada')
+    and a.checkin_em is null
+    and (
+      p.nome_completo ilike '%' || v_term || '%'
+      or coalesce(p.codigo_paciente, '') ilike '%' || v_term || '%'
+      or coalesce(p.nome_responsavel, '') ilike '%' || v_term || '%'
+    )
+  limit 50;
+
+  return v_result;
+end;
+$;
+
 -- A API só valida identidade e integridade do ciclo. A autorização funcional por perfil/polo
 -- será definida na fase própria; estas funções não recebem grants nesta proposta.
 create or replace function ciadi_reception.reception_register_arrival(
