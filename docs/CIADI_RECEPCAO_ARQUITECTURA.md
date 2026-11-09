@@ -293,3 +293,32 @@ A leitura das definições SQL remotas identificou um bloqueio adicional:
 - A alteração de interface preserva os campos já preenchidos quando carrega séries documentais. Também separa a confirmação da criação do rascunho da tentativa de cálculo, evitando que um erro de cálculo induza a criação duplicada.
 - Último commit de código verificado: `031469813bd492afa74210ee85caacc7b5f1bd0e`.
 - CIADI Workstation Modules CI: sucesso, 171/171 testes, 0 falhas (run `42632248479`).
+
+
+## Gate de encerramento da estação Recepção — auditoria final (09/11/2026)
+
+### Estado verificável do código
+- Fila, atendimento, check-in, visitantes e encaminhamentos: implementação existente; os controlos de confirmação/devolução de encaminhamentos foram acrescentados nesta branch.
+- Facturação: painel e formulário de criação de rascunho/calcular ligados às RPCs centrais; emissão fiscal desactivada na Recepção.
+- Caixa: formulários de abertura e fecho ligados às RPCs centrais; operação sujeita à autorização server-side.
+- Recebimentos: formulário desactivado devido à incompatibilidade document_status/fiscal_status já descrita.
+- Aprovisionamento: consulta de stock/pedidos existente; recepção física de mercadorias não implementada como operação porque não há RPC remota homologada nem campos de ligação suficientes.
+- Documentos: a identidade CIADI e o motor documental partilhado existem no código do Suporte. Contudo, o motor documental ainda não está integrado na estação Recepção.
+
+### Bloqueio do motor documental confirmado
+- A proposta `supabase/proposals/ciadi-ti-document-engine-proposal.sql` cria `ciadi_ti.documents`, `document_events`, sessões QR e o bucket privado. A proposta está marcada como NÃO EXECUTAR em produção sem revisão.
+- A introspecção read-only do Supabase remoto não encontrou as tabelas `ciadi_ti.documents` e `ciadi_ti.document_events`; o schema remoto também não expõe as rotinas `prepare_document_issuance` e `issue_document`.
+- As Edge Functions existentes no repositório validam explicitamente apenas os perfis `admin`, `gestor` e `suporte_informatica`. A Recepção não pode utilizá-las até aprovação da matriz de permissões e alteração controlada do contrato de acesso.
+- Consequentemente, não é seguro declarar concluída a emissão de PDF/QR na Recepção, nem apresentar uma emissão como operacional. A identidade visual do cabeçalho não substitui arquivo, assinatura de emissão e autenticação QR.
+
+### Decisão de encerramento
+- A implementação de código da Recepção fica consolidada nesta PR como fase de desenvolvimento/testes, mas a estação NÃO está homologada nem pronta para produção.
+- Para encerramento operacional são necessários: (1) rever/aprovar a proposta de persistência documental e validar em ambiente isolado; (2) decidir a matriz de acesso da Recepção às funções documentais e financeiras; (3) corrigir o contrato de pagamento; (4) homologar recepção física de mercadorias; (5) executar testes integrados com perfis reais em ambiente de validação.
+- Nenhum destes passos foi aplicado remotamente nesta fase. Não foram alterados SQL, RLS, grants, Storage, perfis, contas, produção ou deploy.
+- PR #41 permanece Draft e aberta, sem merge.
+
+### CI final da branch
+- Commit de documentação: `f8e268cba5a56901d467e654e78fc1c668999ea8`.
+- GitHub Actions run `42632402207`: concluído com sucesso.
+- Testes: 171 aprovados, 0 falhas; verificações das Edge Functions documentais, segurança/validação, sintaxe do motor e integração do dashboard também concluídas com sucesso.
+- Este CI valida o código no repositório; não substitui a homologação remota ou testes de interface na aplicação instalada.
