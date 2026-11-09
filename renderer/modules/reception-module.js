@@ -341,12 +341,13 @@
         const validation = validateReceptionGoodsInput({ ...input, actorId: actor });
         if (!validation.valid) throw new Error(validation.errors.join(' '));
         const value = validation.value;
-        return invoke('create_goods_receipt', {
+        return invoke('reception_create_goods_receipt', {
           p_purchase_request_id: value.requestId,
           p_warehouse_id: value.warehouseId,
           p_delivery_reference: value.deliveryReference,
           p_delivery_date: value.deliveryDate,
           p_notes: value.notes,
+          p_idempotency_key: newKey(),
           p_lines: value.lines.map(line => ({
             purchase_request_line_id: line.requestLineId,
             received_quantity: line.receivedQuantity,
