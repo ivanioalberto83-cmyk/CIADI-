@@ -134,6 +134,19 @@ Na base de dados, public.instituicao.logo_url e public.finance_emitente_config.l
 ### Documentos CIADI
 Todos os documentos próprios da Recepção — comprovativos de atendimento, fechos/relatórios de caixa, requisições, registos de entrega quando o fluxo for homologado, declarações, protocolos, correspondência e relatórios — devem usar CIADI_INSTITUTIONAL_IDENTITY. Facturas e recibos fiscais permanecem emitidos pelo motor financeiro, com a identidade/snapshot fiscal central. O logótipo deve ser incorporado no PDF; QR de validação apenas quando houver token/endpoint real.
 
+## Implementação actual — integração sem duplicação
+
+A estação Recepção já dispõe de um adaptador de leitura para as estruturas centrais existentes:
+- public.finance_servicos, filtrado por empresa e activo;
+- public.finance_caixas e public.finance_documentos, filtrados por empresa;
+- ciadi_ti.stock_balances e ciadi_ti.purchase_requests.
+
+O Dashboard apresenta os serviços/preços, estado das caixas, estado de documentos recentes, saldos/alertas de stock e estado de requisições. Não escreve nestas tabelas, não emite documentos, não recebe pagamentos, não aprova compras e não movimenta stock. Se a RLS impedir a leitura, a área identifica a indisponibilidade; não apresenta dados fictícios. Se a empresa principal não puder ser confirmada, as consultas financeiras ficam bloqueadas.
+
+O cabeçalho do Dashboard reutiliza o logótipo embutido no serviço central CIADI. O helper renderReceptionDocumentHeader exige o serviço CIADI_INSTITUTIONAL_IDENTITY e incorpora logoDataUrl no HTML do cabeçalho documental. A integração em cada modelo PDF final e a validação dos PDFs continuam pendentes.
+
+Verificação: GitHub Actions run 42610491365 concluiu com 162 testes aprovados e 0 falhas; validação de integração do Dashboard run 42610491460 concluiu com sucesso. Estes resultados validam os testes automatizados, não substituem homologação PostgreSQL, validação de permissões ou testes ponta a ponta.
+
 ## Fases seguintes
 
 1. Concluir revisão de segurança dos contratos existentes e mapear as acções exactas permitidas à Recepção. A implementação do ecrã pode avançar com contratos/adaptadores, mas qualquer escrita que seja recusada pelas políticas actuais deve permanecer bloqueada até à fase de permissões.
