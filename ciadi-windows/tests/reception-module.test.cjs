@@ -268,3 +268,35 @@ test('a proposta SQL gera senhas por polo e dia com contador transaccional', () 
   assert.match(sql, /unique \(polo_code, service_day, ticket_number\)/i);
   assert.match(sql, /'ticket_number', v_visit\.ticket_number/i);
 });
+
+
+test('painel público expõe apenas senhas e destinos, sem nomes ou finalidade', () => {
+  const model = reception.buildPublicCallPanelModel([
+    { id: 'a', status: 'in_service', polo_code: 'talatona', ticket_number: 7, service_started_at: '2026-11-09T09:10:00Z', display_name: 'Nome confidencial', purpose: 'Informação clínica', host_department: 'Psicologia' },
+    { id: 'b', status: 'waiting', polo_code: 'jardim_de_rosas', ticket_number: 8, arrived_at: '2026-11-09T09:11:00Z', display_name: 'Outro nome', purpose: 'Consulta sensível' },
+    { id: 'c', status: 'completed', polo_code: 'talatona', ticket_number: 6, arrived_at: '2026-11-09T09:00:00Z' }
+  ]);
+  assert.deepEqual(model.called, [{
+    ticketLabel: 'TAL #007',
+    poloLabel: 'Talatona',
+    destination: 'Atendimento'
+  }]);
+  assert.deepEqual(model.next, {
+    ticketLabel: 'JDR #008',
+    poloLabel: 'Jardim de Rosas',
+    destination: 'Atendimento'
+  });
+  assert.doesNotMatch(JSON.stringify(model), /Nome confidencial|Outro nome|Psicologia|Informação clínica|Consulta sensível/);
+});
+
+test('painel público ordena chamadas e próxima senha sem divulgar dados pessoais', () => {
+  const model = reception.buildPublicCallPanelModel([
+    { status: 'waiting', polo_code: 'talatona', ticket_number: 2, arrived_at: '2026-11-09T09:02:00Z' },
+    { status: 'in_service', polo_code: 'jardim_de_rosas', ticket_number: 4, service_started_at: '2026-11-09T09:04:00Z' },
+    { status: 'in_service', polo_code: 'talatona', ticket_number: 3, service_started_at: '2026-11-09T09:03:00Z' },
+    { status: 'waiting', polo_code: 'jardim_de_rosas', ticket_number: 1, arrived_at: '2026-11-09T09:01:00Z' }
+  ]);
+  assert.deepEqual(model.called.map(row => row.ticketLabel), ['TAL #003', 'JDR #004']);
+  assert.equal(model.next.ticketLabel, 'JDR #001');
+  assert.equal(reception.buildPublicCallPanelModel([]).next, null);
+});
