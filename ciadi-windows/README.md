@@ -45,3 +45,24 @@ Estado nesta fase:
 - O módulo é uma ferramenta de homologação local, não um sistema de assiduidade já homologado.
 
 A página é incluída no instalador Windows. Esta alteração de código não publica uma release automaticamente; a compilação de teste tem de concluir com sucesso no GitHub Actions.
+
+
+## Recuperação antes de atualizações
+
+A aplicação cria agora um ponto de recuperação local dos ficheiros instalados antes de iniciar o download de uma atualização. Se a cópia falhar, o download é cancelado. São mantidos os cinco pontos mais recentes em:
+
+`%LOCALAPPDATA%\CIADI\Recovery\`
+
+Cada ponto contém a pasta `app` e um `manifest.json` com versão, data e caminho de instalação. Esta cópia protege os ficheiros da aplicação, **não** a base de dados nem os ficheiros remotos do Supabase.
+
+### Recuperação assistida
+
+1. Feche o CIADI.
+2. Abra PowerShell como Administrador.
+3. Execute o script `Restore-CIADI.ps1` incluído na pasta `resources\recovery` da instalação, sem `-ConfirmRestore` para verificar o ponto e o destino.
+4. Só depois de confirmar que o caminho é correto, execute novamente com `-ConfirmRestore`.
+5. Abra o CIADI e valide login, ligação Supabase e módulos críticos.
+
+O caminho de instalação pode variar. O script cria uma cópia dos ficheiros atuais antes de substituir a aplicação.
+
+**Limitação importante:** a cópia de recuperação é automática; a restauração continua assistida. A reversão automática após falha de arranque e a restauração de dados Supabase ainda exigem desenvolvimento e teste isolado. Não considerar esta função validada para produção até a compilação Windows e o ensaio de recuperação passarem.
