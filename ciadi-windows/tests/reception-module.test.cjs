@@ -454,3 +454,27 @@ test('repositório financeiro exige empresa para impedir consultas sem âmbito e
   await assert.rejects(() => repository.getRecentDocuments(undefined), /empresa/i);
   assert.equal(queries, 0);
 });
+
+
+test('cabeçalho documental da Recepção reutiliza a identidade CIADI e incorpora o logótipo oficial', () => {
+  const identity = require('../../renderer/core/institutional-identity-service.js');
+  const html = reception.renderReceptionDocumentHeader({
+    identity,
+    title: 'Comprovativo de Atendimento',
+    reference: 'REC-2026-0001',
+    date: '09/11/2026'
+  });
+  const brand = identity.getBrand();
+  assert.match(html, /Logótipo CIADI/i);
+  assert.ok(html.includes(brand.logoDataUrl));
+  assert.match(html, /Comprovativo de Atendimento/);
+  assert.match(html, /REC-2026-0001/);
+});
+
+test('cabeçalho documental falha fechado se a identidade central ou o logótipo não estiverem disponíveis', () => {
+  assert.throws(() => reception.renderReceptionDocumentHeader({ identity: null, title: 'Declaração' }), /identidade documental/i);
+  assert.throws(() => reception.renderReceptionDocumentHeader({
+    identity: { getBrand: () => ({ logoDataUrl: '' }), renderDocumentHeader: () => '<header></header>' },
+    title: 'Declaração'
+  }), /logótipo oficial/i);
+});
