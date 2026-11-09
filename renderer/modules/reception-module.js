@@ -81,6 +81,62 @@
     });
   }
 
+  function validatePurchaseReceiptInput(input = {}) {
+    const errors = [];
+    const requestStatus = clean(input.requestStatus, 32);
+    const requestedQuantity = Number(input.requestedQuantity);
+    const alreadyReceivedQuantity = Number(input.alreadyReceivedQuantity ?? 0);
+    const deliveryQuantity = Number(input.deliveryQuantity);
+    const warehouseId = clean(input.warehouseId, 128);
+    const deliveryReference = clean(input.deliveryReference, 100);
+    const idempotencyKey = clean(input.idempotencyKey, 128);
+    const actorId = clean(input.actorId, 128);
+
+    if (requestStatus !== 'approved') errors.push('Só podem ser recebidas requisições aprovadas.');
+    if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
+      errors.push('A quantidade requisitada tem de ser superior a zero.');
+    }
+    if (!Number.isFinite(alreadyReceivedQuantity) || alreadyReceivedQuantity < 0) {
+      errors.push('A quantidade já recebida não pode ser negativa.');
+    }
+    if (!Number.isFinite(deliveryQuantity) || deliveryQuantity <= 0) {
+      errors.push('A quantidade entregue tem de ser superior a zero.');
+    }
+    if (Number.isFinite(requestedQuantity) && Number.isFinite(alreadyReceivedQuantity) &&
+        Number.isFinite(deliveryQuantity) && deliveryQuantity > 0) {
+      const outstanding = Math.round((requestedQuantity - alreadyReceivedQuantity) * 1000) / 1000;
+      if (outstanding <= 0) errors.push('A linha da requisição já está totalmente recebida.');
+      else if (deliveryQuantity - outstanding > 0.0005) {
+        errors.push('A quantidade entregue excede a quantidade ainda em falta.');
+      }
+    }
+    if (!warehouseId) errors.push('Seleccione o armazém de destino.');
+    if (!deliveryReference) errors.push('Indique a referência da guia/documento de entrega.');
+    if (!idempotencyKey) errors.push('A operação necessita de uma chave idempotente.');
+    if (!actorId) errors.push('É obrigatória uma sessão autenticada para registar a recepção.');
+
+    const remainingQuantity = Number.isFinite(requestedQuantity) &&
+      Number.isFinite(alreadyReceivedQuantity) && Number.isFinite(deliveryQuantity)
+      ? Math.max(0, Math.round((requestedQuantity - alreadyReceivedQuantity - deliveryQuantity) * 1000) / 1000)
+      : null;
+
+    return Object.freeze({
+      valid: errors.length === 0,
+      errors: Object.freeze(errors),
+      value: errors.length === 0 ? Object.freeze({
+        requestedQuantity,
+        alreadyReceivedQuantity,
+        deliveryQuantity,
+        warehouseId,
+        deliveryReference,
+        idempotencyKey,
+        actorId,
+        remainingQuantity,
+        partial: remainingQuantity > 0
+      }) : null
+    });
+  }
+
   function validateVisitorInput(input = {}) {
     const errors = [];
     const displayName = clean(input.displayName, 120);
@@ -760,7 +816,7 @@
 
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
-    validateVisitInput, transitionVisitStatus, validateVisitorInput,
+    validateVisitInput, transitionVisitStatus, validateVisitorInput, validatePurchaseReceiptInput,
     summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, renderReceptionDocumentHeader, create
   });
 });
