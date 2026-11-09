@@ -24,3 +24,13 @@ test('repositório disponibiliza atribuição, alteração de estado e interven�
  assert.equal(calls[2].values.event_type,'intervention');
  assert.equal(calls[2].values.created_by,'actor-1');
 });
+
+test('proposta SQL concede privilégios mínimos ao schema e às tabelas do Helpdesk',()=>{
+ const fs=require('node:fs');
+ const path=require('node:path');
+ const sql=fs.readFileSync(path.join(__dirname,'../../supabase/proposals/ciadi-ti-helpdesk-proposal.sql'),'utf8');
+ assert.match(sql,/grant usage on schema ciadi_ti to authenticated/i);
+ assert.match(sql,/grant select,\s*insert,\s*update on ciadi_ti\.helpdesk_tickets to authenticated/i);
+ assert.match(sql,/grant select,\s*insert on ciadi_ti\.helpdesk_ticket_events to authenticated/i);
+ assert.doesNotMatch(sql,/grant\s+[^;]*delete\s+on\s+ciadi_ti\.helpdesk_(tickets|ticket_events)\s+to\s+authenticated/i);
+});
