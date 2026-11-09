@@ -843,3 +843,47 @@ test('recepção, conferência e entrada em stock seguem as três RPCs transacci
     'create_goods_receipt', 'check_goods_receipt', 'finalize_goods_receipt', 'reconcile_inventory_count'
   ]);
 });
+
+
+test('valida requisição interna de stock por polo, armazém, centro de custo, finalidade e linhas', () => {
+  const valid = reception.validateReceptionStockRequisitionInput({
+    poloCode: 'talatona', warehouseId: 'warehouse-1', costCenterId: 'cc-001',
+    purpose: 'Materiais para atendimento diário', priority: 'normal', actorId: 'actor-1',
+    lines: [{ itemId: 'item-1', quantity: 5, unitOfMeasure: 'unidade', notes: '' }]
+  });
+  assert.equal(valid.valid, true);
+  assert.equal(valid.value.lines[0].quantity, 5);
+  const invalid = reception.validateReceptionStockRequisitionInput({
+    poloCode: 'talatona', warehouseId: 'warehouse-1', purpose: 'x',
+    priority: 'imediata', actorId: 'actor-1', lines: []
+  });
+  assert.equal(invalid.valid, false);
+  assert.ok(invalid.errors.some(message => /centro de custo/i.test(message)));
+  assert.ok(invalid.errors.some(message => /finalidade/i.test(message)));
+  assert.ok(invalid.errors.some(message => /prioridade/i.test(message)));
+});
+
+test('cria e submete requisição interna usando RPCs próprios sem confundir com compra a fornecedor', async () => {
+  const calls = [];
+  const service = reception.createReceptionProcurementService({
+    supabase: { schema() { return { async rpc(method, args) {
+      calls.push({ method, args });
+      return { data: method === 'reception_create_stock_requisition' ? { id: 'stock-req-1', status: 'draft' } : { id: 'stock-req-1', status: 'submitted' }, error: null };
+    } }; } },
+    actorId: 'actor-1', poloCode: 'talatona', idempotencyKeyFactory: () => 'stock-key-0001'
+  });
+  const created = await service.createStockRequisition({
+    warehouseId: 'warehouse-1', costCenterId: 'cc-001',
+    purpose: 'Materiais para atendimento diário', priority: 'normal',
+    lines: [{ itemId: 'item-1', quantity: 5, unitOfMeasure: 'unidade' }]
+  });
+  assert.equal(created.id, 'stock-req-1');
+  await service.submitStockRequisition('stock-req-1');
+  assert.deepEqual(calls.map(call => call.method), [
+    'reception_create_stock_requisition', 'reception_submit_stock_requisition'
+  ]);
+  assert.equal(calls[0].args.p_polo_code, 'talatona');
+  assert.equal(calls[0].args.p_cost_center_id, 'cc-001');
+  assert.equal(calls[0].args.p_lines[0].item_id, 'item-1');
+  assert.equal(calls[1].args.p_requisition_id, 'stock-req-1');
+});
