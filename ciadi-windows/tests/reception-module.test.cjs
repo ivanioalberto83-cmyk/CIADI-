@@ -611,6 +611,7 @@ test('repositório financeiro disponibiliza listas activas de clientes, tipos do
   }
   const supabase = {
     rpc: async () => ({ data: null, error: null }),
+    schema() { return { from: table => this.from(table) }; },
     from(table) {
       const rows = {
         finance_clientes: [{ id: 'client-1', nome: 'Família A', nif: '5000000000' }],
