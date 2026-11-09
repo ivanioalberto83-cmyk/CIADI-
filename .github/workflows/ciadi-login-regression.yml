@@ -1,0 +1,30 @@
+name: CIADI Login Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'index.html'
+      - 'ciadi-windows/tests/login-reprompt.test.cjs'
+      - '.github/workflows/ciadi-login-regression.yml'
+  push:
+    branches: ['fix/ciadi-login-reprompt-20261029']
+
+permissions:
+  contents: read
+
+jobs:
+  login-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Executar testes de regressão do login
+        run: node --test ciadi-windows/tests/login-reprompt.test.cjs
