@@ -209,7 +209,7 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
       limit(value) { calls.push(['limit', table, value]); return q; },
       ilike(column, value) { calls.push(['ilike', table, column, value]); return q; },
       or(value) { calls.push(['or', table, value]); return q; },
-      then(resolve) { resolve({ data: table === 'agendamentos' ? rows : [], error: null }); }
+      then(resolve) { resolve({ data: table === 'agendamentos' ? rows : [{ id: 'patient-1', nome_completo: 'Maria', nome_responsavel: 'Responsável Maria' }], error: null }); }
     };
     return q;
   }
