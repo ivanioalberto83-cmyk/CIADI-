@@ -112,30 +112,35 @@ begin
     raise exception 'Critérios de pesquisa inválidos; o intervalo máximo é de 31 dias.' using errcode = '22023';
   end if;
 
-  select coalesce(jsonb_agg(jsonb_build_object(
-    'id', a.id,
-    'paciente_id', a.paciente_id,
-    'patient_name', p.nome_completo,
-    'responsible_name', p.nome_responsavel,
-    'data_hora', a.data_hora,
-    'duracao_minutos', a.duracao_minutos,
-    'tipo', a.tipo,
-    'estado', a.estado,
-    'modalidade', a.modalidade
-  ) order by a.data_hora), '[]'::jsonb)
+  select coalesce(jsonb_agg(q.item order by q.data_hora), '[]'::jsonb)
   into v_result
-  from public.agendamentos a
-  join public.pacientes p on p.id = a.paciente_id
-  where a.data_hora >= (p_date_from::timestamp at time zone 'Africa/Luanda')
-    and a.data_hora < ((p_date_to + 1)::timestamp at time zone 'Africa/Luanda')
-    and a.estado in ('agendada', 'confirmada')
-    and a.checkin_em is null
-    and (
-      p.nome_completo ilike '%' || v_term || '%'
-      or coalesce(p.codigo_paciente, '') ilike '%' || v_term || '%'
-      or coalesce(p.nome_responsavel, '') ilike '%' || v_term || '%'
-    )
-  limit 50;
+  from (
+    select a.data_hora,
+      jsonb_build_object(
+        'id', a.id,
+        'paciente_id', a.paciente_id,
+        'patient_name', p.nome_completo,
+        'responsible_name', p.nome_responsavel,
+        'data_hora', a.data_hora,
+        'duracao_minutos', a.duracao_minutos,
+        'tipo', a.tipo,
+        'estado', a.estado,
+        'modalidade', a.modalidade
+      ) as item
+    from public.agendamentos a
+    join public.pacientes p on p.id = a.paciente_id
+    where a.data_hora >= (p_date_from::timestamp at time zone 'Africa/Luanda')
+      and a.data_hora < ((p_date_to + 1)::timestamp at time zone 'Africa/Luanda')
+      and a.estado in ('agendada', 'confirmada')
+      and a.checkin_em is null
+      and (
+        p.nome_completo ilike '%' || v_term || '%'
+        or coalesce(p.codigo_paciente, '') ilike '%' || v_term || '%'
+        or coalesce(p.nome_responsavel, '') ilike '%' || v_term || '%'
+      )
+    order by a.data_hora
+    limit 50
+  ) q;
 
   return v_result;
 end;
