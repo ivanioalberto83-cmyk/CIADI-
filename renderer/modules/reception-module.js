@@ -538,7 +538,7 @@
 
   function createReceptionInvoicePdfService({ supabase, desktop = globalThis.ciadiDesktop, identity = globalThis.CIADI_INSTITUTIONAL_IDENTITY } = {}) {
     if (typeof supabase?.from !== 'function') throw new Error('Ligação ao arquivo financeiro indisponível.');
-    async function load(documentId) {
+    async function load(documentId, { requireIssued = false } = {}) {
       const id = clean(documentId, 128);
       if (!id) throw new Error('Identificador da factura obrigatório.');
       const [documentResult, linesResult, emitterResult] = await Promise.all([
@@ -554,6 +554,9 @@
       if (emitterResult?.error) throw emitterResult.error;
       if (!documentResult?.data) throw new Error('Factura não encontrada no arquivo financeiro.');
       const document = documentResult.data;
+      if (requireIssued && (document.document_status !== 'emitido' || document.fiscal_status !== 'emitido')) {
+        throw new Error('Só é possível exportar PDF de uma factura emitida e validada pelo motor central.');
+      }
       const html = buildReceptionInvoiceHtml({
         document,
         lines: Array.isArray(linesResult?.data) ? linesResult.data : [],
@@ -566,11 +569,8 @@
       return load(documentId);
     }
     async function exportIssuedPdf(documentId) {
-      const loaded = await load(documentId);
+      const loaded = await load(documentId, { requireIssued: true });
       const { document, html } = loaded;
-      if (document.document_status !== 'emitido' || document.fiscal_status !== 'emitido') {
-        throw new Error('Só é possível exportar PDF de uma factura emitida e validada pelo motor central.');
-      }
       if (typeof desktop?.documents?.renderPdf !== 'function' || typeof desktop?.documents?.exportIssuedPdf !== 'function') {
         throw new Error('A geração e exportação de PDF real exige a aplicação CIADI Desktop actualizada.');
       }
