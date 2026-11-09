@@ -808,3 +808,38 @@ test('valida recepção de mercadoria com classificação integral de quantidade
   assert.equal(unclassified.valid, false);
   assert.ok(unclassified.errors.some(message => /classificadas|total/i.test(message)));
 });
+
+
+test('recepção, conferência e entrada em stock seguem as três RPCs transaccionais do ciclo de mercadorias', async () => {
+  const calls = [];
+  const responses = {
+    create_goods_receipt: { id: 'receipt-1', status: 'draft' },
+    check_goods_receipt: { receipt_id: 'receipt-1', status: 'checked' },
+    finalize_goods_receipt: { receipt_id: 'receipt-1', status: 'posted', movements_created: 1 },
+    reconcile_inventory_count: { count_id: 'count-1', status: 'reconciled' }
+  };
+  const service = reception.createReceptionProcurementService({
+    supabase: { schema(name) {
+      assert.equal(name, 'ciadi_ti');
+      return { async rpc(method, args) { calls.push({ method, args }); return { data: responses[method], error: null }; } };
+    } },
+    actorId: 'actor-1', poloCode: 'talatona'
+  });
+  const receipt = await service.createGoodsReceipt({
+    requestStatus: 'approved', requestId: 'request-1', warehouseId: 'warehouse-1',
+    deliveryReference: 'GUIA-001', actorId: 'actor-1',
+    lines: [{
+      requestLineId: 'line-1', orderedQuantity: 10, alreadyReceivedQuantity: 0,
+      receivedQuantity: 4, acceptedQuantity: 3, damagedQuantity: 1, returnedQuantity: 0
+    }]
+  });
+  assert.equal(receipt.status, 'draft');
+  assert.equal(calls[0].method, 'create_goods_receipt');
+  assert.equal(calls[0].args.p_lines[0].purchase_request_line_id, 'line-1');
+  await service.checkGoodsReceipt('receipt-1');
+  await service.finalizeGoodsReceipt('receipt-1');
+  await service.reconcileInventoryCount('count-1');
+  assert.deepEqual(calls.map(call => call.method), [
+    'create_goods_receipt', 'check_goods_receipt', 'finalize_goods_receipt', 'reconcile_inventory_count'
+  ]);
+});
