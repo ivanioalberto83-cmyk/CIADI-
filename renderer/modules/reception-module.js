@@ -633,6 +633,26 @@
           .order('item_name', { ascending: true })
           .limit(100));
       },
+      async getStockMovements() {
+        return rows(supabase.schema('ciadi_ti').from('stock_movements')
+          .select('id,item_id,warehouse_id,movement_type,quantity_delta,reference,created_at')
+          .order('created_at', { ascending: false }).limit(50));
+      },
+      async getInventoryCounts() {
+        return rows(supabase.schema('ciadi_ti').from('inventory_counts')
+          .select('id,warehouse_id,status,created_at,reconciled_at')
+          .order('created_at', { ascending: false }).limit(20));
+      },
+      async getGoodsReceipts() {
+        return rows(supabase.schema('ciadi_ti').from('goods_receipts')
+          .select('id,receipt_number,purchase_request_id,warehouse_id,delivery_reference,status,created_at,posted_at')
+          .order('created_at', { ascending: false }).limit(20));
+      },
+      async getStockRequisitions() {
+        return rows(supabase.schema('ciadi_ti').from('stock_requisitions')
+          .select('id,request_number,polo_code,warehouse_id,cost_center_id,status,purpose,priority,created_at')
+          .order('created_at', { ascending: false }).limit(20));
+      },
       async getPurchaseRequests() {
         return rows(supabase.schema('ciadi_ti').from('purchase_requests')
           .select('id,request_number,status,justification,estimated_total,finance_decision_at,finance_decision_note,created_at')
@@ -1052,10 +1072,14 @@
       { key: 'cashboxes', title: 'Caixas', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.nome || row.codigo) + '</span><strong>' + esc(row.estado || '—') + '</strong></div>').join('') },
       { key: 'documents', title: 'Documentos recentes', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.document_no || row.tipo_documento) + '</span><strong>' + esc(row.document_status || '—') + '</strong></div>').join('') },
       { key: 'stock', title: 'Stock e inventário', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.item_name) + ' <small class="text-slate-500">' + esc(row.warehouse_name) + '</small></span><strong class="' + (row.below_minimum ? 'text-red-700' : '') + '">' + esc(row.quantity_on_hand) + ' ' + esc(row.unit_of_measure) + '</strong></div>').join('') },
-      { key: 'requests', title: 'Requisições de compra', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') }
+      { key: 'requests', title: 'Requisições de compra', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
+      { key: 'stockRequisitions', title: 'Requisições internas de stock', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + ' · ' + esc(row.polo_code) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
+      { key: 'goodsReceipts', title: 'Recepção de mercadorias', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.receipt_number || row.delivery_reference || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
+      { key: 'inventoryCounts', title: 'Contagens físicas', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.id.slice(0, 8)) + ' · ' + esc(row.warehouse_id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
+      { key: 'movements', title: 'Razão de movimentos de stock', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.movement_type) + ' · ' + esc(row.reference || row.item_id) + '</span><strong>' + esc(row.quantity_delta) + '</strong></div>').join('') }
     ];
     return '<section class="card p-5 space-y-4" data-reception-business-integration>' +
-      '<div><h3 class="font-black text-lg">Facturação, caixa e aprovisionamento</h3><p class="text-xs text-slate-500">Consulta das estruturas centrais existentes. As operações financeiras têm formulários próprios e continuam sujeitas às autorizações e validações dos respectivos motores.</p></div>' +
+      '<div><h3 class="font-black text-lg">Facturação, caixa e aprovisionamento</h3><p class="text-xs text-slate-500">Consulta das estruturas centrais existentes. Requisição interna, compra a fornecedor, recepção, saída, devolução, transferência e inventário são fluxos separados que escrevem no razão único de movimentos.</p></div>' +
       '<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">' +
       cards.map(card => {
         const result = snapshot[card.key];
@@ -1119,7 +1143,7 @@
     let businessRepository = null;
     let financeRepository = null;
     let activeCompanyId = clean(configuredCompanyId, 128) || null;
-    let businessSnapshot = { services: null, clients: null, documentTypes: null, series: null, cashboxes: null, documents: null, shifts: null, stock: null, requests: null };
+    let businessSnapshot = { services: null, clients: null, documentTypes: null, series: null, cashboxes: null, documents: null, shifts: null, stock: null, requests: null, stockRequisitions: null, goodsReceipts: null, inventoryCounts: null, movements: null };
 
     function renderUnavailable(error) {
       container.innerHTML = `
@@ -1347,7 +1371,11 @@
         ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
         ['shifts', () => businessRepository.getOpenCashboxShifts()],
         ['stock', () => businessRepository.getStockBalances()],
-        ['requests', () => businessRepository.getPurchaseRequests()]
+        ['requests', () => businessRepository.getPurchaseRequests()],
+        ['stockRequisitions', () => businessRepository.getStockRequisitions()],
+        ['goodsReceipts', () => businessRepository.getGoodsReceipts()],
+        ['inventoryCounts', () => businessRepository.getInventoryCounts()],
+        ['movements', () => businessRepository.getStockMovements()]
       ];
       const results = await Promise.all(tasks.map(async ([key, load]) => {
         if (businessSnapshot[key]?.error && ['services', 'clients', 'cashboxes', 'documents'].includes(key) && !company) return [key, businessSnapshot[key]];
