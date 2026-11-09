@@ -5,12 +5,9 @@
 
 begin;
 
-alter table ciadi_ti.purchase_requests
-  add column if not exists warehouse_id uuid
-    references ciadi_ti.warehouses(id) on delete restrict,
-  add column if not exists cost_center_id uuid
-    references public.finance_centros_custo(id) on delete restrict,
-  add column if not exists priority text not null default 'normal';
+alter table ciadi_ti.purchase_requests add column if not exists warehouse_id uuid references ciadi_ti.warehouses(id) on delete restrict;
+alter table ciadi_ti.purchase_requests add column if not exists cost_center_id uuid references public.finance_centros_custo(id) on delete restrict;
+alter table ciadi_ti.purchase_requests add column if not exists priority text not null default 'normal';
 
 do $constraints$
 begin
@@ -26,12 +23,9 @@ begin
 end;
 $constraints$;
 
-alter table ciadi_ti.stock_movements
-  add column if not exists purchase_request_id uuid
-    references ciadi_ti.purchase_requests(id) on delete restrict,
-  add column if not exists purchase_request_line_id uuid
-    references ciadi_ti.purchase_request_lines(id) on delete restrict,
-  add column if not exists idempotency_key text;
+alter table ciadi_ti.stock_movements add column if not exists purchase_request_id uuid references ciadi_ti.purchase_requests(id) on delete restrict;
+alter table ciadi_ti.stock_movements add column if not exists purchase_request_line_id uuid references ciadi_ti.purchase_request_lines(id) on delete restrict;
+alter table ciadi_ti.stock_movements add column if not exists idempotency_key text;
 
 do $constraints$
 begin
@@ -101,14 +95,14 @@ begin
   if not ciadi_ti.has_support_access() then
     raise exception 'A recepção de mercadorias ainda não está autorizada para este perfil.' using errcode = '42501';
   end if;
-  if p_quantity is null or p_quantity <= 0 then
+  if p_quantity is null or p_quantity = 'NaN'::numeric or p_quantity <= 0 then
     raise exception 'A quantidade recebida deve ser superior a zero.' using errcode = '22023';
   end if;
   v_quantity := round(p_quantity, 3);
   if v_quantity <> p_quantity then
     raise exception 'A quantidade não pode exceder três casas decimais.' using errcode = '22023';
   end if;
-  if p_unit_cost is not null and p_unit_cost < 0 then
+  if p_unit_cost is not null and (p_unit_cost = 'NaN'::numeric or p_unit_cost < 0) then
     raise exception 'O custo unitário não pode ser negativo.' using errcode = '22023';
   end if;
   if length(v_reference) not between 2 and 100 then
@@ -150,6 +144,13 @@ begin
     raise exception 'O armazém tem de corresponder ao destino definido na requisição.' using errcode = '22023';
   end if;
 
+  if v_request.cost_center_id is null or not exists (
+    select 1 from public.finance_centros_custo
+    where id = v_request.cost_center_id and ativo = true
+  ) then
+    raise exception 'Defina um centro de custo activo na requisição antes da recepção.' using errcode = '22023';
+  end if;
+
   select * into v_line
   from ciadi_ti.purchase_request_lines
   where id = p_line_id and request_id = p_request_id
@@ -164,7 +165,7 @@ begin
 
   if not exists (
     select 1 from ciadi_ti.warehouses
-    where id = p_warehouse_id and active = true
+    where id = p_warehouse_id and active = true and nullif(trim(polo), '') is not null
   ) then
     raise exception 'O armazém de destino não existe ou está inactivo.' using errcode = '23503';
   end if;
@@ -224,7 +225,7 @@ $receipt$;
 
 -- A função permanece fechada até à revisão e aprovação formal das permissões.
 -- O predicado actual limita-a a admin/gestor/Suporte Informático.
-revoke all on function ciadi_ti.receive_purchase_request_line(
+revoke execute on function ciadi_ti.receive_purchase_request_line(
   uuid, uuid, uuid, numeric, text, text, text, numeric, text
 ) from public, anon, authenticated;
 
