@@ -172,7 +172,7 @@ test('proposta SQL da Recepção mantém RLS sem abrir políticas ou grants prem
   assert.match(sql, /reception_close_visitor/i);
   assert.match(sql, /reception_get_dashboard/i);
   assert.match(sql, /front_desk_visits_appointment_unique_idx/i);
-  assert.match(sql, /from public\\.agendamentos a/i);
+  assert.match(sql, /from public\.agendamentos a/i);
   assert.match(sql, /set estado = 'check-in'/i);
   assert.match(sql, /checkin_em = now\(\)/i);
   assert.match(sql, /revoke all on all tables in schema ciadi_reception from public, anon, authenticated/i);
