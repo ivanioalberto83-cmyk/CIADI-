@@ -690,7 +690,7 @@ test('motor documental da faturação compõe pré-visualização A4 com identid
   assert.match(preview.html, /FT A\/2026\/0001/);
   assert.match(preview.html, /Família Teste/);
   assert.match(preview.html, /Sessão terapêutica/);
-  assert.match(preview.html, /QR de autenticação indisponível/i);
+  assert.match(preview.html, /QR DE AUTENTICAÇÃO NÃO DISPONÍVEL/i);
   const result = await service.exportIssuedPdf('invoice-1');
   assert.equal(result.saved, true);
   assert.equal(rendered.length, 1);
