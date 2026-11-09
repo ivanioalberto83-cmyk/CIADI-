@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use the host's available task-by-task implementation workflow. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Transform the current Recepção navigation page into a professional institutional front-desk module with auditable arrival, queue, visitor, referral and reporting workflows.
+**Goal:** Transform the current Recepção navigation page into a professional institutional front-desk module with auditable arrival, queue, visitor, referral, billing/cashier, procurement and branded document workflows.
 
 **Architecture:** Keep the module independent from clinical workflows and integrated with the central Finance/Billing/Cash and Procurement engines. Reuse existing appointments and patient references only when explicitly linked, while storing front-desk operational events in a dedicated `ciadi_reception` schema. All writes go through named RPCs; until a reviewed permission phase is completed, the database proposal remains unapplied and the module must fail closed when the schema is unavailable.
 
@@ -130,10 +130,15 @@
 ## Scope addition — billing, cashier, procurement and CIADI identity
 
 ### Task 8: Read-only audit of central engines
-- [ ] Audit existing Finance/Billing/Cash and Procurement tables, RPCs, functions, approvals, document templates and workflows.
-- [ ] Map exact interfaces for invoices, receipts, cash sessions, payments, requisitions, suppliers, deliveries and stock.
-- [ ] Identify AGT fiscal fields from the existing validated finance implementation; do not invent requirements or claim compliance without review.
-- [ ] Produce an integration map before implementation; no remote writes or schema changes.
+- [x] Confirm existing Finance structures: finance_documentos, finance_documento_linhas, finance_clientes, finance_servicos, finance_series, finance_pagamentos, finance_caixas, finance_caixa_turnos, finance_movimentos_caixa, finance_operadores and audit/accounting/SAF-T tables.
+- [x] Identify central billing/cash functions: ciadi_faturacao_criar_documento, ciadi_faturacao_emitir_documento, ciadi_faturacao_anular_documento, ciadi_abrir_caixa, ciadi_fechar_caixa, ciadi_aprovar_fecho_caixa, ciadi_registar_movimento_caixa, ciadi_finance_integrar_pagamento.
+- [x] Confirm ciadi_ti procurement/inventory structures: items, item_categories, warehouses, stock_balances, stock_movements, inventory_counts, inventory_count_lines, purchase_requests, purchase_request_lines, suppliers, assets, audit_events.
+- [x] Identify procurement functions decide_purchase_request, post_stock_movement, transfer_stock; confirm RLS enabled and relevant policies currently scoped to Support Informática.
+- [x] Identify central identity service renderer/core/institutional-identity-service.js, already consumed by the Support document engine.
+- [x] Record logo configuration gap: instituicao.logo_url and finance_emitente_config.logotipo_url are null; Storage logos bucket exists but contains no objects in the audit query. The central identity service already carries embedded logoDataUrl.
+- [ ] Review full SECURITY DEFINER function bodies, EXECUTE grants and exact permission predicates before Reception invokes any write action.
+- [ ] Confirm whether a purchase-order / goods-receipt flow exists elsewhere; current inspected ciadi_ti tables do not show dedicated formal purchase order or goods receipt entities.
+- [ ] Produce final action-to-RPC mapping with operator, company, polo, cash-shift, approval and idempotency requirements; no remote writes or schema changes.
 
 ### Task 9: Reception billing and cashier
 - [ ] Service/charge lookup and payer selection using existing master data.
@@ -151,6 +156,7 @@
 
 ### Task 11: Central CIADI identity and document templates
 - [ ] Audit the actual approved CIADI logo asset and existing central identity/document service.
+- [x] Reuse the existing CIADI_INSTITUTIONAL_IDENTITY service as the single brand source; its embedded logoDataUrl is available to PDF templates.
 - [ ] Use one shared identity configuration and template engine for every Reception document/export.
 - [ ] Embed the approved logo in PDFs, not as a remote runtime dependency.
 - [ ] Cover invoices/receipts (through Finance), cashier summaries, requisitions, delivery records, visitor declarations, correspondence, protocols and operational reports.
