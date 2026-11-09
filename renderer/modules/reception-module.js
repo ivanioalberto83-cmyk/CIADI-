@@ -221,6 +221,27 @@
           p_actor_id: clean(actorId, 128)
         });
       },
+      async confirmReferral(visitId, actorId) {
+        if (!clean(visitId, 128) || !clean(actorId, 128)) {
+          throw new Error('Atendimento e sessão autenticada são obrigatórios.');
+        }
+        return call('reception_confirm_referral', {
+          p_visit_id: clean(visitId, 128),
+          p_actor_id: clean(actorId, 128)
+        });
+      },
+      async returnReferral(visitId, reason, actorId) {
+        const note = clean(reason, 240);
+        if (!clean(visitId, 128) || !clean(actorId, 128)) {
+          throw new Error('Atendimento e sessão autenticada são obrigatórios.');
+        }
+        if (note.length < 3) throw new Error('Indique o motivo da devolução do encaminhamento.');
+        return call('reception_return_referral', {
+          p_visit_id: clean(visitId, 128),
+          p_reason: note,
+          p_actor_id: clean(actorId, 128)
+        });
+      },
       async registerArrival(input, actorId) {
         const checked = validateVisitInput(input);
         if (!checked.valid) throw new Error(checked.errors.join(' '));
