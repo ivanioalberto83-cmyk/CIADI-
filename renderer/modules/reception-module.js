@@ -152,7 +152,7 @@
       return Object.freeze({
         ticketLabel: `${poloCode === 'talatona' ? 'TAL' : 'JDR'} #${String(Number(row.ticket_number)).padStart(3, '0')}`,
         poloLabel: POLO_LABELS[poloCode],
-        destination: 'Atendimento'
+        destination: clean(row.destination_service, 80) || 'Atendimento'
       });
     };
     const validRows = Array.isArray(rows) ? rows : [];
@@ -204,6 +204,22 @@
       async getDashboard(poloCode) {
         if (poloCode && !POLOS.includes(poloCode)) throw new Error('Polo inválido.');
         return call('reception_get_dashboard', { p_polo_code: poloCode || null });
+      },
+      async getDestinations() {
+        const rows = await call('reception_get_destinations', {});
+        return Object.freeze((Array.isArray(rows) ? rows : []).filter(row =>
+          row && clean(row.id, 128) && clean(row.name, 80)
+        ).map(row => Object.freeze({ id: clean(row.id, 128), name: clean(row.name, 80) })));
+      },
+      async routeVisit(visitId, specialtyId, actorId) {
+        if (!clean(visitId, 128) || !clean(specialtyId, 128) || !clean(actorId, 128)) {
+          throw new Error('Atendimento, destino e sessão autenticada são obrigatórios.');
+        }
+        return call('reception_route_visit', {
+          p_visit_id: clean(visitId, 128),
+          p_destination_specialty_id: clean(specialtyId, 128),
+          p_actor_id: clean(actorId, 128)
+        });
       },
       async registerArrival(input, actorId) {
         const checked = validateVisitInput(input);
@@ -266,6 +282,7 @@
 
     let repository = null;
     let dashboard = null;
+    let destinations = [];
     let activePolo = POLOS.includes(poloCode) ? poloCode : null;
 
     function renderUnavailable(error) {
@@ -345,7 +362,7 @@
             </div>
             ${visits.length ? `
               <div class="overflow-x-auto"><table class="w-full text-sm">
-                <thead><tr class="text-left border-b"><th class="py-2">Senha</th><th>Hora</th><th>Responsável</th><th>Finalidade</th><th>Polo</th><th>Estado</th><th>Acção</th></tr></thead>
+                <thead><tr class="text-left border-b"><th class="py-2">Senha</th><th>Hora</th><th>Responsável</th><th>Finalidade</th><th>Polo</th><th>Estado</th><th>Destino do serviço</th><th>Acção</th></tr></thead>
                 <tbody>${visits.map(visit => `
                   <tr class="border-b">
                     <td class="py-3 font-black text-orange">${esc(visit.polo_code === 'talatona' ? 'TAL' : 'JDR')} #${esc(String(visit.ticket_number || '—').padStart(3, '0'))}</td><td>${esc(visit.arrived_at ? new Date(visit.arrived_at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '—')}</td>
@@ -353,6 +370,15 @@
                     <td>${esc(visit.purpose)}</td>
                     <td>${esc(POLO_LABELS[visit.polo_code] || visit.polo_code || '—')}</td>
                     <td>${esc(STATUS_LABELS[visit.status] || visit.status)}</td>
+                    <td>
+                      ${['waiting', 'in_service'].includes(visit.status) ? `<div class="flex flex-wrap items-center gap-2">
+                        <select data-route-destination="${esc(visit.id)}" class="border rounded-lg px-2 py-1 text-xs" aria-label="Destino de atendimento">
+                          <option value="">Seleccionar serviço</option>
+                          ${destinations.map(item => `<option value="${esc(item.id)}" ${visit.destination_specialty_id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}
+                        </select>
+                        <button type="button" data-visit-route="${esc(visit.id)}" class="text-orange font-bold text-xs">Encaminhar</button>
+                      </div>` : esc(visit.destination_service || '—')}
+                    </td>
                     <td>${visit.status === 'waiting' ? `<button data-visit-action="in_service" data-visit-id="${esc(visit.id)}" class="text-orange font-bold">Iniciar</button>` : visit.status === 'in_service' ? `<button data-visit-action="completed" data-visit-id="${esc(visit.id)}" class="text-orange font-bold">Concluir</button>` : '—'}</td>
                   </tr>`).join('')}</tbody>
               </table></div>` : '<p class="text-sm text-slate-500 py-5">Não existem chegadas registadas para o filtro seleccionado.</p>'}
@@ -435,7 +461,12 @@
 
     async function refresh() {
       if (!repository) repository = createReceptionRepository({ supabase });
-      dashboard = await repository.getDashboard(activePolo);
+      const [nextDashboard, nextDestinations] = await Promise.all([
+        repository.getDashboard(activePolo),
+        repository.getDestinations()
+      ]);
+      dashboard = nextDashboard;
+      destinations = nextDestinations;
       renderDashboard();
     }
 
@@ -480,6 +511,16 @@
             if (!nextVisit) throw new Error('Não existem utentes em espera.');
             await repository.transitionVisit(nextVisit.id, 'waiting', 'in_service', actorId);
             notify(`Senha ${nextVisit.polo_code === 'talatona' ? 'TAL' : 'JDR'} #${String(nextVisit.ticket_number || '').padStart(3, '0')} chamada para atendimento.`);
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
+          }
+          if (button.hasAttribute('data-visit-route')) {
+            const visitId = button.getAttribute('data-visit-route');
+            const selector = container.querySelector(`[data-route-destination="${CSS.escape(visitId)}"]`);
+            const specialtyId = selector?.value || '';
+            if (!specialtyId) throw new Error('Seleccione o serviço de destino antes de encaminhar.');
+            await repository.routeVisit(visitId, specialtyId, actorId);
+            notify('Encaminhamento registado no histórico do atendimento.');
             try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
             return;
           }
