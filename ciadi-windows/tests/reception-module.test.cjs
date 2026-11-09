@@ -350,3 +350,43 @@ test('contrato SQL suporta destino por especialidade e histórico de encaminhame
   assert.match(sql, /reception_route_visit/i);
   assert.match(sql, /destination_assigned/i);
 });
+
+
+test('confirmação de encaminhamento usa RPC autenticada e exige serviço de destino', async () => {
+  const calls = [];
+  const repository = reception.createReceptionRepository({
+    supabase: { schema(name) {
+      assert.equal(name, 'ciadi_reception');
+      return { async rpc(method, args) {
+        calls.push({ method, args });
+        return { data: { id: 'visit-1', referral_status: 'accepted' }, error: null };
+      } };
+    } }
+  });
+  await repository.confirmReferral('visit-1', 'actor-1');
+  assert.deepEqual(calls, [{
+    method: 'reception_confirm_referral',
+    args: { p_visit_id: 'visit-1', p_actor_id: 'actor-1' }
+  }]);
+});
+
+test('devolução de encaminhamento exige motivo e não chama a base com dados incompletos', async () => {
+  let calls = 0;
+  const repository = reception.createReceptionRepository({
+    supabase: { schema() { return { async rpc() { calls += 1; return { data: null, error: null }; } }; } }
+  });
+  await assert.rejects(() => repository.returnReferral('visit-1', '', 'actor-1'), /motivo/i);
+  await assert.rejects(() => repository.returnReferral('', 'Sem vaga', 'actor-1'), /obrigatórios/i);
+  assert.equal(calls, 0);
+});
+
+test('proposta SQL inclui estado auditável de confirmação e devolução de encaminhamento', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-workflow-proposal.sql'), 'utf8');
+  assert.match(sql, /referral_status/i);
+  assert.match(sql, /reception_confirm_referral/i);
+  assert.match(sql, /reception_return_referral/i);
+  assert.match(sql, /referral_accepted/i);
+  assert.match(sql, /referral_returned/i);
+});
