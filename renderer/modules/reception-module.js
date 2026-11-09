@@ -551,7 +551,17 @@
                         <button type="button" data-visit-route="${esc(visit.id)}" class="text-orange font-bold text-xs">Encaminhar</button>
                       </div>` : esc(visit.destination_service || '—')}
                     </td>
-                    <td>${visit.status === 'waiting' ? `<button data-visit-action="in_service" data-visit-id="${esc(visit.id)}" class="text-orange font-bold">Iniciar</button>` : visit.status === 'in_service' ? `<button data-visit-action="completed" data-visit-id="${esc(visit.id)}" class="text-orange font-bold">Concluir</button>` : '—'}</td>
+                    <td class="space-y-2">
+                      ${visit.status === 'waiting' ? `<button data-visit-action="in_service" data-visit-id="${esc(visit.id)}" class="text-orange font-bold">Iniciar</button>` : visit.status === 'in_service' ? `<button data-visit-action="completed" data-visit-id="${esc(visit.id)}" class="text-orange font-bold">Concluir</button>` : ''}
+                      ${visit.referral_status === 'pending' ? `<div class="flex flex-col gap-2 min-w-40">
+                        <button type="button" data-referral-confirm="${esc(visit.id)}" class="rounded-lg bg-green-700 text-white px-3 py-2 text-xs font-bold">Confirmar recepção</button>
+                        <label class="text-xs text-slate-600">Motivo da devolução
+                          <input data-referral-return-reason="${esc(visit.id)}" maxlength="240" minlength="3" class="border rounded-lg px-2 py-1 w-full mt-1" placeholder="Indique o motivo">
+                        </label>
+                        <button type="button" data-referral-return="${esc(visit.id)}" class="rounded-lg border border-red-300 text-red-700 px-3 py-2 text-xs font-bold">Devolver encaminhamento</button>
+                      </div>` : ''}
+                      ${visit.status !== 'waiting' && visit.status !== 'in_service' && visit.referral_status !== 'pending' ? '—' : ''}
+                    </td>
                   </tr>`).join('')}</tbody>
               </table></div>` : '<p class="text-sm text-slate-500 py-5">Não existem chegadas registadas para o filtro seleccionado.</p>'}
           </section>
@@ -733,6 +743,22 @@
             if (!specialtyId) throw new Error('Seleccione o serviço de destino antes de encaminhar.');
             await repository.routeVisit(visitId, specialtyId, actorId);
             notify('Encaminhamento registado no histórico do atendimento.');
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
+          }
+          if (button.hasAttribute('data-referral-confirm')) {
+            const visitId = button.getAttribute('data-referral-confirm');
+            await repository.confirmReferral(visitId, actorId);
+            notify('O serviço de destino confirmou a recepção do encaminhamento.');
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
+          }
+          if (button.hasAttribute('data-referral-return')) {
+            const visitId = button.getAttribute('data-referral-return');
+            const reasonInput = Array.from(container.querySelectorAll('[data-referral-return-reason]'))
+              .find(input => input.getAttribute('data-referral-return-reason') === visitId);
+            await repository.returnReferral(visitId, reasonInput?.value || '', actorId);
+            notify('Encaminhamento devolvido e motivo registado no histórico.');
             try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
             return;
           }
