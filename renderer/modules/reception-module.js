@@ -276,21 +276,19 @@
           p_polo_code: polo
         });
       },
-      async receivePurchaseGoods(input = {}) {
+      async createGoodsReceipt(input = {}) {
         ensureActor();
         const validation = validateReceptionGoodsInput({ ...input, actorId: actor });
         if (!validation.valid) throw new Error(validation.errors.join(' '));
         const value = validation.value;
-        return invoke('reception_receive_purchase_goods', {
-          p_request_id: value.requestId,
+        return invoke('create_goods_receipt', {
+          p_purchase_request_id: value.requestId,
           p_warehouse_id: value.warehouseId,
           p_delivery_reference: value.deliveryReference,
           p_delivery_date: value.deliveryDate,
           p_notes: value.notes,
-          p_idempotency_key: newKey(),
-          p_polo_code: polo,
           p_lines: value.lines.map(line => ({
-            request_line_id: line.requestLineId,
+            purchase_request_line_id: line.requestLineId,
             received_quantity: line.receivedQuantity,
             accepted_quantity: line.acceptedQuantity,
             damaged_quantity: line.damagedQuantity,
@@ -300,6 +298,21 @@
             notes: line.notes
           }))
         });
+      },
+      async checkGoodsReceipt(receiptId) {
+        const id = clean(receiptId, 128);
+        if (!id) throw new Error('Identificador da recepção obrigatório.');
+        return invoke('check_goods_receipt', { p_receipt_id: id });
+      },
+      async finalizeGoodsReceipt(receiptId) {
+        const id = clean(receiptId, 128);
+        if (!id) throw new Error('Identificador da recepção obrigatório.');
+        return invoke('finalize_goods_receipt', { p_receipt_id: id });
+      },
+      async reconcileInventoryCount(countId) {
+        const id = clean(countId, 128);
+        if (!id) throw new Error('Identificador da contagem obrigatório.');
+        return invoke('reconcile_inventory_count', { p_count_id: id });
       }
     });
   }
