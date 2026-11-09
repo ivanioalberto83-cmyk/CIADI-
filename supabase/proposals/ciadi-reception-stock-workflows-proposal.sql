@@ -141,13 +141,13 @@ begin
   if auth.uid() is null or not ciadi_ti.has_support_access() then
     raise exception 'A criação de requisições de stock ainda não está autorizada para este perfil.' using errcode = '42501';
   end if;
-  if p_polo_code not in ('talatona','jardim_de_rosas') then
+  if p_polo_code is null or p_polo_code not in ('talatona','jardim_de_rosas') then
     raise exception 'Polo CIADI inválido.' using errcode = '22023';
   end if;
   if length(btrim(coalesce(p_purpose,''))) < 10 then
     raise exception 'A finalidade deve ter pelo menos 10 caracteres.' using errcode = '22023';
   end if;
-  if p_priority not in ('normal','alta','urgente') then
+  if p_priority is null or p_priority not in ('normal','alta','urgente') then
     raise exception 'Prioridade inválida.' using errcode = '22023';
   end if;
   if length(v_key) not between 8 and 128 then
@@ -239,7 +239,7 @@ begin
   if auth.uid() is null or not ciadi_ti.has_finance_approval() then
     raise exception 'A decisão de requisições internas exige Administração (admin/gestor).' using errcode = '42501';
   end if;
-  if p_decision not in ('approved','rejected') then
+  if p_decision is null or p_decision not in ('approved','rejected') then
     raise exception 'Decisão inválida.' using errcode = '22023';
   end if;
   select * into v_request from ciadi_ti.stock_requisitions where id=p_requisition_id for update;
@@ -289,10 +289,10 @@ begin
   if auth.uid() is null or not ciadi_ti.has_support_access() then
     raise exception 'As saídas de stock ainda não estão autorizadas para este perfil.' using errcode = '42501';
   end if;
-  if p_exit_mode not in ('approved_request','direct_justified') then
+  if p_exit_mode is null or p_exit_mode not in ('approved_request','direct_justified') then
     raise exception 'Modo de saída inválido.' using errcode = '22023';
   end if;
-  if p_quantity is null or p_quantity <= 0 or round(p_quantity,3) <> p_quantity then
+  if p_quantity is null or p_quantity='NaN'::numeric or p_quantity <= 0 or round(p_quantity,3) <> p_quantity then
     raise exception 'A quantidade deve ser positiva e ter no máximo três casas decimais.' using errcode = '22023';
   end if;
   if length(v_key) not between 8 and 128 then
@@ -308,7 +308,9 @@ begin
   select * into v_existing from ciadi_ti.stock_movements where idempotency_key=v_key;
   if found then
     if v_existing.item_id=p_item_id and v_existing.warehouse_id=p_warehouse_id
-       and v_existing.movement_type='saida' and v_existing.quantity_delta=-p_quantity then
+       and v_existing.movement_type='saida' and v_existing.quantity_delta=-p_quantity
+       and v_existing.stock_requisition_id is not distinct from case when p_exit_mode='approved_request' then p_request_id else null end
+       and v_existing.stock_requisition_line_id is not distinct from case when p_exit_mode='approved_request' then p_request_line_id else null end then
       return v_existing.id;
     end if;
     raise exception 'A chave idempotente já foi utilizada noutra saída.' using errcode = '23505';
@@ -396,10 +398,10 @@ begin
   if auth.uid() is null or not ciadi_ti.has_support_access() then
     raise exception 'As devoluções de stock ainda não estão autorizadas para este perfil.' using errcode = '42501';
   end if;
-  if p_return_type not in ('devolucao_entrada','devolucao_saida') then
+  if p_return_type is null or p_return_type not in ('devolucao_entrada','devolucao_saida') then
     raise exception 'Tipo de devolução inválido.' using errcode = '22023';
   end if;
-  if p_quantity is null or p_quantity<=0 or round(p_quantity,3)<>p_quantity then
+  if p_quantity is null or p_quantity='NaN'::numeric or p_quantity<=0 or round(p_quantity,3)<>p_quantity then
     raise exception 'Quantidade de devolução inválida.' using errcode = '22023';
   end if;
   if length(btrim(coalesce(p_reason,'')))<10 or length(v_key) not between 8 and 128 then
@@ -409,7 +411,8 @@ begin
   select * into v_existing from ciadi_ti.stock_movements where idempotency_key=v_key;
   if found then
     if v_existing.item_id=p_item_id and v_existing.warehouse_id=p_warehouse_id
-       and v_existing.movement_type=p_return_type then return v_existing.id; end if;
+       and v_existing.movement_type=p_return_type
+       and v_existing.quantity_delta=case when p_return_type='devolucao_entrada' then p_quantity else -p_quantity end then return v_existing.id; end if;
     raise exception 'Chave idempotente já utilizada noutra devolução.' using errcode = '23505';
   end if;
   perform pg_advisory_xact_lock(hashtextextended(p_item_id::text || ':' || p_warehouse_id::text,0));
