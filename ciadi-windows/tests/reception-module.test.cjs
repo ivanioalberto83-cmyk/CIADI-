@@ -184,3 +184,50 @@ test('Dashboard liga a Recepção à sessão autenticada sem misturar o módulo 
   assert.match(html, /renderer\/modules\/reception-module\.js/);
   assert.match(html, /CIADI_RECEPTION_MODULE\.create\(\{root:c,navigate:go,notify:toast,supabase:sb,actorId:me\?\.id/);
 });
+
+
+test('pesquisa marcações existentes por nome/código e período sem escrever na tabela clínica', async () => {
+  const calls = [];
+  const rows = [{
+    id: 'appointment-1', paciente_id: 'patient-1', profissional_id: 'professional-1',
+    especialidade_id: 'specialty-1', data_hora: '2026-11-09T09:00:00.000Z',
+    duracao_minutos: 45, tipo: 'presencial', estado: 'confirmada',
+    modalidade: 'presencial', checkin_em: null
+  }];
+  function query(table) {
+    const q = {
+      select(columns) { calls.push(['select', table, columns]); return q; },
+      gte(column, value) { calls.push(['gte', table, column, value]); return q; },
+      lte(column, value) { calls.push(['lte', table, column, value]); return q; },
+      order(column, options) { calls.push(['order', table, column, options]); return q; },
+      limit(value) { calls.push(['limit', table, value]); return q; },
+      ilike(column, value) { calls.push(['ilike', table, column, value]); return q; },
+      or(value) { calls.push(['or', table, value]); return q; },
+      then(resolve) { resolve({ data: table === 'agendamentos' ? rows : [], error: null }); }
+    };
+    return q;
+  }
+  const supabase = {
+    schema(name) {
+      assert.equal(name, 'ciadi_reception');
+      return { async rpc() { return { data: [], error: null }; } };
+    },
+    from(table) { return query(table); }
+  };
+  const repository = reception.createReceptionRepository({ supabase });
+  const result = await repository.searchAppointments({ term: 'Maria', dateFrom: '2026-11-09', dateTo: '2026-11-09' });
+  assert.equal(result.length, 1);
+  assert.equal(result[0].id, 'appointment-1');
+  assert.ok(calls.some(call => call[0] === 'ilike' && call[1] === 'pacientes'));
+  assert.ok(calls.some(call => call[0] === 'gte' && call[1] === 'agendamentos'));
+  assert.equal(calls.some(call => call[0] === 'insert' || call[0] === 'update'), false);
+});
+
+test('check-in de marcação exige selecção de resultado existente, sem introdução manual de UUID', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../../renderer/modules/reception-module.js'), 'utf8');
+  assert.match(source, /data-reception-appointment-search/);
+  assert.match(source, /data-reception-appointment-results/);
+  assert.doesNotMatch(source, /name="appointmentId"[^>]*placeholder="ID da marcação existente"/);
+});
