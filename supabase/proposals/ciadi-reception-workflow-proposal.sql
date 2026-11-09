@@ -590,6 +590,8 @@ begin
         'id', v.id, 'ticket_number', v.ticket_number, 'service_day', v.service_day, 'visit_type', v.visit_type,
         'display_name', v.display_name, 'purpose', v.purpose, 'polo_code', v.polo_code,
         'destination_specialty_id', v.destination_specialty_id, 'destination_service', e.nome,
+        'referral_status', v.referral_status, 'referral_return_reason', v.referral_return_reason,
+        'referral_accepted_at', v.referral_accepted_at,
         'status', v.status, 'arrived_at', v.arrived_at, 'service_started_at', v.service_started_at
       ) order by v.arrived_at, v.ticket_number)
       from ciadi_reception.front_desk_visits v
