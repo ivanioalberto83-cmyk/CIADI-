@@ -595,3 +595,35 @@ test('adaptador financeiro rejeita dados incompletos e propaga bloqueios do moto
   await assert.rejects(() => finance.issueInvoice('document-1'), /sem permissão/i);
   assert.equal(calls, 1);
 });
+
+
+test('repositório financeiro disponibiliza listas activas de clientes, tipos documentais e séries da empresa', async () => {
+  const calls = [];
+  function query(table, rows) {
+    const q = {
+      select(columns) { calls.push({ table, method: 'select', columns }); return q; },
+      eq(column, value) { calls.push({ table, method: 'eq', column, value }); return q; },
+      order(column, options) { calls.push({ table, method: 'order', column, options }); return q; },
+      limit(value) { calls.push({ table, method: 'limit', value }); return q; },
+      then(resolve) { resolve({ data: rows, error: null }); }
+    };
+    return q;
+  }
+  const supabase = {
+    rpc: async () => ({ data: null, error: null }),
+    from(table) {
+      const rows = {
+        finance_clientes: [{ id: 'client-1', nome: 'Família A', nif: '5000000000' }],
+        finance_tipos_documento: [{ id: 'type-1', codigo: 'FT', nome: 'Factura', exige_cliente: true, exige_linhas: true }],
+        finance_series: [{ id: 'series-1', codigo: 'A', nome: 'Série A', tipo_documento: 'FT' }]
+      };
+      return query(table, rows[table] || []);
+    }
+  };
+  const repository = reception.createReceptionBusinessRepository({ supabase });
+  assert.equal((await repository.getActiveClients('company-1'))[0].id, 'client-1');
+  assert.equal((await repository.getActiveDocumentTypes())[0].codigo, 'FT');
+  assert.equal((await repository.getActiveSeries('company-1', 'FT'))[0].id, 'series-1');
+  assert.ok(calls.some(call => call.table === 'finance_clientes' && call.column === 'empresa_id' && call.value === 'company-1'));
+  assert.ok(calls.some(call => call.table === 'finance_series' && call.column === 'empresa_id' && call.value === 'company-1'));
+});
