@@ -284,3 +284,12 @@ A leitura das definições SQL remotas identificou um bloqueio adicional:
 - Commit da integração de formulários: `f4f2c17ddb58c416c98b463c16ea3aa960e3b030`.
 - GitHub Actions — CIADI Workstation Modules CI: sucesso, 171 testes aprovados, 0 falhas (run `42632034321`).
 - A execução valida os testes de contrato, tipos das Edge Functions documentais, segurança/validação e sintaxe do motor/ponte Electron; não constitui homologação operacional no Supabase remoto.
+
+
+### Verificação complementar — 09/11/2026
+- A consulta read-only a `ciadi_ti` confirmou as tabelas de requisições, linhas, fornecedores, artigos, armazéns e movimentos de stock.
+- O projecto remoto ainda não contém `purchase_requests.warehouse_id`, `purchase_requests.cost_center_id`, nem as ligações de requisição/linha e chave idempotente em `stock_movements` previstas na proposta.
+- A pesquisa de funções remotas não encontrou `ciadi_ti.receive_purchase_request_line`, `create_goods_receipt`, `check_goods_receipt` ou `finalize_goods_receipt`. Por isso, não foi criada uma acção de recepção de mercadorias que pudesse fingir sucesso ou escrever directamente no stock.
+- A alteração de interface preserva os campos já preenchidos quando carrega séries documentais. Também separa a confirmação da criação do rascunho da tentativa de cálculo, evitando que um erro de cálculo induza a criação duplicada.
+- Último commit de código verificado: `031469813bd492afa74210ee85caacc7b5f1bd0e`.
+- CIADI Workstation Modules CI: sucesso, 171/171 testes, 0 falhas (run `42632248479`).
