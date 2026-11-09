@@ -644,7 +644,7 @@
         '<form data-reception-cashbox-close class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Fecho de caixa</h4><label class="block text-xs font-semibold">Turno aberto<select name="shiftId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o turno') + shifts.map(row => option(row.id, 'Turno ' + row.id.slice(0, 8) + ' · ' + row.aberto_em)).join('') + '</select></label><label class="block text-xs font-semibold">Saldo contado (Kz)<input name="countedBalance" type="number" min="0" step="0.01" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Justificação de diferença<textarea name="justification" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold" ' + (shifts.length ? '' : 'disabled') + '>Fechar turno</button></form>' +
       '</div></div>' +
       '<form data-reception-payment-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registo de recebimento</h4><p class="text-xs text-amber-800">Temporariamente bloqueado: a função central de pagamentos exige document_status = N, enquanto a função de emissão actualmente grava document_status = emitido. Esta incompatibilidade deve ser corrigida e validada no motor central antes de activar recebimentos.</p><fieldset disabled class="grid md:grid-cols-4 gap-2 opacity-60"><select name="documentId" required class="border rounded-lg p-2">' + option('', 'Documento emitido') + issuedDocuments.map(row => option(row.id, row.document_no + ' · ' + row.total + ' Kz')).join('') + '</select><input name="amount" type="number" min="0.01" step="0.01" placeholder="Valor (Kz)" class="border rounded-lg p-2"><select name="method" class="border rounded-lg p-2">' + ['numerario','transferencia','tpa','deposito','multicaixa'].map(x => option(x, x)).join('') + '</select><select name="cashboxId" class="border rounded-lg p-2">' + option('', 'Caixa (opcional)') + cashboxes.map(row => option(row.id, row.nome || row.codigo || row.id)).join('') + '</select></fieldset><button type="submit" disabled class="rounded-lg border px-4 py-2 font-bold opacity-50">Registar pagamento — bloqueado</button></form>' +
-      '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos em edição</h4>' + (editableDocuments.length ? editableDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + '</span><div class="flex gap-2"><button type="button" data-invoice-calculate="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Calcular</button><button type="button" data-invoice-issue="' + esc(row.id) + '" class="bg-orange text-white rounded-lg px-3 py-1">Emitir</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem documentos em edição visíveis.</p>') + '</div>' +
+      '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos em edição</h4>' + (editableDocuments.length ? editableDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + '</span><div class="flex gap-2"><button type="button" data-invoice-calculate="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Calcular</button><button type="button" disabled title="A emissão depende da integração do PDF oficial CIADI e QR de autenticação." class="rounded-lg border px-3 py-1 opacity-50 cursor-not-allowed">Emitir — aguarda PDF/QR</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem documentos em edição visíveis.</p>') + '</div>' +
       '</section>';
   }
 
@@ -938,6 +938,13 @@
         const button = event.target.closest('button');
         if (!button) return;
         try {
+          if (button.hasAttribute('data-invoice-calculate')) {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const result = await financeRepository.calculateInvoice(button.getAttribute('data-invoice-calculate'));
+            notify('Cálculo devolvido pelo motor central: ' + JSON.stringify(result));
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
+          }
           if (button.hasAttribute('data-reception-route')) {
             const route = ROUTES.find(item => item.id === button.getAttribute('data-reception-route'));
             if (route) navigate(route.id);
@@ -1008,6 +1015,21 @@
       });
 
       container.addEventListener('change', async event => {
+        if (event.target.matches('[data-invoice-document-type]')) {
+          const typeCode = clean(event.target.value, 32);
+          try {
+            if (!activeCompanyId) throw new Error('Empresa principal não identificada.');
+            if (!businessRepository) businessRepository = createReceptionBusinessRepository({ supabase });
+            const rows = typeCode ? await businessRepository.getActiveSeries(activeCompanyId, typeCode) : [];
+            businessSnapshot.series = { rows, error: null };
+            renderDashboard();
+          } catch (error) {
+            businessSnapshot.series = { rows: [], error };
+            notify(error.message || 'Não foi possível carregar as séries documentais.');
+            renderDashboard();
+          }
+          return;
+        }
         if (event.target.matches('[data-reception-polo]')) {
           activePolo = event.target.value || null;
           try { await refresh(); } catch (error) { renderUnavailable(error); }
@@ -1016,6 +1038,74 @@
 
       container.addEventListener('submit', async event => {
         const form = event.target;
+        if (form.matches('[data-reception-invoice-form]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-reception-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            if (!activeCompanyId) throw new Error('Empresa principal não identificada; não foi criado qualquer documento.');
+            const created = await financeRepository.createInvoice({
+              companyId: activeCompanyId,
+              documentType: values.documentType,
+              seriesId: values.seriesId,
+              clientId: values.clientId,
+              dueDate: values.dueDate || null,
+              observations: values.observations || '',
+              lines: [{ serviceId: values.serviceId, quantity: values.quantity }]
+            });
+            const documentId = created?.documento_id || created?.id;
+            if (!documentId) throw new Error('O motor não devolveu o identificador do documento; confirme o estado no arquivo antes de repetir.');
+            const calculation = await financeRepository.calculateInvoice(documentId);
+            notify('Rascunho criado e cálculo confirmado pelo motor central. ' + JSON.stringify(calculation));
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+          } catch (error) {
+            button.disabled = false;
+            message.textContent = error.message || 'Não foi possível criar o rascunho.';
+          }
+          return;
+        }
+        if (form.matches('[data-reception-cashbox-open]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-reception-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const shiftId = await financeRepository.openCashbox({ cashboxId: values.cashboxId, openingBalance: values.openingBalance });
+            if (!shiftId) throw new Error('O motor não confirmou o identificador do turno de caixa.');
+            notify('Turno de caixa aberto pelo motor central: ' + shiftId);
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+          } catch (error) {
+            button.disabled = false;
+            message.textContent = error.message || 'Não foi possível abrir o caixa.';
+          }
+          return;
+        }
+        if (form.matches('[data-reception-cashbox-close]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-reception-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const result = await financeRepository.closeCashbox({
+              shiftId: values.shiftId,
+              countedBalance: values.countedBalance,
+              justification: values.justification
+            });
+            notify('Resultado do fecho devolvido pelo motor central: ' + JSON.stringify(result));
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+          } catch (error) {
+            button.disabled = false;
+            message.textContent = error.message || 'Não foi possível fechar o turno.';
+          }
+          return;
+        }
         if (form.matches('[data-reception-appointment-search]')) {
           event.preventDefault();
           const values = Object.fromEntries(new FormData(form).entries());
