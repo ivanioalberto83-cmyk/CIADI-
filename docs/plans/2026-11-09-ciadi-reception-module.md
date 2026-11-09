@@ -200,3 +200,17 @@
 - [x] Validação do Dashboard no commit anterior: run `42611704689`, sucesso.
 - [ ] Execução da proposta em PostgreSQL isolado, revisão de segurança, definição de permissões Recepção e homologação ponta a ponta continuam pendentes.
 - [ ] Não aplicar ao Supabase remoto; PR #40 permanece Draft.
+
+
+### Task 13 — Motor PDF real da facturação na Recepção
+
+- [x] Criar contrato TDD para pré-visualização A4 baseada nos dados reais de finance_documentos, finance_documento_linhas, finance_clientes, finance_series e finance_emitente_config.
+- [x] Observar RED no CI 42635125161: o teste falhou porque createReceptionInvoicePdfService ainda não existia.
+- [x] Implementar compositor A4 com o logótipo oficial obtido do serviço central de identidade CIADI; escapar os dados dinâmicos e apresentar linhas, impostos, totais, emitente e cliente.
+- [x] Ligar o renderizador real do CIADI Desktop (documents.renderPdf) e a janela de gravação (documents.exportIssuedPdf); validar assinatura %PDF-, MIME e limite de 10 MiB.
+- [x] Disponibilizar pré-visualização para rascunhos e documentos emitidos; exportação local apenas para facturas com document_status = emitido e fiscal_status = emitido.
+- [x] Não inventar QR: quando o servidor não fornece uma imagem de autenticação, o documento assinala expressamente a ausência e não afirma ser PDF oficial autenticado.
+- [x] TDD GREEN no CI 42635573323: 173 testes aprovados, 0 falhas; CI do PR 42635588700 também passou.
+- [ ] Arquivo central do PDF no Storage, hash e metadados documentais ainda exigem contrato/API e permissões do servidor financeiro; não foi escrito qualquer ficheiro no Supabase.
+- [ ] QR verificável oficial ainda exige serviço de emissão/validação ligado ao documento financeiro; não reutilizar a função documental de Suporte, que está ausente no schema remoto e não autoriza Recepção.
+- [ ] Teste ponta a ponta com Electron Windows instalado e factura real emitida continua pendente; CI valida o contrato e os adaptadores, não substitui o teste visual/operacional.
