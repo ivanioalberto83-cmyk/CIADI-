@@ -28,6 +28,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.8
+      - name: Verificar tipos das Edge Functions documentais
+        run: deno check --frozen --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/ciadi-ti-prepare-document/index.ts supabase/functions/ciadi-ti-issue-document/index.ts supabase/functions/ciadi-ti-verify-document/index.ts supabase/functions/_shared/document.test.ts
+      - name: Testar segurança e validação documental
+        run: deno test --frozen --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/_shared/document.test.ts
       - name: Verificar sintaxe do motor e da ponte Electron
         run: |
           node --check renderer/modules/support-operations-module.js
