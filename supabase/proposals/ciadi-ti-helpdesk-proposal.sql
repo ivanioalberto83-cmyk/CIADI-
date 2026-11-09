@@ -147,6 +147,12 @@ with check (
   )
 );
 
+-- Object privileges are required in addition to RLS for PostgREST access.
+-- RLS remains the row-level boundary; no client DELETE privilege is granted.
+grant usage on schema ciadi_ti to authenticated, service_role;
+grant select, insert, update on ciadi_ti.helpdesk_tickets to authenticated;
+grant select, insert on ciadi_ti.helpdesk_ticket_events to authenticated;
+
 comment on table ciadi_ti.helpdesk_tickets is 'Chamados do Helpdesk institucional CIADI; proposta para homologação.';
 comment on table ciadi_ti.helpdesk_ticket_events is 'Histórico imutável de eventos e intervenções do Helpdesk CIADI.';
 comment on function ciadi_ti.assign_helpdesk_ticket_number() is 'Atribui referência sequencial no servidor; não reutilizar números.';
