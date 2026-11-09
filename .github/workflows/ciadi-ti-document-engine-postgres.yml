@@ -1,0 +1,63 @@
+name: CIADI TI Document Engine — PostgreSQL isolated tests
+
+on:
+  push:
+    branches:
+      - feature/ciadi-ti-document-engine-postgres-tests-20261108
+    paths:
+      - 'supabase/proposals/ciadi-ti-document-engine-proposal.sql'
+      - 'supabase/tests/**'
+      - '.github/workflows/ciadi-ti-document-engine-postgres.yml'
+      - 'renderer/**'
+      - 'ciadi-windows/tests/**'
+  pull_request:
+    branches:
+      - feature/ciadi-support-document-storage-fixes-20261108
+    paths:
+      - 'supabase/proposals/ciadi-ti-document-engine-proposal.sql'
+      - 'supabase/tests/**'
+      - '.github/workflows/ciadi-ti-document-engine-postgres.yml'
+      - 'renderer/**'
+      - 'ciadi-windows/tests/**'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-isolated:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ciadi_test_only
+          POSTGRES_DB: ciadi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ciadi_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: ciadi_test_only
+      PGDATABASE: ciadi_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirmar versão PostgreSQL
+        run: psql --version && psql -v ON_ERROR_STOP=1 -c 'select version();'
+      - name: Preparar objectos mínimos compatíveis com Supabase
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/ciadi-ti-postgres-fixture.sql
+      - name: Executar proposta SQL em base isolada descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-document-engine-proposal.sql
+      - name: Testar RLS, emissão, numeração e imutabilidade
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/ciadi-ti-document-engine.integration.sql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Executar testes do motor documental e módulos CIADI
+        run: node --test ciadi-windows/tests/*.test.cjs

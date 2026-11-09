@@ -15,7 +15,7 @@ test('valida campos obrigatórios, números e opções dos modelos',()=>{
 });
 test('cria rascunho sem atribuir numeração oficial no cliente',()=>{
   const r=engine.createDocumentDraft({templateCode:'SUP-INC',actorId:'user-1',values:{incident_title:'Falha de rede',detected_at:'2026-11-06 10:00',affected_service:'Rede',impact:'Interrupção',actions:'Diagnóstico',resolution:'Serviço restabelecido'}});
-  assert.equal(r.ok,true);assert.equal(r.document.status,'draft');assert.equal(r.document.number,null);assert.equal(r.document.verification,null);
+  assert.equal(r.ok,true);assert.equal(r.document.status,'draft');assert.equal(r.document.number,null);assert.equal(r.document.verification,null);assert.equal(r.document.title,engine.TEMPLATES.find(x=>x.code==='SUP-INC').title);
 });
 test('gera HTML A4 com identidade CIADI e escapa valores não confiáveis',()=>{
   const t=engine.TEMPLATES.find(x=>x.code==='SUP-INC');
@@ -40,31 +40,83 @@ test('envio exige documento emitido e destinatário',async()=>{
   await assert.rejects(()=>s.send({status:'issued'},''),/Destinatário obrigatório/);
 });
 
-test('emissão usa operação atómica do repositório e QR recebe apenas URL de verificação',async()=>{
+test('emissão prepara número e QR antes de compor e arquivar o PDF final',async()=>{
   const calls=[];
   const repository={
-    save:async doc=>({...doc,id:'doc-1'}),
-    issueDraft:async id=>{calls.push(['issue',id]);return {document:{id,number:'SUP-INC/2026/000001',status:'issued'},verificationUrl:'https://ciadi.ao/validar-documento/doc-1?token=abcdefghijklmnopqrstuvwxyz123456'};}
+    prepareIssuance:async id=>{calls.push(['prepare',id]);return {number:'SUP-SUP-INC/2026/000001',token:'abcdefghijklmnopqrstuvwxyz1234567890',verificationUrl:'https://ciadi.ao/validar-documento/doc-1?token=abcdefghijklmnopqrstuvwxyz1234567890',qrDataUrl:'data:image/svg+xml;base64,PHN2Zy8+'};},
+    finalizeIssuance:async input=>{calls.push(['finalize',input]);return {document:{id:input.documentId,number:'SUP-SUP-INC/2026/000001',status:'issued'}};}
   };
-  const qrEncoder=async url=>{calls.push(['qr',url]);return 'data:image/png;base64,QR';};
-  const pdfExporter=async ({html,filename})=>({filename,bytes:html.length});
-  const service=engine.createDocumentService({repository,qrEncoder,pdfExporter});
-  const issued=await service.issue('doc-1');
+  const pdfRenderer=async input=>{calls.push(['pdf',input]);return {bytes:new Uint8Array([37,80,68,70]),mimeType:'application/pdf',filename:'documento.pdf'};};
+  const renderHtml=async input=>{calls.push(['html',input]);return '<html><body><img src="'+input.qrDataUrl+'"></body></html>';};
+  const service=engine.createDocumentService({repository,pdfRenderer});
+  const issued=await service.issue('doc-1',{renderHtml,filename:'documento.pdf'});
   assert.equal(issued.document.status,'issued');
-  assert.equal(issued.document.number,'SUP-INC/2026/000001');
-  assert.equal(issued.qrDataUrl,'data:image/png;base64,QR');
-  assert.deepEqual(calls[0],['issue','doc-1']);
-  assert.match(calls[1][1],/^https:\/\//);
+  assert.equal(issued.document.number,'SUP-SUP-INC/2026/000001');
+  assert.equal(issued.qrDataUrl,'data:image/svg+xml;base64,PHN2Zy8+');
+  assert.deepEqual(calls.map(x=>x[0]),['prepare','html','pdf','finalize']);
+  assert.ok(calls[1][1].verificationUrl.startsWith('https://'));
+  assert.ok(calls[1][1].qrDataUrl.startsWith('data:image/'));
+  assert.equal(calls[3][1].token,'abcdefghijklmnopqrstuvwxyz1234567890');
+  assert.equal(calls[3][1].artifact.mimeType,'application/pdf');
+});
+test('repete a finalização se a primeira tentativa falhar antes da emissão',async()=>{
+  let attempts=0;
+  const seen=[];
+  const repository={
+    prepareIssuance:async()=>({number:'SUP-SUP-INC/2026/000003',token:'abcdefghijklmnopqrstuvwxyz1234567890',verificationUrl:'https://ciadi.ao/validar',qrDataUrl:'data:image/svg+xml;base64,PHN2Zy8+'}),
+    finalizeIssuance:async input=>{
+      attempts++;seen.push(input);
+      if(attempts===1)throw new Error('resposta de rede perdida');
+      return {document:{id:input.documentId,number:'SUP-SUP-INC/2026/000003',status:'issued'}};
+    }
+  };
+  const service=engine.createDocumentService({
+    repository,
+    pdfRenderer:async()=>({bytes:new Uint8Array([37,80,68,70]),mimeType:'application/pdf'})
+  });
+  const result=await service.issue('doc-retry',{renderHtml:async()=>'<html/>',filename:'retry.pdf'});
+  assert.equal(result.document.status,'issued');
+  assert.equal(attempts,2);
+  assert.equal(seen[0].token,seen[1].token);
+  assert.equal(seen[0].artifact.bytes,seen[1].artifact.bytes);
+});
+test('emissão não finaliza se o QR ou o PDF falharem',async()=>{
+  let finalized=false;
+  const repository={
+    prepareIssuance:async()=>({number:'SUP-SUP-INC/2026/000002',token:'abcdefghijklmnopqrstuvwxyz1234567890',verificationUrl:'https://ciadi.ao/validar'}),
+    finalizeIssuance:async()=>{finalized=true;return {document:{status:'issued'}};}
+  };
+  const service=engine.createDocumentService({
+    repository,
+    qrEncoder:async()=>{throw new Error('QR indisponível');},
+    pdfRenderer:async()=>({bytes:new Uint8Array([1]),mimeType:'application/pdf'})
+  });
+  await assert.rejects(()=>service.issue('doc-2',{renderHtml:async()=>'<html/>',filename:'x.pdf'}),/QR indisponível/);
+  assert.equal(finalized,false);
 });
 test('emissão falha sem operação atómica do servidor e não cria número local',async()=>{
   const service=engine.createDocumentService({repository:{save:async x=>x}});
-  await assert.rejects(()=>service.issue('doc-1'),/emissão atómica/);
+  await assert.rejects(()=>service.issue('doc-1'),/fluxo seguro exige preparação e finalização atómicas/);
 });
-test('PDF só é exportado a partir de documento emitido e HTML final com QR',async()=>{
-  let exported;
-  const service=engine.createDocumentService({pdfExporter:async x=>(exported=x,{ok:true})});
-  await assert.rejects(()=>service.exportIssuedPdf({status:'draft'},'<html/>','draft.pdf'),/documento emitido/);
-  await service.exportIssuedPdf({status:'issued'},'<html>QR</html>','issued.pdf');
-  assert.match(exported.html,/QR/);
-  assert.equal(exported.filename,'issued.pdf');
+test('exportação descarrega o PDF oficial arquivado sem o voltar a compor',async()=>{
+  let downloadedId=null,exported=null;
+  const archivedBytes=new Uint8Array([37,80,68,70,45,49]);
+  const repository={downloadIssuedPdf:async id=>{downloadedId=id;return {bytes:archivedBytes,mimeType:'application/pdf',filename:'oficial.pdf'};}};
+  const service=engine.createDocumentService({repository,pdfExporter:async input=>(exported=input,{saved:true})});
+  await assert.rejects(()=>service.exportIssuedPdf({status:'draft',id:'doc-1'},'draft.pdf'),/documento emitido/);
+  await service.exportIssuedPdf({status:'issued',id:'doc-1',number:'SUP-REL/2026/000001'},'copia.pdf');
+  assert.equal(downloadedId,'doc-1');
+  assert.equal(exported.bytes,archivedBytes);
+  assert.equal(exported.filename,'copia.pdf');
+  assert.equal(exported.mimeType,'application/pdf');
+});
+
+
+test('inclui QR SVG e número reservado no PDF definitivo',()=>{
+  const t=engine.TEMPLATES.find(x=>x.code==='SUP-INC');
+  const values={incident_title:'Falha de rede',detected_at:'2026-11-06 10:00',affected_service:'Rede',impact:'Interrupção',actions:'Diagnóstico',resolution:'Restabelecido'};
+  const html=engine.renderDocumentHtml({template:t,values,metadata:{number:'SUP-SUP-INC/2026/000001',status:'Emitido'},qrDataUrl:'data:image/svg+xml;base64,PHN2Zy8+'});
+  assert.ok(html.includes('data:image/svg+xml;base64,PHN2Zy8+'));
+  assert.ok(html.includes('SUP-SUP-INC/2026/000001'));
+  assert.ok(html.includes('QR Code de autenticação'));
 });

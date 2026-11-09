@@ -100,28 +100,133 @@ function create({root,supabase,navigate=()=>{},notify=()=>{},stationLabel='Supor
 async function loadDocumentEngine(){if(typeof window!=='undefined'&&window.CIADI_SUPPORT_DOCUMENT_ENGINE)return window.CIADI_SUPPORT_DOCUMENT_ENGINE;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='renderer/modules/support-document-engine.js';s.onload=resolve;s.onerror=()=>reject(new Error('Não foi possível carregar o motor documental CIADI.'));document.head.appendChild(s);});if(!window.CIADI_SUPPORT_DOCUMENT_ENGINE)throw new Error('Motor documental CIADI indisponível.');return window.CIADI_SUPPORT_DOCUMENT_ENGINE;}
 async function loadDocumentCatalog(){if(typeof window!=='undefined'&&window.CIADI_SUPPORT_DOCUMENT_CATALOG)return window.CIADI_SUPPORT_DOCUMENT_CATALOG;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='renderer/modules/support-document-catalog.js';s.onload=resolve;s.onerror=()=>reject(new Error('Não foi possível carregar o catálogo documental CIADI.'));document.head.appendChild(s);});if(!window.CIADI_SUPPORT_DOCUMENT_CATALOG)throw new Error('Catálogo documental CIADI indisponível.');return window.CIADI_SUPPORT_DOCUMENT_CATALOG;}
 async function renderDocuments(){
- const engine=await loadDocumentEngine();
- const catalog=await loadDocumentCatalog();
- const templates=engine.TEMPLATES;
- const motors=catalog.listMotors(),catalogItems=catalog.listDocuments();
- root.innerHTML='<div class="card p-5"><div class="flex items-center justify-between gap-3 mb-5"><div><p class="text-xs font-black uppercase tracking-widest text-orange">Suporte Informática · CIADI</p><h2 class="text-2xl font-black">Motor Documental Institucional</h2><p class="text-sm text-slate-500">116 tipos catalogados em oito motores; dez modelos-base já dispõem de formulário de rascunho e pré-visualização.</p></div><button id="documents-back" class="border rounded-xl px-3 py-2">Voltar</button></div><section class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">'+motors.map(m=>'<details class="border rounded-xl p-3"><summary class="font-bold cursor-pointer">'+esc(m.title)+' <span class="text-xs text-slate-500">('+catalog.getDocumentsByMotor(m.id).length+')</span></summary><p class="text-xs text-slate-500 mt-2">'+esc(m.description)+'</p><ul class="text-xs mt-2 space-y-1">'+catalog.getDocumentsByMotor(m.id).map(d=>'<li>'+esc(d.code)+' — '+esc(d.title)+' <span class="text-amber-700">· '+(d.legacyTemplateCode?'formulário-base disponível':'catalogado')+'</span></li>').join('')+'</ul></details>').join('')+'</section><div class="text-xs text-slate-500 mb-4">Catálogo: '+catalogItems.length+' tipos. Os itens assinalados como catalogados ainda não têm todos os formulários e fluxos próprios ligados.</div><label class="block text-sm font-bold mb-2" for="it-template">Modelo com formulário disponível</label><select id="it-template" class="w-full border rounded-xl p-3 mb-4">'+templates.map((t,i)=>'<option value="'+i+'">'+esc(t.code)+' — '+esc(t.title)+'</option>').join('')+'</select><div id="it-document-fields" class="grid md:grid-cols-2 gap-4"></div><div class="flex flex-wrap gap-2 mt-5"><button id="it-document-preview" class="bg-orange text-white rounded-xl px-4 py-3 font-bold">Criar rascunho e pré-visualizar</button><button id="it-document-print" class="border rounded-xl px-4 py-3" disabled>Exportar / imprimir PDF</button></div><div id="it-document-errors" class="text-sm text-red-700 mt-3"></div><div id="it-document-state" class="text-sm text-slate-500 mt-2">Ainda não foi criado qualquer documento.</div><section id="it-document-preview-area" class="mt-6"></section><p class="text-xs text-amber-700 mt-4">Nesta fase: criação de rascunhos e pré-visualização. Gravação no arquivo, emissão oficial, QR Code verificável e envio serão ligados após a criação e validação do repositório documental e do serviço de autenticação. Não é atribuído número oficial a partir do navegador.</p></div>';
- const select=root.querySelector('#it-template'),fields=root.querySelector('#it-document-fields'),errors=root.querySelector('#it-document-errors'),preview=root.querySelector('#it-document-preview-area'),print=root.querySelector('#it-document-print'),state=root.querySelector('#it-document-state');
- let latestHtml='',latestDraft=null;
- function drawFields(){const t=templates[Number(select.value)];fields.innerHTML=t.fields.map(f=>'<label class="block text-sm font-semibold">'+esc(f.label)+(f.required?' *':'')+(f.type==='textarea'?'<textarea data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1" rows="3"></textarea>':f.type==='select'?'<select data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1"><option value="">Seleccionar…</option>'+f.options.map(o=>'<option value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select>':'<input data-field="'+esc(f.key)+'" type="'+(f.type==='number'?'number':f.type==='date'?'date':'text')+'" '+(f.type==='number'?'min="0" step="any"':'')+' class="block w-full border rounded-xl p-3 mt-1">')+'</label>').join('');errors.textContent='';preview.innerHTML='';latestHtml='';latestDraft=null;print.disabled=true;state.textContent='Preencha os campos obrigatórios para criar um rascunho.';}
- select.addEventListener('change',drawFields);
- drawFields();
- root.querySelector('#documents-back').addEventListener('click',()=>renderHome().catch(e=>notify(e.message)));
- root.querySelector('#it-document-preview').addEventListener('click',async()=>{
-   const t=templates[Number(select.value)],values={};
-   fields.querySelectorAll('[data-field]').forEach(el=>values[el.dataset.field]=el.value);
-   const auth=await supabase?.auth?.getUser?.();const actorId=auth?.data?.user?.id||'';
-   const created=engine.createDocumentDraft({templateCode:t.code,values,actorId});
-   if(!created.ok){errors.textContent=created.errors.join(' ');preview.innerHTML='';latestHtml='';latestDraft=null;print.disabled=true;return;}
-   latestDraft=created.document;
-   latestHtml=engine.renderDocumentHtml({template:t,values,metadata:{number:'RASCUNHO — SEM NUMERAÇÃO OFICIAL',createdAt:created.document.createdAt,status:'Não emitido'}});
-   preview.innerHTML='<div class="overflow-auto rounded-xl bg-slate-100 p-3"><div class="mx-auto bg-white shadow-xl" style="max-width:210mm">'+latestHtml+'</div></div>';
-   errors.textContent='';state.textContent='Rascunho criado apenas nesta sessão. Ainda não foi guardado no arquivo CIADI.';print.disabled=false;
- });
- print.addEventListener('click',()=>{if(!latestHtml)return;const w=window.open('','_blank');if(!w){notify('Permita a abertura da janela de impressão.');return;}w.document.open();w.document.write(latestHtml);w.document.close();w.focus();w.print();});
+  const engine=await loadDocumentEngine();
+  const catalog=await loadDocumentCatalog();
+  const templates=engine.TEMPLATES;
+  const motors=catalog.listMotors(),catalogItems=catalog.listDocuments();
+  root.innerHTML='<div class="card p-5"><div class="flex items-center justify-between gap-3 mb-5"><div><p class="text-xs font-black uppercase tracking-widest text-orange">Suporte Informática · CIADI</p><h2 class="text-2xl font-black">Motor Documental Institucional</h2><p class="text-sm text-slate-500">116 tipos catalogados em oito motores; dez modelos-base com formulário funcional.</p></div><button id="documents-back" class="border rounded-xl px-3 py-2">Voltar</button></div><section class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">'+motors.map(m=>'<details class="border rounded-xl p-3"><summary class="font-bold cursor-pointer">'+esc(m.title)+' <span class="text-xs text-slate-500">('+catalog.getDocumentsByMotor(m.id).length+')</span></summary><p class="text-xs text-slate-500 mt-2">'+esc(m.description)+'</p><ul class="text-xs mt-2 space-y-1">'+catalog.getDocumentsByMotor(m.id).map(d=>'<li>'+esc(d.code)+' — '+esc(d.title)+' <span class="text-amber-700">· '+(d.legacyTemplateCode?'formulário-base disponível':'catalogado')+'</span></li>').join('')+'</ul></details>').join('')+'</section><div class="text-xs text-slate-500 mb-4">Catálogo: '+catalogItems.length+' tipos. Os itens assinalados como catalogados ainda não têm todos os formulários e fluxos próprios ligados.</div><label class="block text-sm font-bold mb-2" for="it-template">Modelo com formulário disponível</label><select id="it-template" class="w-full border rounded-xl p-3 mb-4">'+templates.map((t,i)=>'<option value="'+i+'">'+esc(t.code)+' — '+esc(t.title)+'</option>').join('')+'</select><div id="it-document-fields" class="grid md:grid-cols-2 gap-4"></div><div class="flex flex-wrap gap-2 mt-5"><button id="it-document-preview" class="bg-orange text-white rounded-xl px-4 py-3 font-bold">Guardar rascunho e pré-visualizar</button><button id="it-document-issue" class="bg-slate-900 text-white rounded-xl px-4 py-3 font-bold" disabled>Emitir com QR Code</button><button id="it-document-print" class="border rounded-xl px-4 py-3" disabled>Exportar PDF</button><button id="it-document-send" class="border rounded-xl px-4 py-3 opacity-50" disabled>Enviar (canal por configurar)</button></div><div id="it-document-errors" class="text-sm text-red-700 mt-3"></div><div id="it-document-state" class="text-sm text-slate-500 mt-2">Ainda não foi criado qualquer documento.</div><section id="it-document-preview-area" class="mt-6"></section><p class="text-xs text-amber-700 mt-4">A emissão reserva número e QR no servidor antes de gerar o PDF final. O PDF é arquivado e emitido numa operação transaccional. O envio electrónico ainda depende da configuração e homologação de um canal institucional.</p></div>';
+  const select=root.querySelector('#it-template'),fields=root.querySelector('#it-document-fields'),errors=root.querySelector('#it-document-errors'),preview=root.querySelector('#it-document-preview-area'),print=root.querySelector('#it-document-print'),issue=root.querySelector('#it-document-issue'),send=root.querySelector('#it-document-send'),state=root.querySelector('#it-document-state');
+  let latestDraft=null,latestHtml='',latestValues=null,latestTemplate=null;
+  const repository={
+    async saveDraft(document){
+      if(!supabase?.schema)throw new Error('Cliente Supabase indisponível.');
+      const {data,error}=await supabase.schema('ciadi_ti').from('documents').insert({
+        document_type_code:document.templateCode,
+        title:document.title,
+        payload:{templateCode:document.templateCode,templateVersion:document.templateVersion,values:document.values}
+      }).select('id,document_type_code,title,status,created_at,created_by').single();
+      if(error)throw error;
+      return data;
+    },
+    async prepareIssuance(documentId){
+      const {data,error}=await supabase.functions.invoke('ciadi-ti-prepare-document',{body:{document_id:documentId}});
+      if(error)throw error;
+      const token=new URL(data.verificationUrl).searchParams.get('token');
+      return {...data,number:data.documentNumber,token};
+    },
+    async finalizeIssuance({documentId,token,artifact}){
+      const form=new FormData();
+      form.append('document_id',documentId);
+      form.append('verification_token',token);
+      form.append('file',new Blob([artifact.bytes],{type:'application/pdf'}),artifact.filename);
+      const {data,error}=await supabase.functions.invoke('ciadi-ti-issue-document',{body:form});
+      if(error)throw error;
+      return data;
+    }
+    ,
+    async downloadIssuedPdf(documentId){
+      const {data:record,error:recordError}=await supabase.schema('ciadi_ti').from('documents')
+        .select('id,status,document_number,storage_path,mime_type')
+        .eq('id',documentId).single();
+      if(recordError)throw recordError;
+      if(!record||record.status!=='issued'||!record.storage_path)throw new Error('O documento não está emitido ou não tem PDF oficial arquivado.');
+      const {data,error}=await supabase.storage.from('ciadi-ti-documentos').download(record.storage_path);
+      if(error)throw error;
+      if(!data)throw new Error('PDF oficial não encontrado no arquivo privado.');
+      return {
+        bytes:new Uint8Array(await data.arrayBuffer()),
+        mimeType:record.mime_type||data.type||'application/pdf',
+        filename:(record.document_number||documentId)+'.pdf'
+      };
+    }
+  };
+  const pdfRenderer=async({html,filename})=>{
+    const desktop=window.ciadiDesktop?.documents;
+    if(!desktop?.renderPdf)throw new Error('A geração do PDF final exige a aplicação CIADI Desktop.');
+    const rendered=await desktop.renderPdf({html});
+    let bytes;
+    if(rendered instanceof Uint8Array)bytes=rendered;
+    else if(Array.isArray(rendered))bytes=Uint8Array.from(rendered);
+    else if(rendered?.data&&Array.isArray(rendered.data))bytes=Uint8Array.from(rendered.data);
+    else throw new Error('O serviço Desktop não devolveu os bytes do PDF.');
+    return {bytes,mimeType:'application/pdf',filename};
+  };
+  const pdfExporter=async({bytes,filename,documentId,mimeType})=>{
+    const desktop=window.ciadiDesktop?.documents;
+    if(!desktop?.exportIssuedPdf)throw new Error('Exportação PDF disponível apenas na aplicação CIADI Desktop.');
+    return desktop.exportIssuedPdf({document:{id:documentId,status:'issued'},bytes,mimeType,filename});
+  };
+  const service=engine.createDocumentService({repository,pdfRenderer,pdfExporter});
+  function drawFields(){
+    const t=templates[Number(select.value)];
+    fields.innerHTML=t.fields.map(f=>'<label class="block text-sm font-semibold">'+esc(f.label)+(f.required?' *':'')+(f.type==='textarea'?'<textarea data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1" rows="3"></textarea>':f.type==='select'?'<select data-field="'+esc(f.key)+'" class="block w-full border rounded-xl p-3 mt-1"><option value="">Seleccionar…</option>'+f.options.map(o=>'<option value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select>':'<input data-field="'+esc(f.key)+'" type="'+(f.type==='number'?'number':f.type==='date'?'date':'text')+'" '+(f.type==='number'?'min="0" step="any"':'')+' class="block w-full border rounded-xl p-3 mt-1">')+'</label>').join('');
+    errors.textContent='';preview.innerHTML='';latestHtml='';latestDraft=null;latestValues=null;latestTemplate=null;root.querySelector('#it-document-preview').disabled=false;issue.disabled=true;print.disabled=true;send.disabled=true;
+    state.textContent='Preencha os campos obrigatórios para guardar um rascunho.';
+  }
+  select.addEventListener('change',drawFields);
+  drawFields();
+  root.querySelector('#documents-back').addEventListener('click',()=>renderHome().catch(e=>notify(e.message)));
+  root.querySelector('#it-document-preview').addEventListener('click',async()=>{
+    const t=templates[Number(select.value)],values={};
+    fields.querySelectorAll('[data-field]').forEach(el=>values[el.dataset.field]=el.value);
+    const auth=await supabase?.auth?.getUser?.();const actorId=auth?.data?.user?.id||'';
+    const created=engine.createDocumentDraft({templateCode:t.code,values,actorId});
+    if(!created.ok){errors.textContent=created.errors.join(' ');preview.innerHTML='';latestHtml='';latestDraft=null;issue.disabled=true;print.disabled=true;return;}
+    try{
+      const saved=await service.save(created.document);
+      latestDraft={...created.document,id:saved.id,createdAt:saved.created_at||created.document.createdAt,status:'draft'};
+      latestValues=values;latestTemplate=t;
+      latestHtml=engine.renderDocumentHtml({template:t,values,metadata:{number:'RASCUNHO — SEM NUMERAÇÃO OFICIAL',createdAt:latestDraft.createdAt,status:'Não emitido'}});
+      preview.innerHTML='<div class="overflow-auto rounded-xl bg-slate-100 p-3"><div class="mx-auto bg-white shadow-xl" style="max-width:210mm">'+latestHtml+'</div></div>';
+      errors.textContent='';state.textContent='Rascunho guardado no arquivo CIADI. Referência: '+saved.id;
+      root.querySelector('#it-document-preview').disabled=true;issue.disabled=false;print.disabled=true;send.disabled=true;
+    }catch(e){errors.textContent='Não foi possível guardar o rascunho: '+(e?.message||'erro desconhecido');state.textContent='O documento não foi confirmado no arquivo.';issue.disabled=true;}
+  });
+  issue.addEventListener('click',async()=>{
+    if(!latestDraft||latestDraft.status!=='draft')return;
+    issue.disabled=true;errors.textContent='';state.textContent='A reservar o número, preparar o QR e gerar o PDF final…';
+    try{
+      const filenameHint='documento-ciadi.pdf';
+      const result=await service.issue(latestDraft.id,{
+        filename:filenameHint,
+        renderHtml:async({number,verificationUrl,qrDataUrl})=>engine.renderDocumentHtml({
+          template:latestTemplate,
+          values:latestValues,
+          metadata:{number,createdAt:latestDraft.createdAt,status:'Emitido'},
+          qrDataUrl
+        })
+      });
+      latestDraft={...latestDraft,status:'issued',number:result.document.number};
+      latestHtml=result.html;
+      preview.innerHTML='<div class="overflow-auto rounded-xl bg-slate-100 p-3"><div class="mx-auto bg-white shadow-xl" style="max-width:210mm">'+latestHtml+'</div></div>';
+      state.textContent='Documento emitido e arquivado: '+result.document.number;
+      print.disabled=false;issue.disabled=true;send.disabled=true;
+      notify('Documento emitido com QR Code de autenticação.');
+    }catch(e){
+      errors.textContent='A emissão não foi confirmada: '+(e?.message||'erro desconhecido');
+      state.textContent='O rascunho permanece no arquivo. Se a sessão QR expirou, prepare uma nova emissão.';
+      issue.disabled=false;
+    }
+  });
+  print.addEventListener('click',async()=>{
+    if(!latestDraft||latestDraft.status!=='issued')return;
+    try{
+      const filename=String(latestDraft.number||'documento-ciadi').replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf';
+      const result=await service.exportIssuedPdf(latestDraft,filename);
+      if(result?.cancelled)state.textContent='Exportação cancelada pelo utilizador.';
+      else if(result?.saved)state.textContent='PDF oficial arquivado exportado para: '+result.filePath;
+    }catch(e){errors.textContent='Não foi possível exportar o PDF oficial: '+(e?.message||'erro desconhecido');}
+  });
+  send.addEventListener('click',()=>notify('O canal de envio institucional ainda não está configurado; nenhum documento foi enviado.'));
 }
 return Object.freeze({renderHome,loadAudit});}return Object.freeze({normalizeStatus,aggregateAudit,validateDocumentModel,summarizeProcurement,summarizeStockMovements,createProcurementService,create});});

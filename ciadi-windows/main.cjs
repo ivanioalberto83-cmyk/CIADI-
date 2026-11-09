@@ -78,6 +78,13 @@ ipcMain.handle('ciadi:documents:export-issued-pdf', async (event, payload) => {
   return documentPdfService.exportIssuedPdf(payload || {});
 });
 
+ipcMain.handle('ciadi:documents:render-pdf', async (event, payload) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Origem da operação documental não autorizada.');
+  }
+  return documentPdfService.renderPdfBytes(payload || {});
+});
+
 function installApplicationMenu() {
   const menu = Menu.buildFromTemplate([{ label: 'CIADI', submenu: [{ label: 'Assiduidade Biométrica (ZKTeco K20 Pro) — Homologação', click: openBiometricWindow }, { type: 'separator' }, { role: 'quit', label: 'Sair' }] }]);
   Menu.setApplicationMenu(menu);

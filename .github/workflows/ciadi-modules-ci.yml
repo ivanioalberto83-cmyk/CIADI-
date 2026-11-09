@@ -2,15 +2,15 @@ name: CIADI Workstation Modules CI
 
 on:
   push:
-    branches: ['feature/ciadi-workstation-modules-20261104', 'feature/ciadi-support-operations-phase1-20261106']
+    branches: ['feature/ciadi-workstation-modules-20261104', 'feature/ciadi-support-operations-phase1-20261106', 'feature/ciadi-ti-document-engine-edge-functions-20261108']
     paths:
       - 'renderer/**'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
-      - 'ciadi-windows/tests/**'
+      - 'ciadi-windows/**'
       - '.github/workflows/ciadi-modules-ci.yml'
   pull_request:
-    branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104']
+    branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104', 'feature/ciadi-ti-document-engine-postgres-tests-20261108']
     paths:
       - 'renderer/**'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
@@ -28,5 +28,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.8
+      - name: Verificar tipos das Edge Functions documentais
+        run: deno check --frozen --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/ciadi-ti-prepare-document/index.ts supabase/functions/ciadi-ti-issue-document/index.ts supabase/functions/ciadi-ti-verify-document/index.ts supabase/functions/_shared/document.test.ts
+      - name: Testar segurança e validação documental
+        run: deno test --frozen --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/_shared/document.test.ts
+      - name: Verificar sintaxe do motor e da ponte Electron
+        run: |
+          node --check renderer/modules/support-operations-module.js
+          node --check renderer/modules/support-document-engine.js
+          node --check ciadi-windows/main.cjs
+          node --check ciadi-windows/preload.cjs
+          node --check ciadi-windows/document-pdf-service.cjs
       - name: Executar testes de módulos e arquitectura
         run: node --test ciadi-windows/tests/*.test.cjs
