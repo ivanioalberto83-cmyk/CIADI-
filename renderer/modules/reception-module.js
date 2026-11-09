@@ -253,6 +253,34 @@
           .order('nome', { ascending: true })
           .limit(100));
       },
+      async getActiveClients(companyId) {
+        const id = requireCompany(companyId);
+        return rows(supabase.from('finance_clientes')
+          .select('id,nome,nome_comercial,nif,email,telefone,tipo,empresa_id')
+          .eq('empresa_id', id)
+          .eq('ativo', true)
+          .order('nome', { ascending: true })
+          .limit(100));
+      },
+      async getActiveDocumentTypes() {
+        return rows(supabase.from('finance_tipos_documento')
+          .select('id,codigo,nome,natureza,exige_cliente,exige_linhas,afeta_contabilidade,afeta_saldos_cliente')
+          .eq('ativo', true)
+          .order('nome', { ascending: true })
+          .limit(50));
+      },
+      async getActiveSeries(companyId, documentType) {
+        const id = requireCompany(companyId);
+        const type = clean(documentType, 32);
+        if (!type) throw new Error('Seleccione o tipo de documento para consultar as séries.');
+        return rows(supabase.from('finance_series')
+          .select('id,codigo,nome,tipo_documento,ano,proximo_numero,ativa,estado,empresa_id')
+          .eq('empresa_id', id)
+          .eq('tipo_documento', type)
+          .eq('ativa', true)
+          .order('ano', { ascending: false })
+          .limit(20));
+      },
       async getCashboxes(companyId) {
         const id = requireCompany(companyId);
         return rows(supabase.from('finance_caixas')
