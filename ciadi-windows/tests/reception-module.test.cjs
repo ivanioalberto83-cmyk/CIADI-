@@ -539,3 +539,15 @@ test('proposta de recepção de mercadorias enriquece o razão existente sem cri
   assert.doesNotMatch(sql, /create table/i);
   assert.doesNotMatch(sql, /grant\s+execute/i);
 });
+
+
+test('painel da Recepção permite confirmar ou devolver encaminhamentos pendentes com motivo', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../../renderer/modules/reception-module.js'), 'utf8');
+  assert.match(source, /data-referral-confirm/);
+  assert.match(source, /data-referral-return/);
+  assert.match(source, /data-referral-return-reason/);
+  assert.match(source, /confirmReferral\(/);
+  assert.match(source, /returnReferral\(/);
+});
