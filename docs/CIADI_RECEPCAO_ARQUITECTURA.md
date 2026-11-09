@@ -199,3 +199,17 @@ Auditoria read-only ao projecto Supabase `egpkkttbcaukqnnxyhjv`. Foram consultad
 7. A Recepção continua bloqueada para escrita enquanto as políticas e funções existentes não forem revistas e aprovadas para o seu perfil/polo.
 
 **Próximo passo técnico:** preparar testes de contrato e uma proposta SQL aditiva para ligar requisição, linha, armazém e movimento de entrada. A proposta deve contemplar recebimentos parciais, divergências, idempotência e actor autenticado; os grants/policies só serão tratados numa fase expressamente aprovada.
+
+
+### Proposta aditiva preparada — recepção física de mercadorias
+
+Ficheiro: `supabase/proposals/ciadi-ti-purchase-receipt-extension-proposal.sql`.
+
+A proposta, ainda não aplicada, enriquece apenas estruturas existentes:
+- `purchase_requests`: armazém de destino, referência ao centro de custo existente em `public.finance_centros_custo` e prioridade.
+- `stock_movements`: ligação à requisição/linha e chave idempotente. O campo `reference` existente recebe a referência da guia de entrega; não é criado outro campo/livro para o mesmo fim.
+- Função transaccional proposta `ciadi_ti.receive_purchase_request_line`: exige sessão autenticada, actor derivado de `auth.uid()`, acesso actual de Suporte Informático, requisição aprovada, armazém activo igual ao destino, centro de custo activo, artigo activo e quantidade não superior ao saldo em falta. Bloqueia requisição/linha, protege a chave idempotente e só muda a requisição para `received` quando todas as linhas estiverem completas.
+- Recepções parciais permanecem na requisição aprovada e são calculadas a partir dos movimentos ligados à linha; não se duplica a quantidade recebida em mais uma coluna.
+- Os triggers de auditoria já existentes em `purchase_requests`, `purchase_request_lines` e `stock_movements` continuam a registar as alterações em `audit_events`.
+
+A proposta revoga EXECUTE para `public`, `anon` e `authenticated`; não cria policies nem grants. O predicado de acesso actual ainda não inclui o perfil Recepção. A inclusão desse perfil é uma decisão posterior de permissões, não está simulada nesta implementação.
