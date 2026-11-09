@@ -241,3 +241,26 @@ test('check-in de marcação exige selecção de resultado existente, sem introd
   assert.match(source, /data-reception-appointment-results/);
   assert.doesNotMatch(source, /name="appointmentId"[^>]*placeholder="ID da marcação existente"/);
 });
+
+
+test('emite e selecciona a próxima senha por ordem de fila, ignorando estados terminais', () => {
+  const rows = [
+    { id: 'later', status: 'waiting', ticket_number: 12, arrived_at: '2026-11-09T09:12:00Z' },
+    { id: 'serving', status: 'in_service', ticket_number: 10, arrived_at: '2026-11-09T09:00:00Z' },
+    { id: 'first', status: 'waiting', ticket_number: 11, arrived_at: '2026-11-09T09:05:00Z' },
+    { id: 'closed', status: 'completed', ticket_number: 9, arrived_at: '2026-11-09T08:55:00Z' }
+  ];
+  assert.equal(reception.selectNextWaitingVisit(rows).id, 'first');
+  assert.equal(reception.selectNextWaitingVisit([{ status: 'completed', ticket_number: 1 }]), null);
+});
+
+test('a proposta SQL gera senhas por polo e dia com contador transaccional', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-workflow-proposal.sql'), 'utf8');
+  assert.match(sql, /front_desk_queue_counters/i);
+  assert.match(sql, /on conflict \(polo_code, service_day\)/i);
+  assert.match(sql, /last_ticket_number = ciadi_reception\.front_desk_queue_counters\.last_ticket_number \+ 1/i);
+  assert.match(sql, /unique \(polo_code, service_day, ticket_number\)/i);
+  assert.match(sql, /'ticket_number', v_visit\.ticket_number/i);
+});
