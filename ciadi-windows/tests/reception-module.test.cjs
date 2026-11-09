@@ -813,7 +813,7 @@ test('valida recepção de mercadoria com classificação integral de quantidade
 test('recepção, conferência e entrada em stock seguem as três RPCs transaccionais do ciclo de mercadorias', async () => {
   const calls = [];
   const responses = {
-    create_goods_receipt: { id: 'receipt-1', status: 'draft' },
+    reception_create_goods_receipt: { id: 'receipt-1', status: 'draft' },
     check_goods_receipt: { receipt_id: 'receipt-1', status: 'checked' },
     finalize_goods_receipt: { receipt_id: 'receipt-1', status: 'posted', movements_created: 1 },
     reconcile_inventory_count: { count_id: 'count-1', status: 'reconciled' }
