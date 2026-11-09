@@ -90,3 +90,14 @@
 - Whether visitor identification documents are ever collected; the current design does not store document numbers.
 - Retention periods for visitor and front-desk event history.
 - Whether WhatsApp/SMS/email channels are configured and approved for institutional use.
+
+
+### Task 5: Privacy-safe call panel preview
+
+- [x] Specify public-panel data contract through tests: ticket label, polo and generic destination only.
+- [x] Add a pure model builder that filters invalid tickets, lists active calls and selects the next waiting ticket chronologically.
+- [x] Add a Reception dashboard preview with no patient/visitor name, purpose, or clinical information.
+- [x] Red-green verification: the test-only commit `4e6ebaff553ecf886199b7208bc7f4e2ee05a9d0` failed in the module test stage; implementation commit `a5e347805ac950b5e85e98a95ef05d76db5e27e5` passed the full module CI.
+- [x] Latest module CI: run 42607316292, completed successfully.
+- [ ] Dedicated TV/public route and read-only data endpoint remain pending. Do not expose anonymous access or grant public database permissions before a separate security design and approval.
+- [ ] Sound, automatic refresh, room routing and PostgreSQL integration tests remain pending.
