@@ -24,8 +24,10 @@
 
 ### `ciadi-ti-verify-document`
 - Endpoint público deliberado, com `auth: "none"`; a validação depende de token aleatório de 256 bits e hash SHA-256.
+- Para leitores QR em navegador (`Accept: text/html`), apresenta uma página de verificação CIADI com identidade institucional e estado visual de validação; para integrações (`Accept: application/json`), mantém resposta JSON.
+- A página HTML escapa os valores provenientes da base de dados e aplica CSP restritiva, `X-Frame-Options: DENY`, `no-store` e `no-referrer`.
 - Responde apenas com autenticidade, número, código documental, data de emissão e emissor CIADI.
-- Não revela payload, título, dados pessoais, autor, hash, caminho Storage ou PDF.
+- Não revela payload, título, dados pessoais, autor, hash, caminho Storage, PDF ou token.
 - Usa resposta uniforme `not_verified` para identificadores/tokens inválidos ou documentos não encontrados.
 
 ## Fluxo funcional
@@ -75,5 +77,6 @@ Resposta pública allowlisted: `valid`, `status`, `issuer`, `document_number`, `
 - A recuperação idempotente cobre a repetição com o mesmo token e os mesmos bytes do PDF. Se a sessão expirar ou o PDF já carregado não corresponder aos novos bytes, é necessária revisão/limpeza controlada antes de preparar outra emissão.
 - Números reservados por sessões expiradas podem criar lacunas na sequência; os números nunca são reutilizados.
 - O envio electrónico não está ligado: falta escolher e configurar o canal institucional e o registo de entrega.
-- Não existe ainda uma página web institucional de verificação; o endpoint público devolve JSON allowlisted.
+- A página de verificação visual está incluída na resposta HTML do endpoint QR; ainda falta homologar o URL público no domínio institucional CIADI e testar a leitura em dispositivos móveis.
+- O endpoint público ainda não tem rate limiting persistente; antes de produção deve ser protegido por regra de tráfego/rate limit e monitorização.
 - Nenhuma função foi publicada, nenhum segredo foi configurado e nenhuma alteração foi aplicada ao Supabase CIADI.
