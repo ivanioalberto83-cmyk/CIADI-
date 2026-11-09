@@ -147,6 +147,39 @@
     }
 
     return Object.freeze({
+      async searchAppointments({ term, dateFrom, dateTo } = {}) {
+        const needle = clean(term, 80).replace(/[%,_()]/g, ' ').replace(/\\s+/g, ' ').trim();
+        if (needle.length < 2) throw new Error('Introduza pelo menos dois caracteres para pesquisar o utente.');
+        if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dateFrom || '') || !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateTo || '')) {
+          throw new Error('Seleccione um intervalo de datas válido.');
+        }
+        if (dateFrom > dateTo) throw new Error('A data inicial não pode ser posterior à data final.');
+        const patientQuery = await supabase.from('pacientes')
+          .select('id,nome_completo,codigo_paciente,nome_responsavel')
+          .or(['nome_completo','codigo_paciente','nome_responsavel'].map(field => `${field}.ilike.%${needle}%`).join(','))
+          .limit(30);
+        if (patientQuery.error) throw patientQuery.error;
+        const patients = Array.isArray(patientQuery.data) ? patientQuery.data : [];
+        if (!patients.length) return Object.freeze([]);
+        const patientIds = patients.map(patient => patient.id).filter(Boolean);
+        const appointmentQuery = await supabase.from('agendamentos')
+          .select('id,paciente_id,profissional_id,especialidade_id,data_hora,duracao_minutos,tipo,estado,modalidade,checkin_em')
+          .in('paciente_id', patientIds)
+          .gte('data_hora', `${dateFrom}T00:00:00+01:00`)
+          .lte('data_hora', `${dateTo}T23:59:59.999+01:00`)
+          .order('data_hora', { ascending: true })
+          .limit(50);
+        if (appointmentQuery.error) throw appointmentQuery.error;
+        const byPatient = new Map(patients.map(patient => [patient.id, patient]));
+        return Object.freeze((Array.isArray(appointmentQuery.data) ? appointmentQuery.data : []).map(row => {
+          const patient = byPatient.get(row.paciente_id) || {};
+          return Object.freeze({
+            ...row,
+            patient_name: patient.nome_completo || '',
+            responsible_name: patient.nome_responsavel || ''
+          });
+        }));
+      },
       async getDashboard(poloCode) {
         if (poloCode && !POLOS.includes(poloCode)) throw new Error('Polo inválido.');
         return call('reception_get_dashboard', { p_polo_code: poloCode || null });
@@ -302,18 +335,41 @@
         </section>`;
     }
 
+    let appointmentResults = [];
+    let selectedAppointment = null;
+    let appointmentSearch = { term: '', dateFrom: '', dateTo: '' };
+
     function renderArrivalForm() {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Luanda' });
+      const dateFrom = appointmentSearch.dateFrom || today;
+      const dateTo = appointmentSearch.dateTo || today;
       container.innerHTML = `
-        <section class="card p-6">
+        <section class="card p-6 space-y-5">
           <div class="flex items-center justify-between gap-3"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Recepção</span><h2 class="text-2xl font-black">Registar chegada</h2></div><button data-reception-home class="border rounded-lg px-3 py-2">Voltar</button></div>
-          <form data-reception-arrival-form class="grid md:grid-cols-2 gap-4 mt-5">
-            <label class="text-sm font-semibold">Tipo de chegada<select name="visitType" required class="block w-full border rounded-xl p-3 mt-1"><option value="appointment">Com marcação</option><option value="walk_in">Sem marcação</option></select></label>
+          <section class="rounded-xl border p-4 space-y-3">
+            <h3 class="font-bold">Localizar marcação existente</h3>
+            <form data-reception-appointment-search class="grid md:grid-cols-4 gap-3">
+              <label class="text-sm font-semibold md:col-span-2">Nome ou código do utente<input name="term" required minlength="2" maxlength="80" value="${esc(appointmentSearch.term)}" class="block w-full border rounded-lg p-2 mt-1" placeholder="Pesquisar nome ou código"></label>
+              <label class="text-sm font-semibold">Data inicial<input name="dateFrom" type="date" required value="${esc(dateFrom)}" class="block w-full border rounded-lg p-2 mt-1"></label>
+              <label class="text-sm font-semibold">Data final<input name="dateTo" type="date" required value="${esc(dateTo)}" class="block w-full border rounded-lg p-2 mt-1"></label>
+              <div class="md:col-span-4"><button type="submit" class="border border-orange text-orange rounded-lg px-4 py-2 font-bold">Pesquisar agenda</button></div>
+            </form>
+            <div data-reception-appointment-results aria-live="polite">
+              ${appointmentResults.length ? appointmentResults.map(row => `<button type="button" data-appointment-select="${esc(row.id)}" class="w-full text-left border rounded-lg p-3 mt-2 hover:border-orange-400">
+                <span class="font-bold">${esc(row.patient_name)}</span><span class="block text-sm text-slate-600">${esc(row.responsible_name || 'Responsável não indicado')} • ${esc(new Date(row.data_hora).toLocaleString('pt-PT'))}</span>
+                <span class="block text-xs text-slate-500">${esc(row.estado)} • ${esc(row.tipo)} • ${esc(row.id === selectedAppointment?.id ? 'Seleccionada' : 'Seleccionar marcação')}</span>
+              </button>`).join('') : '<p class="text-sm text-slate-500">Pesquise para localizar uma marcação. Não é necessário introduzir identificadores manualmente.</p>'}
+            </div>
+          </section>
+          ${selectedAppointment ? `<div class="rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm"><strong>Marcação seleccionada:</strong> ${esc(selectedAppointment.patient_name)} — ${esc(new Date(selectedAppointment.data_hora).toLocaleString('pt-PT'))}</div>` : ''}
+          <form data-reception-arrival-form class="grid md:grid-cols-2 gap-4">
+            <label class="text-sm font-semibold">Tipo de chegada<select name="visitType" required class="block w-full border rounded-xl p-3 mt-1"><option value="appointment" ${selectedAppointment ? 'selected' : ''}>Com marcação</option><option value="walk_in">Sem marcação</option></select></label>
             <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-xl p-3 mt-1">${POLOS.map(code => `<option value="${code}" ${activePolo === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
-            <label class="text-sm font-semibold">Nome do responsável/visitante<input name="displayName" required maxlength="120" class="block w-full border rounded-xl p-3 mt-1"></label>
-            <label class="text-sm font-semibold">Finalidade<input name="purpose" required maxlength="160" class="block w-full border rounded-xl p-3 mt-1" placeholder="Ex.: consulta agendada, informação"></label>
-            <label class="text-sm font-semibold">Referência da marcação<input name="appointmentId" maxlength="128" class="block w-full border rounded-xl p-3 mt-1" placeholder="ID da marcação existente"></label>
-            <label class="text-sm font-semibold">Referência do utente<input name="patientId" maxlength="128" class="block w-full border rounded-xl p-3 mt-1" placeholder="ID do utente associado"></label>
-            <p class="md:col-span-2 text-xs text-slate-500">Não introduza notas clínicas nem dados sensíveis da criança neste registo de recepção.</p>
+            <input type="hidden" name="appointmentId" value="${esc(selectedAppointment?.id || '')}">
+            <input type="hidden" name="patientId" value="${esc(selectedAppointment?.paciente_id || '')}">
+            <label class="text-sm font-semibold">Nome do responsável presente<input name="displayName" required maxlength="120" value="${esc(selectedAppointment?.responsible_name || '')}" class="block w-full border rounded-xl p-3 mt-1"></label>
+            <label class="text-sm font-semibold">Finalidade<input name="purpose" required maxlength="160" value="${esc(selectedAppointment ? 'Atendimento agendado' : '')}" class="block w-full border rounded-xl p-3 mt-1" placeholder="Ex.: consulta agendada, pedido de informação"></label>
+            <p class="md:col-span-2 text-xs text-slate-500">A recepção consulta apenas os dados necessários à identificação da marcação. Não introduza notas clínicas.</p>
             <div class="md:col-span-2 flex items-center gap-3"><button class="bg-orange text-white rounded-xl px-4 py-2 font-bold" type="submit">Confirmar chegada</button><span data-reception-message class="text-sm text-slate-500"></span></div>
           </form>
         </section>`;
@@ -366,7 +422,15 @@
           if (button.hasAttribute('data-reception-home')) return renderHome();
           if (button.hasAttribute('data-reception-refresh')) return refresh();
           if (button.hasAttribute('data-reception-form')) {
+            selectedAppointment = null;
+            appointmentResults = [];
+            appointmentSearch = { term: '', dateFrom: '', dateTo: '' };
             return button.getAttribute('data-reception-form') === 'arrival' ? renderArrivalForm() : renderVisitorForm();
+          }
+          if (button.hasAttribute('data-appointment-select')) {
+            selectedAppointment = appointmentResults.find(row => String(row.id) === button.getAttribute('data-appointment-select')) || null;
+            if (!selectedAppointment) throw new Error('A marcação seleccionada já não está disponível.');
+            return renderArrivalForm();
           }
           if (button.hasAttribute('data-visit-action')) {
             const visit = (dashboard?.visits || []).find(row => String(row.id) === button.getAttribute('data-visit-id'));
@@ -393,6 +457,23 @@
 
       container.addEventListener('submit', async event => {
         const form = event.target;
+        if (form.matches('[data-reception-appointment-search]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          appointmentSearch = { term: values.term, dateFrom: values.dateFrom, dateTo: values.dateTo };
+          const results = form.parentElement.querySelector('[data-reception-appointment-results]');
+          results.textContent = 'A pesquisar agenda...';
+          try {
+            appointmentResults = await repository.searchAppointments(appointmentSearch);
+            selectedAppointment = null;
+            renderArrivalForm();
+            const output = container.querySelector('[data-reception-appointment-results]');
+            if (!appointmentResults.length) output.innerHTML = '<p class="text-sm text-slate-500">Não foram encontradas marcações para os critérios indicados.</p>';
+          } catch (error) {
+            results.textContent = error.message || 'Não foi possível pesquisar a agenda.';
+          }
+          return;
+        }
         if (form.matches('[data-reception-arrival-form]')) {
           event.preventDefault();
           const values = Object.fromEntries(new FormData(form).entries());
