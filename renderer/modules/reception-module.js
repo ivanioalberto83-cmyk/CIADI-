@@ -284,6 +284,138 @@
     });
   }
 
+  function createReceptionFinanceRepository({ supabase } = {}) {
+    if (!supabase || typeof supabase.rpc !== 'function') {
+      throw new Error('A ligação ao motor financeiro central não está disponível.');
+    }
+
+    async function call(name, args) {
+      const { data, error } = await supabase.rpc(name, args);
+      if (error) throw error;
+      return data;
+    }
+
+    function requiredId(value, label) {
+      const id = clean(value, 128);
+      if (!id) throw new Error(label + ' é obrigatório.');
+      return id;
+    }
+
+    function positiveAmount(value, label) {
+      const amount = Number(value);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error(label + ' deve ser superior a zero.');
+      return amount;
+    }
+
+    function nonNegativeAmount(value, label) {
+      const amount = Number(value);
+      if (!Number.isFinite(amount) || amount < 0) throw new Error(label + ' não pode ser negativo.');
+      return amount;
+    }
+
+    return Object.freeze({
+      async createInvoice(input = {}) {
+        const companyId = requiredId(input.companyId, 'Empresa');
+        const documentType = requiredId(input.documentType, 'Tipo de documento');
+        const seriesId = requiredId(input.seriesId, 'Série');
+        const clientId = requiredId(input.clientId, 'Cliente');
+        if (!Array.isArray(input.lines) || input.lines.length === 0) {
+          throw new Error('O documento precisa de pelo menos uma linha.');
+        }
+        const lines = input.lines.map((line, index) => {
+          const quantity = positiveAmount(line?.quantity, 'Quantidade da linha ' + (index + 1));
+          const serviceId = clean(line?.serviceId, 128);
+          const code = clean(line?.code, 80);
+          const description = clean(line?.description, 240);
+          const unitPrice = line?.unitPrice === undefined ? undefined : nonNegativeAmount(line.unitPrice, 'Preço unitário');
+          const discount = line?.discount === undefined ? 0 : nonNegativeAmount(line.discount, 'Desconto');
+          const taxRate = line?.taxRate === undefined ? undefined : nonNegativeAmount(line.taxRate, 'Taxa de imposto');
+          if (!serviceId && (!code || !description || unitPrice === undefined)) {
+            throw new Error('Cada linha deve indicar um serviço existente ou código, descrição e preço unitário.');
+          }
+          if (discount > 0 && unitPrice !== undefined && discount > quantity * unitPrice) {
+            throw new Error('O desconto da linha não pode exceder o valor bruto.');
+          }
+          return {
+            ...(serviceId ? { servico_id: serviceId } : {}),
+            ...(code ? { codigo: code } : {}),
+            ...(description ? { descricao: description } : {}),
+            quantidade: quantity,
+            ...(clean(line?.unit, 16) ? { unidade: clean(line.unit, 16) } : {}),
+            ...(unitPrice !== undefined ? { preco_unitario: unitPrice } : {}),
+            desconto: discount,
+            ...(taxRate !== undefined ? { taxa_imposto: taxRate } : {}),
+            ...(clean(line?.revenueAccount, 80) ? { conta_receita: clean(line.revenueAccount, 80) } : {})
+          };
+        });
+        return call('ciadi_faturacao_criar_documento', {
+          p_empresa_id: companyId,
+          p_tipo_documento: documentType,
+          p_serie_id: seriesId,
+          p_cliente_id: clientId,
+          p_paciente_id: clean(input.patientId, 128) || null,
+          p_agendamento_id: clean(input.appointmentId, 128) || null,
+          p_data_emissao: input.issueDate || new Date().toISOString(),
+          p_data_vencimento: input.dueDate || null,
+          p_observacoes: clean(input.observations, 1000) || null,
+          p_linhas: lines
+        });
+      },
+      async calculateInvoice(documentId) {
+        return call('ciadi_faturacao_calcular_documento', {
+          p_documento_id: requiredId(documentId, 'Documento')
+        });
+      },
+      async issueInvoice(documentId) {
+        return call('ciadi_faturacao_emitir_documento', {
+          p_documento_id: requiredId(documentId, 'Documento')
+        });
+      },
+      async registerPayment(input = {}) {
+        const documentId = requiredId(input.documentId, 'Documento');
+        const amount = positiveAmount(input.amount, 'Valor do pagamento');
+        const method = requiredId(input.method, 'Método de pagamento');
+        return call('finance_registar_pagamento', {
+          p_documento_id: documentId,
+          p_valor: amount,
+          p_metodo: method,
+          p_referencia: clean(input.reference, 120) || null,
+          p_caixa_id: clean(input.cashboxId, 128) || null,
+          p_observacoes: clean(input.notes, 1000) || null
+        });
+      },
+      async openCashbox(input = {}) {
+        return call('ciadi_abrir_caixa', {
+          p_caixa_id: requiredId(input.cashboxId, 'Caixa'),
+          p_saldo_inicial: nonNegativeAmount(input.openingBalance, 'Saldo inicial')
+        });
+      },
+      async closeCashbox(input = {}) {
+        return call('ciadi_fechar_caixa', {
+          p_turno_id: requiredId(input.shiftId, 'Turno de caixa'),
+          p_saldo_contado: nonNegativeAmount(input.countedBalance, 'Saldo contado'),
+          p_justificacao: clean(input.justification, 1000) || null
+        });
+      },
+      async registerCashMovement(input = {}) {
+        const movementType = clean(input.type, 32);
+        if (!['entrada', 'saida', 'receita', 'recebimento', 'despesa'].includes(movementType)) {
+          throw new Error('Tipo de movimento de caixa inválido.');
+        }
+        return call('ciadi_registar_movimento_caixa', {
+          p_caixa_id: requiredId(input.cashboxId, 'Caixa'),
+          p_tipo: movementType,
+          p_valor: positiveAmount(input.amount, 'Valor do movimento'),
+          p_metodo_pagamento: clean(input.paymentMethod, 40) || null,
+          p_descricao: clean(input.description, 500) || null,
+          p_documento_id: clean(input.documentId, 128) || null,
+          p_pagamento_id: clean(input.paymentId, 128) || null,
+          p_categoria: clean(input.category, 80) || null
+        });
+      }
+    });
+  }
+
   function renderReceptionDocumentHeader({ identity = globalThis.CIADI_INSTITUTIONAL_IDENTITY, title, reference = '', date = '' } = {}) {
     if (!identity || typeof identity.getBrand !== 'function' || typeof identity.renderDocumentHeader !== 'function') {
       throw new Error('O serviço central de identidade documental CIADI não está disponível.');
@@ -843,6 +975,6 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput, validatePurchaseReceiptInput,
-    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, renderReceptionDocumentHeader, create
+    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionDocumentHeader, create
   });
 });
