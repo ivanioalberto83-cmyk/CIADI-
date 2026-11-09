@@ -143,3 +143,44 @@ test('dados inválidos são rejeitados antes de qualquer chamada ao Supabase', a
   );
   assert.equal(calls, 0);
 });
+
+test('painel diário usa RPC próprio no schema de Recepção', async () => {
+  const calls = [];
+  const repository = reception.createReceptionRepository({
+    schema(schemaName) {
+      assert.equal(schemaName, 'ciadi_reception');
+      return { async rpc(name, args) { calls.push({ name, args }); return { data: { visits: [], visitors: [], summary: {} }, error: null }; } };
+    }
+  });
+  const result = await repository.getDashboard('talatona');
+  assert.deepEqual(result.visits, []);
+  assert.equal(calls[0].name, 'reception_get_dashboard');
+  assert.equal(calls[0].args.p_polo_code, 'talatona');
+});
+
+test('proposta SQL da Recepção mantém RLS sem abrir políticas ou grants prematuros', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-workflow-proposal.sql'), 'utf8');
+  assert.match(sql, /create schema if not exists ciadi_reception/i);
+  assert.match(sql, /alter table ciadi_reception\.front_desk_visits enable row level security/i);
+  assert.match(sql, /alter table ciadi_reception\.front_desk_visit_events enable row level security/i);
+  assert.match(sql, /alter table ciadi_reception\.visitor_entries enable row level security/i);
+  assert.match(sql, /reception_register_arrival/i);
+  assert.match(sql, /reception_transition_visit/i);
+  assert.match(sql, /reception_register_visitor/i);
+  assert.match(sql, /reception_close_visitor/i);
+  assert.match(sql, /reception_get_dashboard/i);
+  assert.match(sql, /revoke all on all tables in schema ciadi_reception from public, anon, authenticated/i);
+  assert.match(sql, /revoke execute on all functions in schema ciadi_reception from public, anon, authenticated/i);
+  assert.doesNotMatch(sql, /create policy/i);
+  assert.doesNotMatch(sql, /grant\s+[^;]+\s+to\s+authenticated/i);
+});
+
+test('Dashboard liga a Recepção à sessão autenticada sem misturar o módulo clínico', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const html = fs.readFileSync(path.join(__dirname, '../../CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
+  assert.match(html, /renderer\/modules\/reception-module\.js/);
+  assert.match(html, /CIADI_RECEPTION_MODULE\.create\(\{root:c,navigate:go,notify:toast,supabase:sb,actorId:me\?\.id/);
+});
