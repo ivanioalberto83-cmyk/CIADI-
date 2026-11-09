@@ -214,3 +214,18 @@
 - [ ] Arquivo central do PDF no Storage, hash e metadados documentais ainda exigem contrato/API e permissões do servidor financeiro; não foi escrito qualquer ficheiro no Supabase.
 - [ ] QR verificável oficial ainda exige serviço de emissão/validação ligado ao documento financeiro; não reutilizar a função documental de Suporte, que está ausente no schema remoto e não autoriza Recepção.
 - [ ] Teste ponta a ponta com Electron Windows instalado e factura real emitida continua pendente; CI valida o contrato e os adaptadores, não substitui o teste visual/operacional.
+
+
+### Task 14 — Estrutura do aprovisionamento integrado da Recepção
+
+- [x] Separar requisição interna de stock de pedido de compra a fornecedor; não reutilizar purchase_requests para saídas internas.
+- [x] Definir os dois modos de saída: requisição interna aprovada ou saída directa com justificação obrigatória.
+- [x] Criar validadores de requisição, recepção de mercadorias, saídas, devoluções e transferências; quantidades com até três casas decimais e classificação integral das quantidades recebidas.
+- [x] Criar adaptadores para criação/submissão de requisição interna, saída, devolução, transferência, recepção, conferência, finalização e reconciliação de inventário.
+- [x] Criar proposta SQL separada para stock_requisitions, stock_requisition_lines, idempotência, saídas, devoluções e transferências.
+- [x] Estruturar o painel de consulta com requisições internas, recepções, contagens físicas e razão de movimentos.
+- [x] Manter uma única fonte de verdade para saldos: ciadi_ti.stock_movements / stock_balances; não criar razão paralelo.
+- [x] CI 42637834745: 182 testes aprovados, 0 falhas.
+- [ ] A proposta SQL não foi aplicada; as RPCs novas não existem no Supabase remoto e as permissões permanecem fechadas.
+- [ ] Faltam UI transaccional completa para cada formulário e homologação ponta a ponta num ambiente seguro, depois de aplicar e rever as propostas.
+- [ ] A fase de permissões deve autorizar explicitamente Recepção por polo e separar Administração (decisão), Recepção (requisição/recepção/saída) e Suporte (gestão técnica), sem alargar permissões financeiras.
