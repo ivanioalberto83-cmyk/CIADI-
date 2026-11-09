@@ -300,3 +300,53 @@ test('painel público ordena chamadas e próxima senha sem divulgar dados pessoa
   assert.equal(model.next.ticketLabel, 'JDR #001');
   assert.equal(reception.buildPublicCallPanelModel([]).next, null);
 });
+
+
+test('encaminhamento usa catálogo activo de especialidades e RPC autenticada', async () => {
+  const calls = [];
+  const repository = reception.createReceptionRepository({
+    supabase: { schema(name) {
+      assert.equal(name, 'ciadi_reception');
+      return { async rpc(method, args) {
+        calls.push({ method, args });
+        if (method === 'reception_get_destinations') return { data: [{ id: 'specialty-1', name: 'Psicologia Infantil' }], error: null };
+        return { data: { id: 'visit-1', destination_specialty_id: args.p_destination_specialty_id }, error: null };
+      } };
+    } }
+  });
+  const destinations = await repository.getDestinations();
+  assert.deepEqual(destinations, [{ id: 'specialty-1', name: 'Psicologia Infantil' }]);
+  await repository.routeVisit('visit-1', 'specialty-1', 'actor-1');
+  assert.deepEqual(calls, [
+    { method: 'reception_get_destinations', args: {} },
+    { method: 'reception_route_visit', args: { p_visit_id: 'visit-1', p_destination_specialty_id: 'specialty-1', p_actor_id: 'actor-1' } }
+  ]);
+});
+
+test('encaminhamento rejeita identificadores incompletos antes de chamar a base de dados', async () => {
+  let calls = 0;
+  const repository = reception.createReceptionRepository({
+    supabase: { schema() { return { async rpc() { calls += 1; return { data: null, error: null }; } }; } }
+  });
+  await assert.rejects(() => repository.routeVisit('', 'specialty-1', 'actor-1'), /obrigatórios/i);
+  await assert.rejects(() => repository.routeVisit('visit-1', '', 'actor-1'), /obrigatórios/i);
+  assert.equal(calls, 0);
+});
+
+test('painel público mostra especialidade de destino sem expor dados do utente', () => {
+  const model = reception.buildPublicCallPanelModel([
+    { status: 'in_service', polo_code: 'talatona', ticket_number: 12, service_started_at: '2026-11-09T09:00:00Z', destination_service: 'Psicologia Infantil', display_name: 'Nome privado', purpose: 'Informação clínica' }
+  ]);
+  assert.equal(model.called[0].destination, 'Psicologia Infantil');
+  assert.doesNotMatch(JSON.stringify(model), /Nome privado|Informação clínica/);
+});
+
+test('contrato SQL suporta destino por especialidade e histórico de encaminhamento', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-workflow-proposal.sql'), 'utf8');
+  assert.match(sql, /destination_specialty_id uuid references public\.especialidades\(id\)/i);
+  assert.match(sql, /reception_get_destinations/i);
+  assert.match(sql, /reception_route_visit/i);
+  assert.match(sql, /destination_assigned/i);
+});
