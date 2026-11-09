@@ -355,7 +355,8 @@
             if (!visit) throw new Error('O atendimento seleccionado já não está disponível.');
             await repository.transitionVisit(visit.id, visit.status, button.getAttribute('data-visit-action'), actorId);
             notify('Estado do atendimento actualizado.');
-            return refresh();
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
           }
           if (button.hasAttribute('data-visitor-exit')) {
             await repository.closeVisitor(button.getAttribute('data-visitor-exit'), actorId);
@@ -383,7 +384,7 @@
           try {
             await repository.registerArrival(values, actorId);
             notify('Chegada registada.');
-            await refresh();
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
           } catch (error) {
             button.disabled = false;
             message.textContent = error.message || 'Não foi possível registar a chegada.';
@@ -398,7 +399,7 @@
           try {
             await repository.registerVisitor(values, actorId);
             notify('Entrada do visitante registada.');
-            await refresh();
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
           } catch (error) {
             button.disabled = false;
             message.textContent = error.message || 'Não foi possível registar o visitante.';
