@@ -516,7 +516,7 @@
           }
           if (button.hasAttribute('data-visit-route')) {
             const visitId = button.getAttribute('data-visit-route');
-            const selector = container.querySelector(`[data-route-destination="${CSS.escape(visitId)}"]`);
+            const selector = Array.from(container.querySelectorAll('[data-route-destination]')).find(item => item.getAttribute('data-route-destination') === visitId);
             const specialtyId = selector?.value || '';
             if (!specialtyId) throw new Error('Seleccione o serviço de destino antes de encaminhar.');
             await repository.routeVisit(visitId, specialtyId, actorId);
