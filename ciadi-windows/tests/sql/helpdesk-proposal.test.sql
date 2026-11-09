@@ -36,4 +36,20 @@ values
 select id,ticket_number,status from ciadi_ti.helpdesk_tickets;
 select count(*) from ciadi_ti.helpdesk_ticket_events where event_type='ticket_created';
 reset role;
+
+-- O isolamento RLS impede outro utilizador autenticado de consultar o chamado.
+set role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',false);
+do $rls$
+begin
+  if (select count(*) from ciadi_ti.helpdesk_tickets) <> 0 then
+    raise exception 'Um utilizador sem relação com o chamado não pode consultá-lo.';
+  end if;
+  if (select count(*) from ciadi_ti.helpdesk_ticket_events) <> 0 then
+    raise exception 'Um utilizador sem relação com o chamado não pode consultar o histórico.';
+  end if;
+end;
+$rls$;
+reset role;
+
 select 'CIADI helpdesk SQL homologation: PASS' as result;
