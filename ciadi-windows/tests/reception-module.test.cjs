@@ -724,3 +724,84 @@ test('motor PDF não exporta factura não emitida nem gera um falso QR de autent
   await assert.rejects(() => service.exportIssuedPdf('invoice-draft'), /emitida/i);
   assert.equal(renderCalls, 0);
 });
+
+
+test('valida os dois modos de saída de stock da Recepção: requisição aprovada ou saída directa justificada', () => {
+  const approved = reception.validateReceptionStockExitInput({
+    mode: 'approved_request', requestId: 'request-1', requestLineId: 'line-1',
+    itemId: 'item-1', warehouseId: 'warehouse-1', quantity: 2,
+    reference: 'REQ-001', actorId: 'actor-1'
+  });
+  assert.equal(approved.valid, true);
+  assert.equal(approved.value.mode, 'approved_request');
+  assert.equal(approved.value.requestId, 'request-1');
+
+  const directMissingReason = reception.validateReceptionStockExitInput({
+    mode: 'direct_justified', itemId: 'item-1', warehouseId: 'warehouse-1',
+    quantity: 1, actorId: 'actor-1'
+  });
+  assert.equal(directMissingReason.valid, false);
+  assert.ok(directMissingReason.errors.some(message => /justificação/i.test(message)));
+
+  const direct = reception.validateReceptionStockExitInput({
+    mode: 'direct_justified', itemId: 'item-1', warehouseId: 'warehouse-1',
+    quantity: 1, justification: 'Consumo urgente para atendimento',
+    reference: 'SAI-001', actorId: 'actor-1'
+  });
+  assert.equal(direct.valid, true);
+  assert.equal(direct.value.mode, 'direct_justified');
+  assert.equal(direct.value.justification, 'Consumo urgente para atendimento');
+});
+
+test('motor de aprovisionamento envia os dois modos de saída para RPC transaccional central', async () => {
+  const calls = [];
+  const service = reception.createReceptionProcurementService({
+    supabase: { schema(name) {
+      assert.equal(name, 'ciadi_ti');
+      return { async rpc(method, args) { calls.push({ method, args }); return { data: { movement_id: 'movement-1' }, error: null }; } };
+    } },
+    actorId: 'actor-1',
+    poloCode: 'talatona'
+  });
+  await service.registerStockExit({
+    mode: 'approved_request', requestId: 'request-1', requestLineId: 'line-1',
+    itemId: 'item-1', warehouseId: 'warehouse-1', quantity: 2, reference: 'REQ-001'
+  });
+  await service.registerStockExit({
+    mode: 'direct_justified', itemId: 'item-1', warehouseId: 'warehouse-1',
+    quantity: 1, justification: 'Consumo urgente para atendimento', reference: 'SAI-001'
+  });
+  assert.deepEqual(calls.map(call => call.method), [
+    'reception_register_stock_exit',
+    'reception_register_stock_exit'
+  ]);
+  assert.equal(calls[0].args.p_exit_mode, 'approved_request');
+  assert.equal(calls[0].args.p_request_id, 'request-1');
+  assert.equal(calls[1].args.p_exit_mode, 'direct_justified');
+  assert.equal(calls[1].args.p_justification, 'Consumo urgente para atendimento');
+  assert.equal(calls[1].args.p_actor_id, 'actor-1');
+});
+
+test('valida recepção de mercadoria com classificação integral de quantidades e bloqueio de excesso', () => {
+  const valid = reception.validateReceptionGoodsInput({
+    requestStatus: 'approved', requestId: 'request-1', warehouseId: 'warehouse-1',
+    deliveryReference: 'GUIA-001', actorId: 'actor-1',
+    lines: [{
+      requestLineId: 'line-1', orderedQuantity: 10, alreadyReceivedQuantity: 2,
+      receivedQuantity: 4, acceptedQuantity: 3, damagedQuantity: 1, returnedQuantity: 0
+    }]
+  });
+  assert.equal(valid.valid, true);
+  assert.equal(valid.value.lines[0].remainingQuantity, 4);
+
+  const unclassified = reception.validateReceptionGoodsInput({
+    requestStatus: 'approved', requestId: 'request-1', warehouseId: 'warehouse-1',
+    deliveryReference: 'GUIA-002', actorId: 'actor-1',
+    lines: [{
+      requestLineId: 'line-1', orderedQuantity: 10, alreadyReceivedQuantity: 0,
+      receivedQuantity: 4, acceptedQuantity: 2, damagedQuantity: 1, returnedQuantity: 0
+    }]
+  });
+  assert.equal(unclassified.valid, false);
+  assert.ok(unclassified.errors.some(message => /classificadas|total/i.test(message)));
+});
