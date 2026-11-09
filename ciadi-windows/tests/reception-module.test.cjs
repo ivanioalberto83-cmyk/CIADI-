@@ -841,7 +841,7 @@ test('recepção, conferência e entrada em stock seguem as três RPCs transacci
   await service.finalizeGoodsReceipt('receipt-1');
   await service.reconcileInventoryCount('count-1');
   assert.deepEqual(calls.map(call => call.method), [
-    'create_goods_receipt', 'check_goods_receipt', 'finalize_goods_receipt', 'reconcile_inventory_count'
+    'reception_create_goods_receipt', 'check_goods_receipt', 'finalize_goods_receipt', 'reconcile_inventory_count'
   ]);
 });
 
