@@ -171,6 +171,8 @@ test('proposta SQL da Recepção mantém RLS sem abrir políticas ou grants prem
   assert.match(sql, /reception_register_visitor/i);
   assert.match(sql, /reception_close_visitor/i);
   assert.match(sql, /reception_get_dashboard/i);
+  assert.match(sql, /reception_search_appointments/i);
+  assert.match(sql, /security invoker/i);
   assert.match(sql, /front_desk_visits_appointment_unique_idx/i);
   assert.match(sql, /from public\.agendamentos a/i);
   assert.match(sql, /set estado = 'check-in'/i);
@@ -216,19 +218,19 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
   const supabase = {
     schema(name) {
       assert.equal(name, 'ciadi_reception');
-      return { async rpc() { return { data: [], error: null }; } };
-    },
-    from(table) { return query(table); }
+      return { async rpc(rpcName, args) {
+        calls.push({ rpcName, args });
+        return { data: rows.map(row => ({ ...row, patient_name: 'Maria', responsible_name: 'Responsável Maria' })), error: null };
+      } };
+    }
   };
   const repository = reception.createReceptionRepository({ supabase });
   const result = await repository.searchAppointments({ term: 'Maria', dateFrom: '2026-11-09', dateTo: '2026-11-09' });
   assert.equal(result.length, 1);
   assert.equal(result[0].id, 'appointment-1');
-  assert.ok(calls.some(call => call[0] === 'or' && call[1] === 'pacientes'));
-  assert.ok(calls.some(call => call[0] === 'gte' && call[1] === 'agendamentos'));
-  assert.ok(calls.some(call => call[0] === 'in' && call[1] === 'agendamentos' && call[2] === 'estado'));
-  assert.ok(calls.some(call => call[0] === 'is' && call[1] === 'agendamentos' && call[2] === 'checkin_em'));
-  assert.equal(calls.some(call => call[0] === 'insert' || call[0] === 'update'), false);
+  assert.equal(calls[0].rpcName, 'reception_search_appointments');
+  assert.deepEqual(calls[0].args, { p_search_term: 'Maria', p_date_from: '2026-11-09', p_date_to: '2026-11-09' });
+  assert.equal(calls.some(call => call.rpcName === 'insert' || call.rpcName === 'update'), false);
 });
 
 test('check-in de marcação exige selecção de resultado existente, sem introdução manual de UUID', () => {
