@@ -390,7 +390,7 @@ begin
         'id', v.id, 'ticket_number', v.ticket_number, 'service_day', v.service_day, 'visit_type', v.visit_type,
         'display_name', v.display_name, 'purpose', v.purpose, 'polo_code', v.polo_code,
         'status', v.status, 'arrived_at', v.arrived_at, 'service_started_at', v.service_started_at
-      ) order by v.ticket_number)
+      ) order by v.arrived_at, v.ticket_number)
       from ciadi_reception.front_desk_visits v
       where v.arrived_at >= v_start and v.arrived_at < v_end
         and (p_polo_code is null or v.polo_code = p_polo_code)
