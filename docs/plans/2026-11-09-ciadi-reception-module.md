@@ -30,11 +30,11 @@
 - Exports: `validateVisitInput(input)`, `transitionVisitStatus(current, next)`, `validateVisitorInput(input)`, `summarizeReception(rows)`, `createReceptionRepository({ supabase })`, `create({ root, navigate, notify })`.
 - RPC contract: `reception_register_arrival`, `reception_transition_visit`, `reception_register_visitor`, `reception_close_visitor`, all invoked through schema `ciadi_reception`.
 
-- [ ] Add tests for valid/invalid arrivals, required appointment reference for appointment visits, allowed/forbidden lifecycle transitions, visitor validation, queue metrics, and RPC-only persistence.
+- [x] Add tests for valid/invalid arrivals, required appointment reference for appointment visits, allowed/forbidden lifecycle transitions, visitor validation, queue metrics, and RPC-only persistence.
 - [ ] Run `node --test ciadi-windows/tests/reception-module.test.cjs`; expected red failures must identify missing exports/behaviour.
-- [ ] Implement validation, state transitions, metrics, and a repository that calls only the named RPCs; reject invalid input before any database call.
+- [x] Implement validation, state transitions, metrics, and a repository that calls only the named RPCs; reject invalid input before any database call.
 - [ ] Re-run the focused test; expected all reception tests pass.
-- [ ] Run `node --check renderer/modules/reception-module.js`.
+- [x] `node --check renderer/modules/reception-module.js` passed in GitHub Actions.
 - [ ] Commit the isolated domain-engine deliverable.
 
 ### Task 2: Front-desk dashboard and queue workflow
@@ -49,8 +49,8 @@
 - Render the reception home, today's queue, arrival registration, status changes, visitor log and clear unavailable-state messaging.
 - Route to existing areas only through the supplied `navigate` callback; never render patient clinical details.
 
-- [ ] Add focused rendering/integration tests for the empty queue and unavailable schema.
-- [ ] Verify expected red, implement the dashboard and forms, then verify green.
+- [ ] Add focused rendering tests for the empty queue and unavailable schema (not yet covered).
+- [x] Implement the dashboard and forms; Dashboard integration workflow passed. The first full CI run exposed three legacy-contract/fixture failures, which were corrected; the subsequent full suite passed.
 - [ ] Confirm that an unavailable database produces a clear non-operational state and never a fake successful save.
 
 ### Task 3: Dedicated database proposal
@@ -66,8 +66,8 @@
 - Include foreign-key references to existing appointments/patients only where verified and nullable; no duplicate clinical master records.
 - Enable RLS and leave policies/grants out of this engine phase; no authenticated writes become available until the later permission design is reviewed.
 
-- [ ] Add static SQL contract tests for schema isolation, RLS enabled, event history, no DELETE grants, and absence of policies/grants.
-- [ ] Verify expected red, write the additive proposal, and verify green.
+- [x] Add static SQL contract tests for schema isolation, RLS enabled, event history, no DELETE grants, and absence of policies/grants.
+- [x] Write the additive proposal; static SQL contract tests passed in the full Node suite. PostgreSQL execution remains pending.
 - [ ] Run PostgreSQL 16 isolated homologation through GitHub Actions when the branch workflow is configured.
 - [ ] Keep the proposal unapplied to remote Supabase.
 
@@ -78,7 +78,7 @@
 - Modify: `CIADI_DASHBOARD_FINANCEIRO.html` and `index.html` only if integration is necessary; preserve byte-for-byte equality.
 - Update: `docs/CIADI_RECEPCAO_ARQUITECTURA.md`.
 
-- [ ] Run the full Node architecture suite and dashboard syntax/integration checks.
+- [x] Full Node architecture suite: 145 passed, 0 failed; Dashboard syntax/integration workflow passed.
 - [ ] Inspect the diff for accidental Support Informática, RH, production or permission changes.
 - [ ] Keep the PR Draft until database, profile and end-to-end checks are completed in a controlled environment.
 
