@@ -40,6 +40,22 @@ test('envio exige documento emitido e destinatário',async()=>{
   await assert.rejects(()=>s.send({status:'issued'},''),/Destinatário obrigatório/);
 });
 
+test('envio não começa sem registo de entrega e regista depois do envio',async()=>{
+  let sent=0,recorded=0;
+  const document={id:'doc-1',status:'issued'};
+  const artifact={bytes:new Uint8Array([37,80,68,70]),mimeType:'application/pdf'};
+  const withoutRecorder=engine.createDocumentService({sender:async()=>{sent++;return {messageId:'mail-1'};}});
+  await assert.rejects(()=>withoutRecorder.send(document,'destino@ciadi.ao',artifact),/envio não foi iniciado/);
+  assert.equal(sent,0);
+  const service=engine.createDocumentService({
+    sender:async()=>{sent++;return {messageId:'mail-2'};},
+    deliveryRecorder:async input=>{recorded++;assert.equal(input.result.messageId,'mail-2');}
+  });
+  await service.send(document,'destino@ciadi.ao',artifact);
+  assert.equal(sent,1);
+  assert.equal(recorded,1);
+});
+
 test('emissão prepara número e QR antes de compor e arquivar o PDF final',async()=>{
   const calls=[];
   const repository={
@@ -119,4 +135,54 @@ test('inclui QR SVG e número reservado no PDF definitivo',()=>{
   assert.ok(html.includes('data:image/svg+xml;base64,PHN2Zy8+'));
   assert.ok(html.includes('SUP-SUP-INC/2026/000001'));
   assert.ok(html.includes('QR Code de autenticação'));
+});
+
+test('filtra o arquivo documental por texto e estado sem alterar os registos',()=>{
+  const rows=[
+    {id:'1',title:'Relatório de manutenção',document_number:'SUP-TEC/2026/000001',document_type_code:'SUP-MAN',status:'issued'},
+    {id:'2',title:'Requisição de material',document_number:null,document_type_code:'SUP-REQ',status:'draft'},
+    {id:'3',title:'Relatório de incidente',document_number:'SUP-INC/2026/000002',document_type_code:'SUP-INC',status:'issued'}
+  ];
+  assert.deepEqual(engine.filterDocumentArchive(rows,{query:'manutenção'}).map(x=>x.id),['1']);
+  assert.deepEqual(engine.filterDocumentArchive(rows,{status:'draft'}).map(x=>x.id),['2']);
+  assert.deepEqual(engine.filterDocumentArchive(rows,{query:'SUP-INC',status:'issued'}).map(x=>x.id),['3']);
+  assert.equal(rows.length,3);
+});
+test('resume o arquivo documental por estado',()=>{
+  const summary=engine.summarizeDocumentArchive([
+    {status:'draft'},{status:'issued'},{status:'issued'},{status:'cancelled'}
+  ]);
+  assert.deepEqual(summary,{total:4,drafts:1,issued:2,other:1});
+});
+
+test('cria formulários reutilizáveis para todos os tipos documentais não-dashboard do catálogo',()=>{
+  const catalog=require('../../renderer/modules/support-document-catalog.js');
+  const definitions=catalog.listDocuments().filter(item=>item.outputKind!=='dashboard');
+  assert.ok(definitions.length>10);
+  const codes=new Set();
+  for(const definition of definitions){
+    const legacy=definition.legacyTemplateCode
+      ? engine.TEMPLATES.find(item=>item.code===definition.legacyTemplateCode)
+      : null;
+    const template=engine.createCatalogTemplate(definition,legacy);
+    assert.equal(engine.validateTemplate(template).valid,true,definition.code);
+    assert.equal(template.code,definition.code);
+    assert.equal(template.title,definition.title);
+    assert.ok(template.fields.length>0);
+    assert.equal(codes.has(template.code),false);
+    codes.add(template.code);
+  }
+});
+test('rascunho de modelo do catálogo guarda o código institucional do tipo documental',()=>{
+  const catalog=require('../../renderer/modules/support-document-catalog.js');
+  const definition=catalog.findDocument('SUP-COM-001');
+  const template=engine.createCatalogTemplate(definition);
+  const values={};
+  for(const field of template.fields){
+    if(field.required)values[field.key]=field.type==='number'?'1':field.type==='select'?field.options[0]:'Valor de teste';
+  }
+  const draft=engine.createDocumentDraft({templateCode:template.code,templateDefinition:template,values,actorId:'user-1'});
+  assert.equal(draft.ok,true);
+  assert.equal(draft.document.templateCode,'SUP-COM-001');
+  assert.equal(draft.document.title,definition.title);
 });
