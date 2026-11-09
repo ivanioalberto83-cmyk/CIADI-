@@ -761,7 +761,8 @@ test('motor de aprovisionamento envia os dois modos de saída para RPC transacci
       return { async rpc(method, args) { calls.push({ method, args }); return { data: { movement_id: 'movement-1' }, error: null }; } };
     } },
     actorId: 'actor-1',
-    poloCode: 'talatona'
+    poloCode: 'talatona',
+    idempotencyKeyFactory: () => 'idem-key-0001'
   });
   await service.registerStockExit({
     mode: 'approved_request', requestId: 'request-1', requestLineId: 'line-1',
@@ -779,7 +780,9 @@ test('motor de aprovisionamento envia os dois modos de saída para RPC transacci
   assert.equal(calls[0].args.p_request_id, 'request-1');
   assert.equal(calls[1].args.p_exit_mode, 'direct_justified');
   assert.equal(calls[1].args.p_justification, 'Consumo urgente para atendimento');
-  assert.equal(calls[1].args.p_actor_id, 'actor-1');
+  assert.equal(calls[1].args.p_polo_code, 'talatona');
+  assert.equal(calls[1].args.p_idempotency_key, 'idem-key-0001');
+  assert.equal(Object.hasOwn(calls[1].args, 'p_actor_id'), false);
 });
 
 test('valida recepção de mercadoria com classificação integral de quantidades e bloqueio de excesso', () => {
