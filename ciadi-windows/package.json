@@ -1,7 +1,7 @@
 {
   "name": "ciadi-dashboard-windows",
-  "version": "1.0.0",
-  "description": "Aplicação Windows do Dashboard CIADI com módulo isolado de homologação de assiduidade biométrica",
+  "version": "1.0.2",
+  "description": "Aplicação Windows do Dashboard CIADI com seletor NSIS de perfil de estação e módulo de homologação biométrica",
   "main": "main.cjs",
   "author": "CIADI",
   "license": "UNLICENSED",
@@ -11,11 +11,11 @@
     "dist:win": "electron-builder --win nsis"
   },
   "dependencies": {
-    "electron-updater": "^6.6.2"
+    "electron-updater": "6.6.2"
   },
   "devDependencies": {
-    "electron": "^35.7.5",
-    "electron-builder": "^26.0.12"
+    "electron": "35.7.5",
+    "electron-builder": "26.0.12"
   },
   "build": {
     "appId": "ao.ciadi.dashboard",
@@ -57,10 +57,11 @@
       "installerHeaderIcon": "ciadi.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
       "shortcutName": "CIADI Dashboard",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
     }
   }
 }

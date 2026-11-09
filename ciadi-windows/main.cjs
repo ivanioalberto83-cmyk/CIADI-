@@ -1,9 +1,35 @@
 const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let biometricWindow;
+
+const STATION_PROFILES = Object.freeze({
+  admin: 'ADM',
+  suporte_informatica: 'Suporte Informático',
+  rh: 'RH',
+  rececao: 'Receção'
+});
+
+function readStationProfile() {
+  if (process.platform !== 'win32') return { key: 'admin', label: STATION_PROFILES.admin };
+  try {
+    const output = execFileSync('reg.exe', [
+      'query', 'HKCU\\Software\\CIADI\\Dashboard', '/v', 'StationProfile'
+    ], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    const match = output.match(/StationProfile\s+REG_SZ\s+([a-z_]+)/i);
+    const key = match?.[1] || 'admin';
+    return Object.prototype.hasOwnProperty.call(STATION_PROFILES, key)
+      ? { key, label: STATION_PROFILES[key] }
+      : { key: 'admin', label: STATION_PROFILES.admin };
+  } catch {
+    return { key: 'admin', label: STATION_PROFILES.admin };
+  }
+}
+
+const stationProfile = readStationProfile();
 function openBiometricWindow() {
   if (biometricWindow && !biometricWindow.isDestroyed()) { biometricWindow.focus(); return; }
   biometricWindow = new BrowserWindow({ width: 1120, height: 820, minWidth: 760, minHeight: 600, title: 'CIADI — Assiduidade Biométrica (K20 Pro)', backgroundColor: '#fbfdff', webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
@@ -18,9 +44,10 @@ function installApplicationMenu() {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440, height: 940, minWidth: 1024, minHeight: 700,
-    title: 'CIADI Dashboard', backgroundColor: '#fbfdff',
+    title: 'CIADI Dashboard - Estação ' + stationProfile.label, backgroundColor: '#fbfdff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
+      additionalArguments: ['--ciadi-station-profile=' + stationProfile.key],
       contextIsolation: true, nodeIntegration: false, sandbox: true
     }
   });
