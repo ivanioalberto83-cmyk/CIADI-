@@ -390,7 +390,7 @@
                     <td class="font-semibold">${esc(visit.display_name)}</td>
                     <td>${esc(visit.purpose)}</td>
                     <td>${esc(POLO_LABELS[visit.polo_code] || visit.polo_code || '—')}</td>
-                    <td>${esc(STATUS_LABELS[visit.status] || visit.status)}</td>
+                    <td><span>${esc(STATUS_LABELS[visit.status] || visit.status)}</span>${visit.referral_status ? `<span class="block text-xs mt-1 ${visit.referral_status === 'accepted' ? 'text-green-700' : visit.referral_status === 'returned' ? 'text-red-700' : 'text-amber-700'}">Encaminhamento: ${visit.referral_status === 'pending' ? 'Pendente de confirmação' : visit.referral_status === 'accepted' ? 'Recebido pelo serviço' : 'Devolvido'}</span>` : ''}</td>
                     <td>
                       ${['waiting', 'in_service'].includes(visit.status) ? `<div class="flex flex-wrap items-center gap-2">
                         <select data-route-destination="${esc(visit.id)}" class="border rounded-lg px-2 py-1 text-xs" aria-label="Destino de atendimento">
