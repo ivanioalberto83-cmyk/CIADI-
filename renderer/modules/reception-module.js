@@ -593,6 +593,12 @@
           businessSnapshot.documents = { rows: [], error };
         }
       }
+      if (!company && !businessSnapshot.services?.error) {
+        const missingCompany = new Error('Empresa principal não identificada; consulta financeira bloqueada.');
+        businessSnapshot.services = { rows: [], error: missingCompany };
+        businessSnapshot.cashboxes = { rows: [], error: missingCompany };
+        businessSnapshot.documents = { rows: [], error: missingCompany };
+      }
       const tasks = [
         ['services', () => company ? businessRepository.getActiveServices(company) : Promise.resolve([])],
         ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
