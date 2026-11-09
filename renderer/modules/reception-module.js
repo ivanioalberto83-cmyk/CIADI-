@@ -165,6 +165,8 @@
         const appointmentQuery = await supabase.from('agendamentos')
           .select('id,paciente_id,profissional_id,especialidade_id,data_hora,duracao_minutos,tipo,estado,modalidade,checkin_em')
           .in('paciente_id', patientIds)
+          .in('estado', ['agendada', 'confirmada'])
+          .is('checkin_em', null)
           .gte('data_hora', `${dateFrom}T00:00:00+01:00`)
           .lte('data_hora', `${dateTo}T23:59:59.999+01:00`)
           .order('data_hora', { ascending: true })
