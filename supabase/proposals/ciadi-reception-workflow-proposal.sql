@@ -376,8 +376,7 @@ language plpgsql
 stable
 security invoker
 set search_path = pg_catalog, ciadi_reception, public, auth
-as $
-declare
+as $route$
   v_result jsonb;
 begin
   if auth.uid() is null then
@@ -389,7 +388,7 @@ begin
   where e.ativo is true;
   return v_result;
 end;
-$;
+$route$;
 
 -- Encaminhamento transaccional: valida destino activo, bloqueia a visita e regista evento auditável.
 create or replace function ciadi_reception.reception_route_visit(
@@ -449,7 +448,7 @@ begin
     'updated_at', v_visit.updated_at
   );
 end;
-$;
+$route$;
 
 create or replace function ciadi_reception.reception_get_dashboard(p_polo_code text default null)
 returns jsonb
