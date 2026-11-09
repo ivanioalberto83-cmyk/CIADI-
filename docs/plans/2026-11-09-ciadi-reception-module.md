@@ -114,3 +114,14 @@
 - [ ] Verify PostgreSQL execution and RLS behaviour in an isolated homologation environment.
 - [ ] Standardize human-readable room identifiers and map specialty-to-room only after operational confirmation.
 - [ ] Add role/polo authorization, public TV endpoint, automatic refresh and sound in subsequent phases.
+
+
+### Task 7: Referral receipt confirmation and return
+
+- [x] Add repository contracts for service acceptance and return with mandatory reason.
+- [x] Extend the SQL proposal with pending/accepted/returned state, actor/time fields and immutable events.
+- [x] Set referrals to pending when a destination is assigned and expose referral state in the dashboard payload.
+- [x] Display referral receipt status in the Reception queue.
+- [ ] Verify the test-first red run and the green GitHub Actions run for the new referral tests.
+- [ ] Add service-side acceptance UI only after the destination-service workflow and role authorization are specified.
+- [ ] Keep the SQL proposal unapplied and grants absent.
