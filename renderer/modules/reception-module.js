@@ -278,6 +278,7 @@
           .eq('empresa_id', id)
           .eq('tipo_documento', type)
           .eq('ativa', true)
+          .eq('estado', 'ativa')
           .order('ano', { ascending: false })
           .limit(20));
       },
@@ -296,6 +297,13 @@
           .eq('empresa_id', id)
           .order('data_emissao', { ascending: false })
           .limit(10));
+      },
+      async getOpenCashboxShifts() {
+        return rows(supabase.from('finance_caixa_turnos')
+          .select('id,caixa_id,operador_id,aberto_em,saldo_inicial,estado')
+          .eq('estado', 'aberto')
+          .order('aberto_em', { ascending: false })
+          .limit(20));
       },
       async getStockBalances() {
         return rows(supabase.schema('ciadi_ti').from('stock_balances')
@@ -603,6 +611,43 @@
       '</div></section>';
   }
 
+  function renderReceptionFinancePanel(snapshot = {}) {
+    const list = key => Array.isArray(snapshot[key]) ? snapshot[key] : [];
+    const clients = list('clients');
+    const types = list('documentTypes');
+    const series = list('series');
+    const services = list('services');
+    const cashboxes = list('cashboxes');
+    const documents = list('documents');
+    const shifts = list('shifts');
+    const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
+    const issuedDocuments = documents.filter(row => row.fiscal_status === 'emitido' && row.document_status === 'emitido');
+    const editableDocuments = documents.filter(row => ['em_edicao', 'rascunho', 'draft'].includes(row.document_status));
+    const brand = globalThis.CIADI_INSTITUTIONAL_IDENTITY?.getBrand?.() || null;
+    const logo = brand?.logoDataUrl ? '<img src="' + esc(brand.logoDataUrl) + '" alt="Logótipo CIADI" class="h-10 w-auto object-contain">' : '<strong class="text-orange">CIADI</strong>';
+    return '<section class="card p-5 space-y-4" data-reception-finance-operations>' +
+      '<header class="flex items-center gap-3">' + logo + '<div><h3 class="font-black text-lg">Operações de facturação e caixa</h3><p class="text-xs text-slate-500">Formulários ligados aos motores financeiros centrais; todas as decisões são validadas pelo servidor.</p></div></header>' +
+      '<div class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>Controlo de acesso:</strong> a Recepção ainda não tem capacidade financeira homologada. As operações protegidas serão recusadas pelo servidor até à fase própria de permissões. Não existe qualquer autorização local ou contorno de RLS.</div>' +
+      '<div class="grid xl:grid-cols-2 gap-4">' +
+      '<form data-reception-invoice-form class="rounded-xl border p-4 space-y-3">' +
+        '<h4 class="font-bold">Criar documento em edição</h4>' +
+        '<label class="block text-xs font-semibold">Cliente<select name="clientId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o cliente') + clients.map(row => option(row.id, row.nome_comercial || row.nome || row.nif || row.id)).join('') + '</select></label>' +
+        '<div class="grid grid-cols-2 gap-2"><label class="block text-xs font-semibold">Tipo de documento<select name="documentType" data-invoice-document-type required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione') + types.map(row => option(row.codigo, row.nome + ' (' + row.codigo + ')')).join('') + '</select></label>' +
+        '<label class="block text-xs font-semibold">Série<select name="seriesId" data-invoice-series required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o tipo primeiro') + series.map(row => option(row.id, row.codigo + ' · ' + (row.nome || row.ano || ''))).join('') + '</select></label></div>' +
+        '<label class="block text-xs font-semibold">Serviço<select name="serviceId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o serviço') + services.map(row => option(row.id, row.nome + ' · ' + Number(row.preco_base || 0).toLocaleString('pt-PT') + ' Kz')).join('') + '</select></label>' +
+        '<div class="grid grid-cols-2 gap-2"><label class="block text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" value="1" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Vencimento<input name="dueDate" type="date" class="mt-1 w-full border rounded-lg p-2"></label></div>' +
+        '<label class="block text-xs font-semibold">Observações<textarea name="observations" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label>' +
+        '<p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg bg-orange text-white font-bold px-4 py-2">Criar rascunho</button>' +
+      '</form>' +
+      '<div class="space-y-3">' +
+        '<form data-reception-cashbox-open class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Abertura de caixa</h4><label class="block text-xs font-semibold">Caixa<select name="cashboxId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o caixa') + cashboxes.map(row => option(row.id, (row.codigo || '') + ' · ' + (row.nome || row.id) + ' (' + (row.estado || 'estado não indicado') + ')')).join('') + '</select></label><label class="block text-xs font-semibold">Saldo inicial (Kz)<input name="openingBalance" type="number" min="0" step="0.01" required value="0" class="mt-1 w-full border rounded-lg p-2"></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold">Abrir caixa</button></form>' +
+        '<form data-reception-cashbox-close class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Fecho de caixa</h4><label class="block text-xs font-semibold">Turno aberto<select name="shiftId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o turno') + shifts.map(row => option(row.id, 'Turno ' + row.id.slice(0, 8) + ' · ' + row.aberto_em)).join('') + '</select></label><label class="block text-xs font-semibold">Saldo contado (Kz)<input name="countedBalance" type="number" min="0" step="0.01" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Justificação de diferença<textarea name="justification" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold" ' + (shifts.length ? '' : 'disabled') + '>Fechar turno</button></form>' +
+      '</div></div>' +
+      '<form data-reception-payment-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registo de recebimento</h4><p class="text-xs text-amber-800">Temporariamente bloqueado: a função central de pagamentos exige document_status = N, enquanto a função de emissão actualmente grava document_status = emitido. Esta incompatibilidade deve ser corrigida e validada no motor central antes de activar recebimentos.</p><fieldset disabled class="grid md:grid-cols-4 gap-2 opacity-60"><select name="documentId" required class="border rounded-lg p-2">' + option('', 'Documento emitido') + issuedDocuments.map(row => option(row.id, row.document_no + ' · ' + row.total + ' Kz')).join('') + '</select><input name="amount" type="number" min="0.01" step="0.01" placeholder="Valor (Kz)" class="border rounded-lg p-2"><select name="method" class="border rounded-lg p-2">' + ['numerario','transferencia','tpa','deposito','multicaixa'].map(x => option(x, x)).join('') + '</select><select name="cashboxId" class="border rounded-lg p-2">' + option('', 'Caixa (opcional)') + cashboxes.map(row => option(row.id, row.nome || row.codigo || row.id)).join('') + '</select></fieldset><button type="submit" disabled class="rounded-lg border px-4 py-2 font-bold opacity-50">Registar pagamento — bloqueado</button></form>' +
+      '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos em edição</h4>' + (editableDocuments.length ? editableDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + '</span><div class="flex gap-2"><button type="button" data-invoice-calculate="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Calcular</button><button type="button" data-invoice-issue="' + esc(row.id) + '" class="bg-orange text-white rounded-lg px-3 py-1">Emitir</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem documentos em edição visíveis.</p>') + '</div>' +
+      '</section>';
+  }
+
   function create({ root: container, navigate, notify = () => {}, supabase, actorId, poloCode, companyId: configuredCompanyId } = {}) {
     if (!container || typeof navigate !== 'function') {
       throw new Error('O módulo Recepção necessita do contentor e da navegação do Dashboard.');
@@ -613,7 +658,9 @@
     let destinations = [];
     let activePolo = POLOS.includes(poloCode) ? poloCode : null;
     let businessRepository = null;
-    let businessSnapshot = { services: null, cashboxes: null, documents: null, stock: null, requests: null };
+    let financeRepository = null;
+    let activeCompanyId = clean(configuredCompanyId, 128) || null;
+    let businessSnapshot = { services: null, clients: null, documentTypes: null, series: null, cashboxes: null, documents: null, shifts: null, stock: null, requests: null };
 
     function renderUnavailable(error) {
       container.innerHTML = `
@@ -665,6 +712,15 @@
             ].map(([label, value]) => `<article class="card p-4"><p class="text-sm text-slate-500">${label}</p><p class="text-2xl font-black mt-1">${esc(value)}</p></article>`).join('')}
           </div>
           ${renderBusinessPanel(businessSnapshot)}
+          ${renderReceptionFinancePanel({
+            clients: businessSnapshot.clients?.rows,
+            documentTypes: businessSnapshot.documentTypes?.rows,
+            series: businessSnapshot.series?.rows,
+            services: businessSnapshot.services?.rows,
+            cashboxes: businessSnapshot.cashboxes?.rows,
+            documents: businessSnapshot.documents?.rows,
+            shifts: businessSnapshot.shifts?.rows
+          })}
           <section class="card p-5" data-reception-call-panel>
             <div class="flex items-center justify-between gap-3 mb-3">
               <div><h3 class="font-black text-lg">Painel de chamadas</h3><p class="text-xs text-slate-500">Pré-visualização pública: apenas senhas, polo e destino.</p></div>
@@ -819,25 +875,38 @@
           businessSnapshot.documents = { rows: [], error };
         }
       }
+      activeCompanyId = company || null;
       if (!company && !businessSnapshot.services?.error) {
         const missingCompany = new Error('Empresa principal não identificada; consulta financeira bloqueada.');
-        businessSnapshot.services = { rows: [], error: missingCompany };
-        businessSnapshot.cashboxes = { rows: [], error: missingCompany };
-        businessSnapshot.documents = { rows: [], error: missingCompany };
+        for (const key of ['services', 'clients', 'cashboxes', 'documents', 'series']) businessSnapshot[key] = { rows: [], error: missingCompany };
       }
       const tasks = [
         ['services', () => company ? businessRepository.getActiveServices(company) : Promise.resolve([])],
+        ['clients', () => company ? businessRepository.getActiveClients(company) : Promise.resolve([])],
+        ['documentTypes', () => businessRepository.getActiveDocumentTypes()],
         ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
         ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
+        ['shifts', () => businessRepository.getOpenCashboxShifts()],
         ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()]
       ];
       const results = await Promise.all(tasks.map(async ([key, load]) => {
-        if (businessSnapshot[key]?.error && ['services', 'cashboxes', 'documents'].includes(key) && !company) return [key, businessSnapshot[key]];
+        if (businessSnapshot[key]?.error && ['services', 'clients', 'cashboxes', 'documents'].includes(key) && !company) return [key, businessSnapshot[key]];
         try { return [key, { rows: await load(), error: null }]; }
         catch (error) { return [key, { rows: [], error }]; }
       }));
       businessSnapshot = Object.fromEntries(results);
+      const documentTypes = businessSnapshot.documentTypes?.rows || [];
+      if (company && documentTypes.length) {
+        try {
+          const seriesRows = await Promise.all(documentTypes.map(row => businessRepository.getActiveSeries(company, row.codigo)));
+          businessSnapshot.series = { rows: seriesRows.flat(), error: null };
+        } catch (error) {
+          businessSnapshot.series = { rows: [], error };
+        }
+      } else {
+        businessSnapshot.series = { rows: [], error: null };
+      }
     }
 
     async function refresh() {
@@ -1003,6 +1072,6 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput, validatePurchaseReceiptInput,
-    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionDocumentHeader, create
+    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionDocumentHeader, create
   });
 });
