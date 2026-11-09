@@ -150,7 +150,7 @@ test('painel diário usa RPC próprio no schema de Recepção', async () => {
     supabase: { schema(schemaName) {
       assert.equal(schemaName, 'ciadi_reception');
       return { async rpc(name, args) { calls.push({ name, args }); return { data: { visits: [], visitors: [], summary: {} }, error: null }; } };
-    }
+    } }
   });
   const result = await repository.getDashboard('talatona');
   assert.deepEqual(result.visits, []);
