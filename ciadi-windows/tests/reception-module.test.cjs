@@ -919,6 +919,7 @@ test('proposta SQL de recepção de mercadorias inclui criação idempotente e m
   assert.match(sql, /goods_receipts_idempotency_key_unique/i);
   assert.match(sql, /ciadi_ti\.create_goods_receipt/i);
   assert.match(sql, /reception_register_stock_return/i);
+  assert.match(sql, /reception_transfer_stock/i);
   assert.match(sql, /devolucao_entrada/);
   assert.match(sql, /devolucao_saida/);
 });
