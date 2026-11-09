@@ -136,9 +136,9 @@
 - [x] Identify procurement functions decide_purchase_request, post_stock_movement, transfer_stock; confirm RLS enabled and relevant policies currently scoped to Support Informática.
 - [x] Identify central identity service renderer/core/institutional-identity-service.js, already consumed by the Support document engine.
 - [x] Record logo configuration gap: instituicao.logo_url and finance_emitente_config.logotipo_url are null; Storage logos bucket exists but contains no objects in the audit query. The central identity service already carries embedded logoDataUrl.
-- [ ] Review full SECURITY DEFINER function bodies, EXECUTE grants and exact permission predicates before Reception invokes any write action.
+- [x] Inspect representative SECURITY DEFINER bodies: invoice creation requires is_staff(); payment accounting requires finance staff; cashier actions use ciadi_finance_can operator capabilities; procurement decision requires admin/gestor; stock posting requires Support access.\n- [ ] Complete EXECUTE grant inventory and review all remaining SECURITY DEFINER bodies before Reception invokes any write action.
 - [ ] Confirm whether a purchase-order / goods-receipt flow exists elsewhere; current inspected ciadi_ti tables do not show dedicated formal purchase order or goods receipt entities.
-- [ ] Produce final action-to-RPC mapping with operator, company, polo, cash-shift, approval and idempotency requirements; no remote writes or schema changes.
+- [ ] Produce final action-to-RPC mapping with operator, company, polo, cash-shift, approval and idempotency requirements; no remote writes or schema changes. Reception must fail closed where current RLS/RPC checks do not authorize the session.
 
 ### Task 9: Reception billing and cashier
 - [ ] Service/charge lookup and payer selection using existing master data.
