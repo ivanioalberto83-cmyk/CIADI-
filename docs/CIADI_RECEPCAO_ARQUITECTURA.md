@@ -163,3 +163,39 @@ Verificação: GitHub Actions run 42610491365 concluiu com 162 testes aprovados 
 - PR #39 do Suporte Informático não é alterada.
 - Nenhuma alteração foi feita ao Supabase remoto, contas, permissões efectivas, Storage, produção ou Setup distribuível.
 - Não criar branch Supabase paga.
+
+
+## Auditoria detalhada de Aprovisionamento — 09/11/2026
+
+Auditoria read-only ao projecto Supabase `egpkkttbcaukqnnxyhjv`. Foram consultadas colunas, constraints, políticas RLS, privilégios e corpos das funções centrais. Nenhuma escrita, DDL, alteração de grants ou política foi executada.
+
+### Estruturas existentes confirmadas
+
+- `ciadi_ti.purchase_requests`: número único, requisitante, fornecedor, estado, justificação, total estimado e decisão financeira (actor/data/nota). Estados actualmente permitidos: `draft`, `submitted`, `returned`, `approved`, `rejected`, `received`, `cancelled`.
+- `ciadi_ti.purchase_request_lines`: artigo opcional, descrição, quantidade, unidade e custo unitário estimado. Não contém quantidade recebida nem divergência por linha.
+- `ciadi_ti.warehouses`: código, nome, campo `polo`, localização e estado activo. O polo já existe no armazém; não deve ser duplicado sem necessidade.
+- `ciadi_ti.stock_movements`: livro central com artigo, armazém, tipo, delta de quantidade, custo, lote, referência, notas, movimento relacionado, actor e data.
+- `ciadi_ti.stock_balances`: vista/saldo por artigo e armazém, incluindo mínimo e indicador abaixo do mínimo.
+- `ciadi_ti.inventory_counts` e `inventory_count_lines`: contagem física e diferenças de inventário; não são registos de recepção de encomendas.
+- `ciadi_ti.suppliers`, `items`, `assets` e `audit_events` permanecem os cadastros e registos centrais existentes.
+
+### Controlos de acesso observados
+
+- RLS está activo nas tabelas auditadas.
+- As políticas de leitura de requisições, linhas, fornecedores, armazéns, artigos, movimentos e inventário usam `ciadi_ti.has_support_access()`.
+- A escrita directa de requisições/linhas, fornecedores, armazéns e artigos está limitada pelas políticas de Suporte Informático; as linhas só podem ser alteradas quando a requisição está em rascunho/devolvida.
+- `decide_purchase_request` é SECURITY DEFINER, valida `has_finance_approval()` (admin/gestor), bloqueia a linha e só decide pedidos submetidos.
+- `post_stock_movement` e `transfer_stock` são SECURITY DEFINER e validam `has_support_access()`. O acesso EXECUTE foi observado para authenticated e não para anon/public; isso não concede autorização funcional à Recepção.
+- Não foi identificada uma função dedicada para recepção física de mercadorias ou recepção parcial.
+
+### Conclusão de desenho — enriquecer, não duplicar
+
+1. Manter `purchase_requests` e `purchase_request_lines` como origem da requisição e das linhas.
+2. Reutilizar `warehouses.polo` e associar o pedido ao armazém de destino existente, após validar o modelo operacional dos dois polos.
+3. Manter `stock_movements` como único livro de stock. Uma futura recepção deve gerar movimentos de entrada através de um fluxo transaccional autorizado, com referência à requisição/linha e documento de entrega.
+4. Usar `audit_events` e os campos actor/data já existentes para rastreabilidade; não criar um segundo livro de movimentos.
+5. Para recepção parcial e divergências, preparar uma proposta aditiva sobre as estruturas existentes (campos de quantidade recebida/estado e ligação do movimento à requisição/linha), sem aplicar SQL remoto.
+6. Não reutilizar `inventory_count_lines` para entregas: o seu grão é contagem física por inventário/artigo.
+7. A Recepção continua bloqueada para escrita enquanto as políticas e funções existentes não forem revistas e aprovadas para o seu perfil/polo.
+
+**Próximo passo técnico:** preparar testes de contrato e uma proposta SQL aditiva para ligar requisição, linha, armazém e movimento de entrada. A proposta deve contemplar recebimentos parciais, divergências, idempotência e actor autenticado; os grants/policies só serão tratados numa fase expressamente aprovada.
