@@ -72,28 +72,77 @@ A proposta activa RLS e revoga acesso por omissão. Não cria policies nem grant
 - A Recepção passa a apresentar o estado do encaminhamento no painel operacional. A autorização por perfil/serviço ainda não está concluída; estas RPCs não devem receber grants até à revisão de permissões.
 - Proposta SQL apenas; não aplicada ao Supabase remoto.
 
-## Facturação e caixa integradas na Recepção
+## Integração com estruturas existentes do Supabase — auditoria read-only
 
-A Recepção deve disponibilizar uma área operacional de facturação e caixa ligada ao motor financeiro central do CIADI. O âmbito inclui consulta de serviços/valores autorizados, identificação administrativa do pagador, emissão de facturas/recibos/comprovativos pelo motor central, meios de pagamento configurados, abertura e fecho de caixa por operador/turno, movimentos de caixa, reconciliação diária e mapas por polo. Anulações, estornos, notas de crédito e reembolsos exigem motivo, actor, auditoria e aprovação adequada. Os campos fiscais e regras AGT devem ser validados pela área financeira antes de produção. Não criar facturação ou livro de caixa paralelo.
+Projecto auditado: egpkkttbcaukqnnxyhjv. Não foram executados INSERT, UPDATE, DELETE, DDL, grants ou alterações de políticas.
 
-## Aprovisionamento integrado na Recepção
+### Facturação e caixa existentes
 
-A Recepção deve permitir criar e acompanhar requisições internas de materiais/serviços, com polo, centro de custo, finalidade, quantidades e prioridade; consultar aprovações e estado; pedir reposição; consultar disponibilidade; e registar a recepção física de entregas destinadas à Recepção, incluindo quantidades e divergências. Fornecedores, compras, aprovações, inventário e movimentos de stock permanecem no motor central de Aprovisionamento. Não duplicar cadastros nem permitir ajustes directos não autorizados.
+Estruturas identificadas em public:
+- Documentos: finance_documentos, finance_documento_linhas, finance_documentos_relacoes, finance_tipos_documento, finance_series.
+- Clientes e catálogo: finance_clientes, finance_servicos, finance_empresas, finance_emitente_config.
+- Pagamentos: finance_pagamentos.
+- Caixa: finance_caixas, finance_caixa_turnos, finance_movimentos_caixa, finance_operadores.
+- Auditoria/contabilidade/fiscal: finance_auditoria_fiscal, finance_auditoria_operacoes, finance_lancamentos, finance_lancamento_linhas, finance_regras_contabilizacao, finance_saft_config, finance_saft_exports, finance_saft_validacoes, finance_agt_conformidade.
 
-## Identidade CIADI e documentos — obrigatório
+Funções existentes identificadas:
+- Facturação: ciadi_faturacao_criar_documento, ciadi_faturacao_calcular_documento, ciadi_faturacao_emitir_documento, ciadi_faturacao_anular_documento, ciadi_faturacao_transformar_documento.
+- Caixa/pagamento: ciadi_abrir_caixa, ciadi_fechar_caixa, ciadi_aprovar_fecho_caixa, ciadi_registar_movimento_caixa, ciadi_finance_integrar_pagamento, ciadi_finance_can.
 
-Todos os documentos gerados, impressos ou exportados pela Recepção devem usar uma identidade documental central e o logótipo oficial CIADI incorporado no PDF. Abrange facturas/recibos emitidos pelo motor financeiro, comprovativos e fechos de caixa, requisições, comprovativos de entrega, declarações, protocolos, correspondência e relatórios. Os modelos devem incluir apenas dados institucionais validados, polo emissor, operador, data/hora, referência, paginação e QR de validação quando aplicável. Antes de implementar, localizar e validar o ficheiro real do logótipo e a configuração central de identidade; não inventar logótipos, NIF, denominação legal ou contactos.
+As tabelas financeiras consultadas têm RLS activo. Foram identificadas políticas de operador/staff e funções SECURITY DEFINER; a Recepção não deve chamar essas funções sem revisão da verificação interna de actor, acção, empresa, caixa, turno e idempotência. A emissão fiscal exige documento/cliente/série/empresa válidos. A homologação AGT continua a ser uma validação separada; a existência destas tabelas não certifica o software.
+
+### Aprovisionamento e stock existentes
+
+O schema ciadi_ti já contém:
+- Catálogo: items, item_categories.
+- Armazéns e saldos: warehouses, stock_balances.
+- Movimentos e inventário: stock_movements, inventory_counts, inventory_count_lines, assets.
+- Compras/requisições: purchase_requests, purchase_request_lines, suppliers.
+- Auditoria: audit_events.
+
+Funções existentes: decide_purchase_request, post_stock_movement, transfer_stock. As tabelas de ciadi_ti têm RLS activo, com políticas de leitura/escrita associadas ao acesso de Suporte Informático; as três funções listadas são SECURITY DEFINER e exigem revisão antes de qualquer reutilização por Recepção.
+
+Limites identificados na estrutura actual:
+- purchase_requests não apresenta campos próprios de polo/centro de custo nem entidade de recepção de mercadorias.
+- Não foram encontradas tabelas próprias de ordem de compra formal ou de recepção/nota de entrega no inventário consultado.
+- ciadi_solicitacoes_materiais e o respectivo histórico são pedidos de materiais ligados a paciente/responsável/profissional; não devem ser reutilizados como requisição geral de compras da Recepção.
+- Não criar tabelas duplicadas antes de mapear se estes campos podem ser tratados por metadados/contratos existentes ou se há uma lacuna que exija proposta aprovada.
+
+### Identidade institucional e logótipo
+
+O repositório já contém renderer/core/institutional-identity-service.js, com marca central CIADI, paleta institucional, contactos/endereço e logoDataUrl incorporado. O motor documental do Suporte já consome esse serviço central, o que fornece um padrão reutilizável para a Recepção.
+
+Na base de dados, public.instituicao.logo_url e public.finance_emitente_config.logotipo_url estão nulos; o bucket Storage logos existe, mas a consulta de objectos não encontrou ficheiros. Portanto, não usar URLs vazios nem depender do Storage para o logótipo. A identidade documental deve reutilizar o logoDataUrl do serviço central existente e incorporar a imagem nos PDFs. A configuração fiscal do emitente continua a ser responsabilidade do Financeiro.
+
+## Âmbito funcional da Recepção sobre estes motores
+
+### Facturação e caixa
+- Consultar serviços/valores activos e clientes existentes, respeitando o acesso autorizado.
+- Criar e emitir documentos exclusivamente através das funções/fluxos centrais de facturação.
+- Registar pagamentos e integrá-los com caixa/contabilidade através dos contratos centrais, sem duplicar pagamentos ou movimentos.
+- Abrir/fechar turno apenas quando o operador, caixa e polo estiverem autorizados; apresentar reconciliação e diferenças.
+- Anulações, estornos, reembolsos e aprovação de fecho ficam sujeitos às funções e aprovações existentes; nunca expor estas acções como simples botões sem validação.
+- Mostrar estados fiscais e de pagamento reais; não apresentar documento como emitido/pago sem confirmação do motor central.
+
+### Aprovisionamento
+- Criar e acompanhar pedidos de material/serviço através do fluxo central de requisições aprovado.
+- Consultar catálogo, fornecedores, armazéns e saldos através do schema ciadi_ti, apenas com autorização aplicável.
+- Acompanhar decisão financeira e estado do pedido.
+- A recepção física de mercadorias e divergências precisa de um contrato funcional próprio; esta capacidade ainda não foi confirmada nas tabelas consultadas.
+- Não permitir à Recepção lançar movimentos de stock, transferir stock, gerir fornecedores ou decidir compras sem aprovação e autorização explícitas.
+
+### Documentos CIADI
+Todos os documentos próprios da Recepção — comprovativos de atendimento, fechos/relatórios de caixa, requisições, registos de entrega quando o fluxo for homologado, declarações, protocolos, correspondência e relatórios — devem usar CIADI_INSTITUTIONAL_IDENTITY. Facturas e recibos fiscais permanecem emitidos pelo motor financeiro, com a identidade/snapshot fiscal central. O logótipo deve ser incorporado no PDF; QR de validação apenas quando houver token/endpoint real.
 
 ## Fases seguintes
 
-0. Auditar, em modo de leitura, os motores centrais de Financeiro/Facturação/Caixa e Aprovisionamento e mapear os contratos de integração existentes.\n1. Implementar facturação e caixa na Recepção usando os contratos centrais.\n2. Implementar requisições e recepção de entregas ligadas ao Aprovisionamento central.\n3. Identificar a identidade documental central e aplicar o logótipo oficial a todos os documentos da Recepção.\n4. Homologar o motor de chegadas e visitantes em PostgreSQL isolado.
-2. Construir agenda/check-in integrado, sem permitir edição clínica.
-3. Acrescentar encaminhamentos internos com confirmação de recepção pelo serviço de destino.
-4. Acrescentar chamadas, mensagens e correspondência.
-5. Integrar motor documental CIADI para comprovativos e registos.
-6. Construir relatórios por polo, período, estado e tempo de espera.
-7. Definir permissões/RLS por perfil e polo; testar acessos directos e tentativas negadas.
-8. Homologar instalação Windows e fluxos ponta a ponta.
+1. Concluir revisão de segurança dos contratos existentes e mapear as acções exactas permitidas à Recepção.
+2. Implementar integração de leitura de catálogo/serviços, clientes, estado de documentos, caixa e requisições, com falha fechada se não houver autorização.
+3. Implementar criação/emissão de factura e pagamento somente depois de validar contratos, operador, empresa, série, caixa/turno e idempotência.
+4. Resolver a lacuna de polo/centro de custo e recepção de mercadorias no Aprovisionamento, primeiro por proposta técnica; não aplicar alterações remotas.
+5. Reutilizar o serviço central de identidade documental e garantir o logótipo em todos os PDFs da Recepção.
+6. Homologar os fluxos com dados de teste e PostgreSQL isolado; depois rever permissões/RLS por perfil e polo.
+7. Concluir agenda/check-in, encaminhamento, correspondência, relatórios e homologação Windows.
 
 ## Restrições de entrega
 
