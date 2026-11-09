@@ -322,3 +322,12 @@ A leitura das definições SQL remotas identificou um bloqueio adicional:
 - GitHub Actions run `42632402207`: concluído com sucesso.
 - Testes: 171 aprovados, 0 falhas; verificações das Edge Functions documentais, segurança/validação, sintaxe do motor e integração do dashboard também concluídas com sucesso.
 - Este CI valida o código no repositório; não substitui a homologação remota ou testes de interface na aplicação instalada.
+
+
+## Facturação na Recepção — PDF A4
+
+O módulo passou a reutilizar o serviço PDF nativo do CIADI Desktop para compor uma pré-visualização A4 a partir dos registos centrais da factura e exportar o PDF real para o computador. A composição usa o logótipo incorporado pelo serviço central de identidade CIADI e os dados existentes do emitente, cliente, série e linhas.
+
+A exportação local só é permitida para documentos cujo estado central seja emitido e cujo estado fiscal seja emitido. A interface permite pré-visualizar rascunhos, mas não confunde a pré-visualização com emissão fiscal.
+
+**Limites ainda não homologados:** o servidor financeiro não fornece ainda um QR de autenticação verificável nem um arquivo central de PDF associado à factura. Quando o QR não está disponível, o documento declara essa ausência e não se apresenta como PDF oficial autenticado. A exportação actual grava uma cópia PDF local através do CIADI Desktop; não faz upload para o Supabase. A emissão/validação QR, hash, Storage e permissões devem ser tratados numa proposta de backend própria e aprovada, sem reutilizar a função documental do Suporte Informático nem contornar RLS.
