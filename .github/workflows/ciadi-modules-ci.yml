@@ -2,7 +2,7 @@ name: CIADI Workstation Modules CI
 
 on:
   push:
-    branches: ['feature/ciadi-workstation-modules-20261104', 'feature/ciadi-support-operations-phase1-20261106', 'feature/ciadi-ti-document-engine-edge-functions-20261108', 'feature/ciadi-suporte-helpdesk-identidade-v1', 'feature/ciadi-helpdesk-lifecycle-20261108', 'feature/ciadi-reception-workflow-20261109']
+    branches: ['feature/ciadi-workstation-modules-20261104', 'feature/ciadi-support-operations-phase1-20261106', 'feature/ciadi-ti-document-engine-edge-functions-20261108', 'feature/ciadi-suporte-helpdesk-identidade-v1', 'feature/ciadi-helpdesk-lifecycle-20261108', 'feature/ciadi-reception-workflow-20261109', 'feature/ciadi-helpdesk-lifecycle-20261108']
     paths:
       - 'renderer/**'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
