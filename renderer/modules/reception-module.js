@@ -145,6 +145,31 @@
       })[0] || null;
   }
 
+  function buildPublicCallPanelModel(rows = []) {
+    const safeTicket = row => {
+      const poloCode = POLOS.includes(row?.polo_code) ? row.polo_code : null;
+      if (!poloCode || !Number.isInteger(Number(row?.ticket_number)) || Number(row.ticket_number) < 1) return null;
+      return Object.freeze({
+        ticketLabel: `${poloCode === 'talatona' ? 'TAL' : 'JDR'} #${String(Number(row.ticket_number)).padStart(3, '0')}`,
+        poloLabel: POLO_LABELS[poloCode],
+        destination: 'Atendimento'
+      });
+    };
+    const validRows = Array.isArray(rows) ? rows : [];
+    const called = validRows
+      .filter(row => row?.status === 'in_service')
+      .slice()
+      .sort((a, b) => {
+        const aTime = Date.parse(a.service_started_at || '');
+        const bTime = Date.parse(b.service_started_at || '');
+        return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+      })
+      .map(safeTicket)
+      .filter(Boolean);
+    const next = safeTicket(selectNextWaitingVisit(validRows));
+    return Object.freeze({ called: Object.freeze(called), next });
+  }
+
   function createReceptionRepository({ supabase } = {}) {
     if (!supabase || typeof supabase.schema !== 'function') {
       throw new Error('A ligação ao serviço de Recepção não está disponível.');
@@ -291,6 +316,25 @@
               ['Tempo médio de espera', (summary.averageWaitMinutes || 0) + ' min']
             ].map(([label, value]) => `<article class="card p-4"><p class="text-sm text-slate-500">${label}</p><p class="text-2xl font-black mt-1">${esc(value)}</p></article>`).join('')}
           </div>
+          <section class="card p-5" data-reception-call-panel>
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <div><h3 class="font-black text-lg">Painel de chamadas</h3><p class="text-xs text-slate-500">Pré-visualização pública: apenas senhas, polo e destino.</p></div>
+              <span class="text-xs text-slate-500">Sem dados pessoais</span>
+            </div>
+            ${(() => {
+              const panel = buildPublicCallPanelModel(visits);
+              return `<div class="grid md:grid-cols-2 gap-3">
+                <div class="rounded-xl bg-slate-50 border p-4">
+                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Em chamada</p>
+                  ${panel.called.length ? panel.called.map(ticket => `<div class="flex items-center justify-between gap-2 py-2 border-b last:border-0"><strong class="text-2xl text-orange">${esc(ticket.ticketLabel)}</strong><span class="text-sm text-slate-600">${esc(ticket.poloLabel)} · ${esc(ticket.destination)}</span></div>`).join('') : '<p class="text-sm text-slate-500">Nenhuma senha chamada.</p>'}
+                </div>
+                <div class="rounded-xl bg-slate-50 border p-4">
+                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Próxima senha</p>
+                  ${panel.next ? `<strong class="text-3xl text-orange">${esc(panel.next.ticketLabel)}</strong><p class="text-sm text-slate-600 mt-1">${esc(panel.next.poloLabel)} · ${esc(panel.next.destination)}</p>` : '<p class="text-sm text-slate-500">Sem utentes em espera.</p>'}
+                </div>
+              </div>`;
+            })()}
+          </section>
           <section class="card p-5">
             <div class="flex items-center justify-between gap-3 mb-3">
               <div><h3 class="font-black text-lg">Fila de atendimento</h3><p class="text-xs text-slate-500">Registos operacionais do dia, sem exposição de notas clínicas.</p></div>
@@ -520,6 +564,6 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput,
-    summarizeReception, selectNextWaitingVisit, createReceptionRepository, create
+    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, create
   });
 });
