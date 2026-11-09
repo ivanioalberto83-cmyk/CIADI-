@@ -648,3 +648,79 @@ test('painel financeiro da Recepção apresenta formulários centrais e sinaliza
   assert.doesNotMatch(html, /<Família CIADI>/);
   assert.match(html, /permissões|autorização/i);
 });
+
+
+test('motor documental da faturação compõe pré-visualização A4 com identidade CIADI e exporta PDF real apenas de factura emitida', async () => {
+  const calls = [];
+  const document = {
+    id: 'invoice-1', document_no: 'FT A/2026/0001', tipo_documento: 'FT',
+    document_status: 'emitido', fiscal_status: 'emitido', data_emissao: '2026-11-09',
+    data_vencimento: '2026-11-30', subtotal: 10000, imposto: 1400, total: 11400,
+    observacoes: 'Consulta', finance_clientes: { nome: 'Família Teste', nif: '5000000000', email: 'familia@example.ao' },
+    finance_series: { codigo: 'A', nome: 'Série A' }
+  };
+  const rows = {
+    finance_documentos: document,
+    finance_documento_linhas: [{ codigo: 'ABA', descricao: 'Sessão terapêutica', quantidade: 1, unidade: 'UN', preco_unitario: 10000, desconto: 0, taxa_imposto: 14 }],
+    finance_emitente_config: { razao_social: 'CIADI', nif: '5000000000', morada: 'Talatona', municipio: 'Talatona', provincia: 'Luanda', email: 'geral@ciadi.ao' }
+  };
+  function query(table) {
+    const q = {
+      select(columns) { calls.push(['select', table, columns]); return q; },
+      eq(column, value) { calls.push(['eq', table, column, value]); return q; },
+      order(column, options) { calls.push(['order', table, column, options]); return q; },
+      limit(value) { calls.push(['limit', table, value]); return q; },
+      single() { return Promise.resolve({ data: rows[table], error: null }); },
+      maybeSingle() { return Promise.resolve({ data: rows[table], error: null }); },
+      then(resolve) { resolve({ data: rows[table], error: null }); }
+    };
+    return q;
+  }
+  const supabase = { from: query };
+  const rendered = [];
+  const exported = [];
+  const desktop = { documents: {
+    async renderPdf(payload) { rendered.push(payload); return new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]); },
+    async exportIssuedPdf(payload) { exported.push(payload); return { saved: true, filePath: 'C:/CIADI/FT-A-2026-0001.pdf', source: 'archive' }; }
+  } };
+  const identity = { getBrand: () => ({ name: 'CIADI', logoDataUrl: 'data:image/png;base64,QUJD' }) };
+  const service = reception.createReceptionInvoicePdfService({ supabase, desktop, identity });
+  const preview = await service.preview('invoice-1');
+  assert.match(preview.html, /data:image\/png;base64,QUJD/);
+  assert.match(preview.html, /FT A\/2026\/0001/);
+  assert.match(preview.html, /Família Teste/);
+  assert.match(preview.html, /Sessão terapêutica/);
+  assert.match(preview.html, /QR de autenticação indisponível/i);
+  const result = await service.exportIssuedPdf('invoice-1');
+  assert.equal(result.saved, true);
+  assert.equal(rendered.length, 1);
+  assert.equal(rendered[0].html, preview.html);
+  assert.equal(exported.length, 1);
+  assert.equal(exported[0].document.status, 'issued');
+  assert.equal(exported[0].mimeType, 'application/pdf');
+  assert.equal(Buffer.from(exported[0].bytes).subarray(0, 5).toString(), '%PDF-');
+  assert.ok(calls.some(call => call[1] === 'finance_documentos'));
+  assert.ok(calls.some(call => call[1] === 'finance_documento_linhas'));
+  assert.ok(calls.some(call => call[1] === 'finance_emitente_config'));
+});
+
+test('motor PDF não exporta factura não emitida nem gera um falso QR de autenticação', async () => {
+  const document = { id: 'invoice-draft', document_no: 'RASCUNHO', document_status: 'rascunho', fiscal_status: 'pendente' };
+  function query(table) {
+    const q = {
+      select() { return q; }, eq() { return q; }, order() { return q; }, limit() { return q; },
+      single() { return Promise.resolve({ data: document, error: null }); },
+      maybeSingle() { return Promise.resolve({ data: {}, error: null }); },
+      then(resolve) { resolve({ data: [], error: null }); }
+    };
+    return q;
+  }
+  let renderCalls = 0;
+  const service = reception.createReceptionInvoicePdfService({
+    supabase: { from: query },
+    desktop: { documents: { async renderPdf() { renderCalls += 1; return new Uint8Array([37,80,68,70,45]); }, async exportIssuedPdf() { throw new Error('Não deveria exportar.'); } } },
+    identity: { getBrand: () => ({ logoDataUrl: 'data:image/png;base64,QUJD' }) }
+  });
+  await assert.rejects(() => service.exportIssuedPdf('invoice-draft'), /emitida/i);
+  assert.equal(renderCalls, 0);
+});
