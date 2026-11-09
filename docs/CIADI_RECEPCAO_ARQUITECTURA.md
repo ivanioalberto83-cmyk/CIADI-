@@ -64,6 +64,14 @@ Tabelas propostas:
 
 A proposta activa RLS e revoga acesso por omissão. Não cria policies nem grants; a autorização por perfil e polo é uma fase separada. Não foi aplicada ao Supabase remoto. As referências UUID para `public.agendamentos` e `public.pacientes` não têm FK nesta proposta, porque os tipos e constraints remotos têm de ser confirmados antes de as declarar.
 
+## Encaminhamento com confirmação do serviço
+
+- Cada encaminhamento atribuído fica com `referral_status = pending` até o serviço de destino responder.
+- O serviço pode confirmar a recepção (`accepted`) ou devolver o encaminhamento (`returned`) com motivo obrigatório.
+- A confirmação e a devolução são RPCs transaccionais, com validação de sessão, bloqueio da visita e evento imutável com actor/data/detalhes.
+- A Recepção passa a apresentar o estado do encaminhamento no painel operacional. A autorização por perfil/serviço ainda não está concluída; estas RPCs não devem receber grants até à revisão de permissões.
+- Proposta SQL apenas; não aplicada ao Supabase remoto.
+
 ## Fases seguintes
 
 1. Homologar o motor de chegadas e visitantes em PostgreSQL isolado.
