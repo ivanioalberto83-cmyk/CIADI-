@@ -45,9 +45,10 @@ export function corsHeaders(): HeadersInit {
 
 
 function escapeHtml(value: unknown): string {
-  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+  const entities: Record<string, string> = {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  })[character] as string);
+  };
+  return String(value ?? "").replace(/[&<>"']/g, (character) => entities[character]);
 }
 
 export function renderVerificationPage(input: {
