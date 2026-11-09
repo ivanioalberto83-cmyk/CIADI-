@@ -481,7 +481,7 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('stock-transfer:' || v_key,0));
   select * into v_from from ciadi_ti.stock_movements where idempotency_key=v_key || ':out';
   select * into v_to from ciadi_ti.stock_movements where idempotency_key=v_key || ':in';
-  if found then
+  if v_from.id is not null or v_to.id is not null then
     if v_from.id is not null and v_to.id is not null
        and v_from.item_id=p_item_id and v_to.item_id=p_item_id
        and v_from.warehouse_id=p_from_warehouse_id and v_to.warehouse_id=p_to_warehouse_id
