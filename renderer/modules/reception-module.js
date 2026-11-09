@@ -172,6 +172,41 @@
     });
   }
 
+  function validateReceptionStockRequisitionInput(input = {}) {
+    const errors = [];
+    const poloCode = clean(input.poloCode, 32);
+    const warehouseId = clean(input.warehouseId, 128);
+    const costCenterId = clean(input.costCenterId, 128);
+    const purpose = clean(input.purpose, 1000);
+    const priority = clean(input.priority, 16);
+    const actorId = clean(input.actorId, 128);
+    if (!POLOS.includes(poloCode)) errors.push('Seleccione um polo CIADI válido.');
+    if (!warehouseId) errors.push('Armazém obrigatório.');
+    if (!costCenterId) errors.push('Centro de custo obrigatório.');
+    if (purpose.length < 10) errors.push('A finalidade da requisição deve ter pelo menos 10 caracteres.');
+    if (!['normal', 'alta', 'urgente'].includes(priority)) errors.push('Prioridade inválida.');
+    if (!actorId) errors.push('É necessária uma sessão autenticada.');
+    if (!Array.isArray(input.lines) || !input.lines.length) errors.push('Adicione pelo menos um artigo à requisição.');
+    const lines = [];
+    for (const line of Array.isArray(input.lines) ? input.lines : []) {
+      const itemId = clean(line?.itemId, 128);
+      const quantity = Number(line?.quantity);
+      const unitOfMeasure = clean(line?.unitOfMeasure, 40) || 'unidade';
+      if (!itemId) errors.push('Cada linha deve identificar um artigo do catálogo.');
+      if (!Number.isFinite(quantity) || quantity <= 0) errors.push('A quantidade requisitada deve ser superior a zero.');
+      else if (Math.abs(quantity * 1000 - Math.round(quantity * 1000)) > 0.000001) errors.push('As quantidades não podem exceder três casas decimais.');
+      lines.push({ itemId, quantity, unitOfMeasure, notes: clean(line?.notes, 500) || null });
+    }
+    return Object.freeze({
+      valid: errors.length === 0,
+      errors: Object.freeze(errors),
+      value: errors.length === 0 ? Object.freeze({
+        poloCode, warehouseId, costCenterId, purpose, priority, actorId,
+        lines: Object.freeze(lines.map(line => Object.freeze(line)))
+      }) : null
+    });
+  }
+
   function validateReceptionGoodsInput(input = {}) {
     const errors = [];
     const requestStatus = clean(input.requestStatus, 32);
@@ -258,6 +293,31 @@
       return key;
     }
     return Object.freeze({
+      async createStockRequisition(input = {}) {
+        ensureActor();
+        const validation = validateReceptionStockRequisitionInput({ ...input, actorId: actor, poloCode: polo });
+        if (!validation.valid) throw new Error(validation.errors.join(' '));
+        const value = validation.value;
+        return invoke('reception_create_stock_requisition', {
+          p_polo_code: value.poloCode,
+          p_warehouse_id: value.warehouseId,
+          p_cost_center_id: value.costCenterId,
+          p_purpose: value.purpose,
+          p_priority: value.priority,
+          p_idempotency_key: newKey(),
+          p_lines: value.lines.map(line => ({
+            item_id: line.itemId,
+            quantity_requested: line.quantity,
+            unit_of_measure: line.unitOfMeasure,
+            notes: line.notes
+          }))
+        });
+      },
+      async submitStockRequisition(requisitionId) {
+        const id = clean(requisitionId, 128);
+        if (!id) throw new Error('Identificador da requisição interna obrigatório.');
+        return invoke('reception_submit_stock_requisition', { p_requisition_id: id });
+      },
       async registerStockExit(input = {}) {
         ensureActor();
         const validation = validateReceptionStockExitInput({ ...input, actorId: actor });
@@ -1513,7 +1573,7 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput, validatePurchaseReceiptInput,
-    validateReceptionStockExitInput, validateReceptionGoodsInput, createReceptionProcurementService,
+    validateReceptionStockExitInput, validateReceptionStockRequisitionInput, validateReceptionGoodsInput, createReceptionProcurementService,
     buildReceptionInvoiceHtml, createReceptionInvoicePdfService,
     summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionDocumentHeader, create
   });
