@@ -834,7 +834,8 @@ test('recepção, conferência e entrada em stock seguem as três RPCs transacci
     }]
   });
   assert.equal(receipt.status, 'draft');
-  assert.equal(calls[0].method, 'create_goods_receipt');
+  assert.equal(calls[0].method, 'reception_create_goods_receipt');
+  assert.equal(calls[0].args.p_idempotency_key, calls[0].args.p_idempotency_key);
   assert.equal(calls[0].args.p_lines[0].purchase_request_line_id, 'line-1');
   await service.checkGoodsReceipt('receipt-1');
   await service.finalizeGoodsReceipt('receipt-1');
