@@ -1,0 +1,65 @@
+name: CIADI Setup Windows Validation
+
+on:
+  push:
+    branches: ['fix/ciadi-setup-four-profiles-20261029']
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-validation:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sincronizar Dashboard de origem
+        shell: pwsh
+        run: |
+          if (!(Test-Path "CIADI_DASHBOARD_FINANCEIRO.html")) {
+            throw "Falta o Dashboard de origem."
+          }
+          Copy-Item "CIADI_DASHBOARD_FINANCEIRO.html" "ciadi-windows/index.html" -Force
+
+      - name: Gerar ícone Windows a partir do logótipo incorporado
+        shell: pwsh
+        run: |
+          $html = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
+          $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
+          if (!$match.Success) { throw "Logótipo PNG não encontrado no Dashboard." }
+          $png = [Convert]::FromBase64String($match.Groups[1].Value)
+          $ico = New-Object byte[] (22 + $png.Length)
+          $ico[2] = 1
+          $ico[4] = 1
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]1), 0, $ico, 10, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt16]32), 0, $ico, 12, 2)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]$png.Length), 0, $ico, 14, 4)
+          [Buffer]::BlockCopy([BitConverter]::GetBytes([UInt32]22), 0, $ico, 18, 4)
+          [Buffer]::BlockCopy($png, 0, $ico, 22, $png.Length)
+          [IO.File]::WriteAllBytes("ciadi-windows/ciadi.ico", $ico)
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Testes estáticos dos quatro perfis
+        working-directory: ciadi-windows
+        run: node --test tests/setup-profiles.test.cjs
+
+      - name: Instalar dependências
+        working-directory: ciadi-windows
+        run: npm install --no-audit
+
+      - name: Compilar Setup.exe sem publicar release
+        working-directory: ciadi-windows
+        run: npm run dist:win
+
+      - name: Guardar Setup.exe para homologação
+        uses: actions/upload-artifact@v4
+        with:
+          name: CIADI-Setup-Validation
+          path: ciadi-windows/release/CIADI-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 14
