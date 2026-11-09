@@ -331,3 +331,22 @@ O módulo passou a reutilizar o serviço PDF nativo do CIADI Desktop para compor
 A exportação local só é permitida para documentos cujo estado central seja emitido e cujo estado fiscal seja emitido. A interface permite pré-visualizar rascunhos, mas não confunde a pré-visualização com emissão fiscal.
 
 **Limites ainda não homologados:** o servidor financeiro não fornece ainda um QR de autenticação verificável nem um arquivo central de PDF associado à factura. Quando o QR não está disponível, o documento declara essa ausência e não se apresenta como PDF oficial autenticado. A exportação actual grava uma cópia PDF local através do CIADI Desktop; não faz upload para o Supabase. A emissão/validação QR, hash, Storage e permissões devem ser tratados numa proposta de backend própria e aprovada, sem reutilizar a função documental do Suporte Informático nem contornar RLS.
+
+
+## Aprovisionamento integrado na Recepção
+
+O modelo funcional separa claramente:
+
+1. **Compra a fornecedor:** continua em purchase_requests / purchase_request_lines, com decisão financeira.
+2. **Requisição interna de stock:** novo fluxo próprio, por polo, armazém e centro de custo, com estados rascunho → submetida → aprovada/rejeitada → parcialmente satisfeita/satisfeita.
+3. **Recepção de mercadorias:** guia de recepção → conferência → finalização; apenas unidades aceites entram no stock. Danificadas e devolvidas ficam classificadas e rastreáveis.
+4. **Saídas de stock:** dois modos — requisição interna aprovada, ou saída directa com justificação obrigatória e registo de auditoria.
+5. **Devoluções:** devolução para stock (devolucao_entrada) ou ao fornecedor (devolucao_saida), com motivo obrigatório.
+6. **Transferências:** dois movimentos ligados (saída na origem e entrada no destino), limitadas ao mesmo polo na proposta.
+7. **Inventário físico:** contagem → conferência → reconciliação calculada no servidor.
+
+Todos os fluxos convergem para o razão existente ciadi_ti.stock_movements e para a vista stock_balances. A interface não altera saldos directamente nem duplica tabelas de stock.
+
+A proposta SQL correspondente está em supabase/proposals/ciadi-reception-stock-workflows-proposal.sql. É uma proposta não aplicada. Mantém as operações bloqueadas pelo predicado actual ciadi_ti.has_support_access() e revoga EXECUTE para todos os papéis até à fase própria de permissões. Assim, os adaptadores renderer já têm contratos definidos, mas não são considerados operacionais no Supabase remoto.
+
+A validação CI cobre os contratos e regras locais. Ainda faltam aplicar as propostas numa base de homologação, criar a interface transaccional completa, validar RLS/GRANTs e executar testes reais de ponta a ponta antes de qualquer disponibilização.
