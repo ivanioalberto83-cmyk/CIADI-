@@ -89,7 +89,7 @@ Funções existentes identificadas:
 - Facturação: ciadi_faturacao_criar_documento, ciadi_faturacao_calcular_documento, ciadi_faturacao_emitir_documento, ciadi_faturacao_anular_documento, ciadi_faturacao_transformar_documento.
 - Caixa/pagamento: ciadi_abrir_caixa, ciadi_fechar_caixa, ciadi_aprovar_fecho_caixa, ciadi_registar_movimento_caixa, ciadi_finance_integrar_pagamento, ciadi_finance_can.
 
-As tabelas financeiras consultadas têm RLS activo. Foram identificadas políticas de operador/staff e funções SECURITY DEFINER; a Recepção não deve chamar essas funções sem revisão da verificação interna de actor, acção, empresa, caixa, turno e idempotência. A emissão fiscal exige documento/cliente/série/empresa válidos. A homologação AGT continua a ser uma validação separada; a existência destas tabelas não certifica o software.
+As tabelas financeiras consultadas têm RLS activo. Foram identificadas políticas de operador/staff e funções SECURITY DEFINER. A função ciadi_faturacao_criar_documento exige is_staff(); a emissão também exige validação de documento/cliente/série/empresa. ciadi_finance_integrar_pagamento exige finance staff. As funções de caixa usam ciadi_finance_can com permissões por operador (abrir, fechar, receber, emitir recibo, estornar, reconciliar e aprovar), para além dos controlos de turno. A Recepção não deve contornar estas condições. A homologação AGT continua a ser uma validação separada; a existência destas tabelas não certifica o software.
 
 ### Aprovisionamento e stock existentes
 
@@ -100,7 +100,7 @@ O schema ciadi_ti já contém:
 - Compras/requisições: purchase_requests, purchase_request_lines, suppliers.
 - Auditoria: audit_events.
 
-Funções existentes: decide_purchase_request, post_stock_movement, transfer_stock. As tabelas de ciadi_ti têm RLS activo, com políticas de leitura/escrita associadas ao acesso de Suporte Informático; as três funções listadas são SECURITY DEFINER e exigem revisão antes de qualquer reutilização por Recepção.
+Funções existentes: decide_purchase_request, post_stock_movement, transfer_stock. As tabelas de ciadi_ti têm RLS activo, com políticas de leitura/escrita associadas ao acesso de Suporte Informático. decide_purchase_request exige perfil admin/gestor; post_stock_movement exige has_support_access(); estas operações não estão actualmente autorizadas ao perfil de Recepção. As três funções são SECURITY DEFINER e não devem ser chamadas como atalho de permissões.
 
 Limites identificados na estrutura actual:
 - purchase_requests não apresenta campos próprios de polo/centro de custo nem entidade de recepção de mercadorias.
@@ -136,7 +136,7 @@ Todos os documentos próprios da Recepção — comprovativos de atendimento, fe
 
 ## Fases seguintes
 
-1. Concluir revisão de segurança dos contratos existentes e mapear as acções exactas permitidas à Recepção.
+1. Concluir revisão de segurança dos contratos existentes e mapear as acções exactas permitidas à Recepção. A implementação do ecrã pode avançar com contratos/adaptadores, mas qualquer escrita que seja recusada pelas políticas actuais deve permanecer bloqueada até à fase de permissões.
 2. Implementar integração de leitura de catálogo/serviços, clientes, estado de documentos, caixa e requisições, com falha fechada se não houver autorização.
 3. Implementar criação/emissão de factura e pagamento somente depois de validar contratos, operador, empresa, série, caixa/turno e idempotência.
 4. Resolver a lacuna de polo/centro de custo e recepção de mercadorias no Aprovisionamento, primeiro por proposta técnica; não aplicar alterações remotas.
