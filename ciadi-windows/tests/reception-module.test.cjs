@@ -251,6 +251,10 @@ test('emite e selecciona a próxima senha por ordem de fila, ignorando estados t
     { id: 'closed', status: 'completed', ticket_number: 9, arrived_at: '2026-11-09T08:55:00Z' }
   ];
   assert.equal(reception.selectNextWaitingVisit(rows).id, 'first');
+  assert.equal(reception.selectNextWaitingVisit([
+    { id: 'talatona', status: 'waiting', polo_code: 'talatona', ticket_number: 2, arrived_at: '2026-11-09T09:02:00Z' },
+    { id: 'rosas', status: 'waiting', polo_code: 'jardim_de_rosas', ticket_number: 1, arrived_at: '2026-11-09T09:01:00Z' }
+  ]).id, 'rosas');
   assert.equal(reception.selectNextWaitingVisit([{ status: 'completed', ticket_number: 1 }]), null);
 });
 
