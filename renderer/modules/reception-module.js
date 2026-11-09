@@ -207,6 +207,54 @@
     });
   }
 
+  function validateReceptionStockReturnInput(input = {}) {
+    const errors = [];
+    const returnType = clean(input.returnType, 32);
+    const itemId = clean(input.itemId, 128);
+    const warehouseId = clean(input.warehouseId, 128);
+    const quantity = Number(input.quantity);
+    const reason = clean(input.reason, 1000);
+    const actorId = clean(input.actorId, 128);
+    if (!['devolucao_entrada', 'devolucao_saida'].includes(returnType)) errors.push('Seleccione o tipo de devolução.');
+    if (!itemId) errors.push('Artigo obrigatório.');
+    if (!warehouseId) errors.push('Armazém obrigatório.');
+    if (!Number.isFinite(quantity) || quantity <= 0) errors.push('A quantidade devolvida deve ser superior a zero.');
+    else if (Math.abs(quantity * 1000 - Math.round(quantity * 1000)) > 0.000001) errors.push('A quantidade não pode exceder três casas decimais.');
+    if (reason.length < 10) errors.push('O motivo da devolução deve ter pelo menos 10 caracteres.');
+    if (!actorId) errors.push('É necessária uma sessão autenticada.');
+    return Object.freeze({
+      valid: errors.length === 0,
+      errors: Object.freeze(errors),
+      value: errors.length === 0 ? Object.freeze({
+        returnType, itemId, warehouseId, quantity, reason,
+        reference: clean(input.reference, 100) || null
+      }) : null
+    });
+  }
+
+  function validateReceptionStockTransferInput(input = {}) {
+    const errors = [];
+    const itemId = clean(input.itemId, 128);
+    const fromWarehouseId = clean(input.fromWarehouseId, 128);
+    const toWarehouseId = clean(input.toWarehouseId, 128);
+    const quantity = Number(input.quantity);
+    if (!itemId) errors.push('Artigo obrigatório.');
+    if (!fromWarehouseId || !toWarehouseId) errors.push('Armazéns de origem e destino obrigatórios.');
+    if (fromWarehouseId && toWarehouseId && fromWarehouseId === toWarehouseId) errors.push('A origem e o destino têm de ser armazéns diferentes.');
+    if (!Number.isFinite(quantity) || quantity <= 0) errors.push('A quantidade transferida deve ser superior a zero.');
+    else if (Math.abs(quantity * 1000 - Math.round(quantity * 1000)) > 0.000001) errors.push('A quantidade não pode exceder três casas decimais.');
+    return Object.freeze({
+      valid: errors.length === 0,
+      errors: Object.freeze(errors),
+      value: errors.length === 0 ? Object.freeze({
+        itemId, fromWarehouseId, toWarehouseId, quantity,
+        reference: clean(input.reference, 100) || null,
+        notes: clean(input.notes, 1000) || null,
+        lotCode: clean(input.lotCode, 100) || null
+      }) : null
+    });
+  }
+
   function validateReceptionGoodsInput(input = {}) {
     const errors = [];
     const requestStatus = clean(input.requestStatus, 32);
@@ -332,6 +380,39 @@
           p_request_line_id: value.requestLineId,
           p_justification: value.justification,
           p_reference: value.reference,
+          p_idempotency_key: newKey(),
+          p_polo_code: polo
+        });
+      },
+      async registerStockReturn(input = {}) {
+        ensureActor();
+        const validation = validateReceptionStockReturnInput({ ...input, actorId: actor });
+        if (!validation.valid) throw new Error(validation.errors.join(' '));
+        const value = validation.value;
+        return invoke('reception_register_stock_return', {
+          p_item_id: value.itemId,
+          p_warehouse_id: value.warehouseId,
+          p_quantity: value.quantity,
+          p_return_type: value.returnType,
+          p_reason: value.reason,
+          p_reference: value.reference,
+          p_idempotency_key: newKey(),
+          p_polo_code: polo
+        });
+      },
+      async transferStock(input = {}) {
+        ensureActor();
+        const validation = validateReceptionStockTransferInput(input);
+        if (!validation.valid) throw new Error(validation.errors.join(' '));
+        const value = validation.value;
+        return invoke('reception_transfer_stock', {
+          p_item_id: value.itemId,
+          p_from_warehouse_id: value.fromWarehouseId,
+          p_to_warehouse_id: value.toWarehouseId,
+          p_quantity: value.quantity,
+          p_reference: value.reference,
+          p_notes: value.notes,
+          p_lot_code: value.lotCode,
           p_idempotency_key: newKey(),
           p_polo_code: polo
         });
@@ -1574,7 +1655,8 @@
   return Object.freeze({
     POLOS, VISIT_TYPES, VISIT_STATUSES, VISITOR_STATUSES, STATUS_LABELS, ROUTES,
     validateVisitInput, transitionVisitStatus, validateVisitorInput, validatePurchaseReceiptInput,
-    validateReceptionStockExitInput, validateReceptionStockRequisitionInput, validateReceptionGoodsInput, createReceptionProcurementService,
+    validateReceptionStockExitInput, validateReceptionStockRequisitionInput, validateReceptionStockReturnInput,
+    validateReceptionStockTransferInput, validateReceptionGoodsInput, createReceptionProcurementService,
     buildReceptionInvoiceHtml, createReceptionInvoicePdfService,
     summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionDocumentHeader, create
   });
