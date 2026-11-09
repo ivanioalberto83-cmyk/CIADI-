@@ -213,3 +213,45 @@ A proposta, ainda não aplicada, enriquece apenas estruturas existentes:
 - Os triggers de auditoria já existentes em `purchase_requests`, `purchase_request_lines` e `stock_movements` continuam a registar as alterações em `audit_events`.
 
 A proposta revoga EXECUTE para `public`, `anon` e `authenticated`; não cria policies nem grants. O predicado de acesso actual ainda não inclui o perfil Recepção. A inclusão desse perfil é uma decisão posterior de permissões, não está simulada nesta implementação.
+
+
+## Correcções e integração preparada — 09/11/2026
+
+### Encaminhamentos
+- A grelha da fila apresenta acções explícitas para confirmar a recepção pelo serviço de destino ou devolver o encaminhamento pendente.
+- A devolução exige motivo e usa a RPC `reception_return_referral`; a confirmação usa `reception_confirm_referral`.
+- A interface actualiza o painel apenas após a confirmação da operação no servidor.
+- TDD observado: o teste falhou antes da implementação (commit `bbace144dd160b0a319cd687aea141a368427275`); após a implementação, 167/167 testes passaram (commit `1ee00ef761a7787f6fd52ca6733fac58511f6f02`).
+
+### Adaptador do motor financeiro central
+Foi acrescentado `createReceptionFinanceRepository`, que prepara chamadas apenas aos contratos centrais existentes:
+- `ciadi_faturacao_criar_documento`
+- `ciadi_faturacao_calcular_documento`
+- `ciadi_faturacao_emitir_documento`
+- `finance_registar_pagamento`
+- `ciadi_abrir_caixa`
+- `ciadi_fechar_caixa`
+- `ciadi_registar_movimento_caixa`
+
+O adaptador valida campos e valores, transforma as linhas para o contrato SQL e propaga erros do motor. Não faz INSERT/UPDATE directo nas tabelas financeiras e não simula confirmação.
+
+### Bloqueio real de autorização confirmado no Supabase remoto (consulta read-only)
+- `public.is_staff()` reconhece perfis activos `admin` e `gestor`, ou profissional activo com `eh_at = true`. O perfil Recepção não está incluído.
+- `ciadi_faturacao_criar_documento` e `ciadi_faturacao_emitir_documento` exigem `is_staff()`.
+- `finance_pagamentos`, `finance_documentos`, `finance_documento_linhas` e movimentos de caixa têm políticas RLS associadas a `ciadi_finance_staff()`; não foi identificada policy específica de Recepção.
+- `ciadi_abrir_caixa` e `ciadi_fechar_caixa` dependem de `ciadi_finance_can()`, que reconhece staff financeiro ou operador activo com a capacidade correspondente.
+- A Recepção ainda não tem operador financeiro nem matriz de capacidades homologada.
+
+Consequência: o adaptador está preparado e testado, mas as operações de escrita não devem ser activadas para o perfil Recepção antes da fase de permissões. Não se deve contornar estas restrições através de chamadas directas ou de funções SECURITY DEFINER alternativas.
+
+### Pendências que permanecem
+1. Ligar o adaptador a formulários de facturação, pagamento e caixa, mantendo as acções bloqueadas até existir autorização server-side homologada.
+2. Concluir a recepção física de mercadorias na estação Recepção. As RPCs do ciclo completo de recepção do Aprovisionamento não foram confirmadas no Supabase remoto; a proposta existente permanece não aplicada e actualmente limita o acesso a `has_support_access()`.
+3. Integrar os modelos documentais finais e o fluxo oficial de PDF/QR. O cabeçalho com logótipo está disponível, mas não equivale à emissão/arquivo oficial.
+4. Executar homologação PostgreSQL isolada e testes ponta-a-ponta no projecto CIADI de teste.
+
+### Verificação desta correcção
+- Commit `387dd8e31fcf19115845fb4707d3f6b45dbe337d`.
+- CI Workstation Modules: sucesso, 169 testes aprovados, 0 falhas.
+- Validação da integração do Dashboard: sucesso.
+- Supabase remoto: apenas consultas SELECT/introspecção; sem DDL, DML, grants, policies, Storage ou deploy.
