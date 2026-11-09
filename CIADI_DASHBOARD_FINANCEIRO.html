@@ -26,14 +26,77 @@ function initSupabase(){
   return sb;
 }
 const JANETH_AVATAR_SVG=`<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="j" x1="0" x2="1"><stop stop-color="#f58200"/><stop offset="1" stop-color="#ffdf19"/></linearGradient></defs><circle cx="64" cy="64" r="62" fill="#fff7ed"/><circle cx="64" cy="57" r="34" fill="url(#j)"/><path d="M39 50c8-17 42-17 50 0" fill="none" stroke="#6f351f" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="61" r="4" fill="#6f351f"/><circle cx="76" cy="61" r="4" fill="#6f351f"/><path d="M52 75c8 7 16 7 24 0" fill="none" stroke="#6f351f" stroke-width="4" stroke-linecap="round"/><path d="M45 91c9-8 29-8 38 0" fill="#f58200"/></svg>`;
-const menu=[['overview','Visão geral'],['sos','🚨 Alertas SOS'],['pedidos_site','Pedidos de triagem (site)'],['agendamentos','Agendamentos Clínicos'],['financeiro','💰 Financeiro'],['faturacao','🧾 Faturação'],['caixa','💵 Caixa & Tesouraria'],['contabilidade','📊 Contabilidade'],['saft','📦 SAF-T(AO)'],['especialidades','Especialidades'],['triagens','Triagens'],['pacientes','Pacientes & famílias'],['profissionais','Profissionais'],['documentos','Documentos & Formulários Clínicos'],['familias','Portal & famílias'],['conteudos','Conteúdos do site'],['multimedia','Conteúdos Multimédia'],['marketing','Marketing Digital'],['janeth','Janeth'],['utilizadores','Utilizadores'],['instituicao','Instituição & redes'],['empresas','🏢 Empresas & Emitente'],['clinica','Clínica virtual'],['auditoria','Auditoria'],['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)']];
+const menu=[
+  ['overview','Visão geral','clinical'],
+  ['sos','🚨 Alertas SOS','clinical'],
+  ['pedidos_site','Pedidos de triagem (site)','clinical'],
+  ['agendamentos','Agendamentos Clínicos','clinical'],
+  ['especialidades','Especialidades','clinical'],
+  ['triagens','Triagens','clinical'],
+  ['pacientes','Pacientes & famílias','clinical'],
+  ['profissionais','Profissionais','clinical'],
+  ['documentos','Documentos & Formulários Clínicos','clinical'],
+  ['familias','Portal & famílias','clinical'],
+  ['clinica','Clínica virtual','clinical'],
+  ['acompanhantes_at','Acompanhantes Terapêuticos (A.T.)','clinical'],
+  ['financeiro','💰 Financeiro','admin'],
+  ['faturacao','🧾 Faturação','admin'],
+  ['clientes','Clientes','admin'],
+  ['fornecedores','Fornecedores','admin'],
+  ['caixa','💵 Caixa & Tesouraria','admin'],
+  ['contabilidade','📊 Contabilidade','admin'],
+  ['saft','📦 SAF-T(AO)','admin'],
+  ['rh','Recursos Humanos','admin'],
+  ['polos','Polos e acessos','admin'],
+  ['conteudos','Conteúdos do site','admin'],
+  ['multimedia','Conteúdos Multimédia','admin'],
+  ['marketing','Marketing Digital','admin'],
+  ['janeth','Janeth','admin'],
+  ['utilizadores','Utilizadores','admin'],
+  ['instituicao','Instituição & redes','admin'],
+  ['empresas','🏢 Empresas & Emitente','admin'],
+  ['auditoria','Auditoria','admin'],
+  ['agente','🤖 Agente CIADI — Suporte Informática','support']
+];
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),3000)}
-function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
-function visibleMenu(){ return menu.filter(([id])=> id!=='acompanhantes_at' || canAccessAT()); }
-function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(([id,n])=>`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`).join('')}
+function isGlobalAdmin(){ return ['admin','suporte_informatica'].includes(profile?.tipo); }
+function canAccessAT(){ return isGlobalAdmin() || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && !!me?.id); }
+function canUseAgent(){ return profile?.tipo==='suporte_informatica' && window.ciadiDesktop?.installProfile==='suporte_informatica'; }
+function visibleMenu(){
+  return menu.filter(([id])=>{
+    if(id==='agente') return canUseAgent();
+    if(id==='acompanhantes_at') return canAccessAT();
+    if(isGlobalAdmin()) return true;
+    if(profile?.tipo==='rh') return ['overview','rh','auditoria'].includes(id);
+    if(profile?.tipo==='rececao') return ['overview','pedidos_site','agendamentos','triagens','pacientes','profissionais','documentos'].includes(id);
+    if(profile?.tipo==='profissional') return ['overview','agendamentos','triagens','pacientes','profissionais','documentos','familias','clinica','acompanhantes_at'].includes(id);
+    return profile?.tipo==='gestor' ? id!=='agente' : ['overview'].includes(id);
+  });
+}
+function nav(){
+  const items=visibleMenu();
+  let previousGroup='';
+  document.getElementById('nav').innerHTML=items.map(([id,n,group])=>{
+    const heading=group!==previousGroup ? `<div class="px-3 pt-4 pb-2 text-[10px] uppercase tracking-widest font-black text-slate-400">${group==='clinical'?'Gestão Clínica':group==='admin'?'Gestão Administrativa':'Suporte Técnico'}</div>`:'';
+    previousGroup=group;
+    return heading+`<button onclick="go('${id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===id?'bg-orange/10 text-orange':''}">${n}</button>`;
+  }).join('');
+}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){
+  if(id==='agente'&&!canUseAgent()){toast('O agente é exclusivo do perfil Suporte Informática.');return;}
+  const allowed=visibleMenu().some(item=>item[0]===id);
+  if(!allowed){toast('Este perfil não tem acesso a este módulo.');return;}
+  current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>';
+  if(id==='agente')return agentPanel(); if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='clientes')return financeClients(); if(id==='fornecedores')return financeSuppliers(); if(id==='rh')return hrDashboard(); if(id==='polos')return polesAccess(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();
+}
+async function agentPanel(){
+  const c=document.getElementById('content');
+  if(!canUseAgent()){ c.innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
+  c.innerHTML=`<div class="card p-6 space-y-4"><div class="flex items-center gap-3"><div class="text-3xl">🤖</div><div><h2 class="text-2xl font-black">Agente de Execução CIADI</h2><p class="text-slate-500">Área reservada ao Suporte Informática.</p></div></div><div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><b>Execução ainda não ligada.</b><p class="mt-2 text-sm">O perfil de acesso está restrito, mas o serviço seguro de execução do agente ainda precisa de ser ligado a este Dashboard. Esta página não executa comandos nem altera dados.</p></div><div class="grid md:grid-cols-2 gap-3"><div class="border rounded-xl p-4"><b>Perfil de instalação</b><p class="mt-1 text-sm">${esc(window.ciadiDesktop?.installProfile||'web')}</p></div><div class="border rounded-xl p-4"><b>Perfil autenticado</b><p class="mt-1 text-sm">${esc(profile?.tipo||'desconhecido')}</p></div></div><p class="text-sm text-slate-500">Próxima fase: ligar o agente a um endpoint autenticado com autorização por função, auditoria de ações e aprovação explícita antes de alterações de produção.</p></div>`;
+}
+
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
   const isManager=['admin','gestor'].includes(profile?.tipo);
@@ -77,7 +140,7 @@ async function ensureATProfessional(profissionalId){
 }
 async function openATForm(tipo){
   if(!['admin','gestor'].includes(profile?.tipo) && !myOwnATAccess()) { toast('Acesso à área A.T. não autorizado.'); return; }
-  const [pRes,prRes]=await Promise.all([sb.from('pacientes').select('id,nome_completo').eq('ativo',true).order('nome_completo'),sb.from('profissionais').select('id,nome_completo,registro_profissional,eh_at,ativo').eq('ativo',true).order('nome_completo')]);
+  const [pRes,prRes]=await Promise.all([sb.from('finance_clientes').select('id,nome,nif,ativo').eq('ativo',true).order('nome'),sb.from('profissionais').select('id,nome_completo,registro_profissional,eh_at,ativo').eq('ativo',true).order('nome_completo')]);
   if(pRes.error||prRes.error)throw(pRes.error||prRes.error);
   const patients=pRes.data||[],pros=prRes.data||[];
   if(!patients.length){toast('Cadastre primeiro um paciente ativo.');return;}
@@ -135,7 +198,7 @@ async function siteTriageRequests(){
   await refresh();
 }
 async function sosAlerts(){
-  if(!['admin','gestor','operador'].includes(profile?.tipo)){
+  if(!['admin','gestor','operador','suporte_informatica'].includes(profile?.tipo)){
     document.getElementById('content').innerHTML='<div class="card p-6"><h2 class="text-xl font-black">Alertas SOS</h2><p class="mt-2 text-red-700">Acesso reservado à gestão autorizada.</p></div>';
     return;
   }
@@ -176,6 +239,16 @@ async function overview(){
   <div class="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">${[['Consultas',a,'agendamentos','📅'],['Pacientes',p,'pacientes','👨‍👩‍👧'],['Profissionais',pr,'profissionais','🩺'],['Triagens',t,'triagens','📝'],['Documentos',d,'documentos','📄'],['Materiais',m,'familias','🧩'],['Conteúdos',c,'conteudos','📢'],['Marketing',mk,'marketing','📣']].map(x=>`<button onclick="go('${x[2]}')" class="card p-5 text-left hover:-translate-y-1 transition"><div class="flex items-center justify-between"><span class="text-2xl">${x[3]}</span><span class="text-xs font-bold text-slate-400">ABRIR</span></div><div class="text-sm text-slate-500 mt-4">${x[0]}</div><div class="text-3xl font-black mt-1">${x[1]}</div></button>`).join('')}</div>
   <div id="financeOverviewStrip" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5"></div>
   <div class="grid lg:grid-cols-[1.4fr_.6fr] gap-5 mt-5"><div class="card p-6"><div class="flex justify-between items-center"><div><h3 class="font-black text-lg">Centro de Documentos</h3><p class="text-sm text-slate-500">Formulários inteligentes, emissão, assinatura, PDF e validação.</p></div><button onclick="go('documentos')" class="text-orange font-bold">Abrir →</button></div><div class="grid sm:grid-cols-4 gap-3 mt-5">${[['🧾','Receitas'],['📋','Guias'],['📑','Relatórios'],['🔐','Validação QR']].map(x=>`<div class="rounded-2xl bg-orange-50 p-4"><div class="text-xl">${x[0]}</div><div class="font-bold mt-2">${x[1]}</div></div>`).join('')}</div></div><div class="card p-6"><h3 class="font-black text-lg">Janeth</h3><div class="flex items-center gap-4 mt-4"><div class="w-16 h-16">${JANETH_AVATAR_SVG}</div><div><b>Assistente Virtual CIADI</b><p class="text-sm text-slate-500">Base oficial: ${378} conhecimentos.</p></div></div></div></div>`
+  try{
+    const {count:openSOS,error:sosError}=await sb.from('ciadi_sos_alertas').select('id',{count:'exact',head:true}).in('estado',['aberto','recebido','em_atendimento']);
+    const target=document.getElementById('content');
+    if(target){
+      const alertMarkup=sosError
+        ? '<button onclick="go(\'sos\')" class="card p-4 mb-5 w-full text-left border-amber-300"><b class="text-amber-800">🚨 Alertas SOS</b><div class="text-sm text-slate-600 mt-1">A central está disponível; a contagem requer leitura autorizada no Supabase.</div><span class="text-orange font-bold text-sm">Abrir central →</span></button>'
+        : '<button onclick="go(\'sos\')" class="card p-4 mb-5 w-full text-left border-red-200"><div class="flex items-center justify-between gap-3"><div><b class="text-red-700">🚨 Alertas SOS</b><div class="text-sm text-slate-600 mt-1">Alertas por atender na central CIADI+.</div></div><div class="text-3xl font-black text-red-700">'+Number(openSOS||0)+'</div></div><span class="text-orange font-bold text-sm">Abrir central →</span></button>';
+      target.insertAdjacentHTML('afterbegin',alertMarkup);
+    }
+  }catch(sosErr){console.warn('Resumo SOS indisponível',sosErr)}
   try{const {data}=await sb.from('v_ciadi_financeiro_resumo').select('*').maybeSingle();const x=data||{};document.getElementById('financeOverviewStrip').innerHTML=[['💰','Facturação do mês',money(x.faturacao_mes),'financeiro'],['💳','Recebido no mês',money(x.recebido_mes),'faturacao'],['📅','Consultas hoje',x.consultas_realizadas_dia||0,'agendamentos'],['🧾','Consultas facturadas',x.consultas_faturadas_dia||0,'faturacao']].map(k=>`<button onclick="go('${k[3]}')" class="card p-5 text-left"><div class="text-2xl">${k[0]}</div><div class="text-sm text-slate-500 mt-2">${k[1]}</div><div class="text-xl font-black mt-1">${k[2]}</div></button>`).join('')}catch(e){console.warn('Finance overview',e)}
 }
 function tablePage(title,desc,html){document.getElementById('content').innerHTML=`<div class="mb-5"><h2 class="text-3xl font-black">${title}</h2><p class="text-slate-500">${desc}</p></div>${html}`}
@@ -286,7 +359,7 @@ async function newFinanceInvoice(){
     ]);
     if(pa.error)throw pa.error;if(ser.error)throw ser.error;if(sv.error)throw sv.error;if(docs.error)throw docs.error;if(em.error)throw em.error;
     const services=sv.data||[], series=ser.data||[];
-    const body=`<div id="a4Generator" class="grid xl:grid-cols-[390px_1fr] gap-6"><div class="space-y-4"><div class="rounded-2xl bg-orange-50 p-4"><div class="font-black text-orange">Gerador visual A4</div><div class="text-sm text-slate-600">Preencha os dados e veja o documento em tempo real antes de emitir.</div></div><div class="grid grid-cols-2 gap-3">${selectField('tipo_documento','Tipo',['FT','FR','NC','ND','RC'].map(x=>({value:x,label:x+' · '+invoiceTypeLabel(x)})),'FT',true)}${selectField('serie_id','Série',series.map(x=>({value:x.id,label:x.codigo+' · '+(x.nome||'')})),series[0]?.id||'',true)}</div>${selectField('paciente_id','Paciente / Cliente',pa.data.map(x=>({value:x.id,label:x.nome_completo})),'',true)}${selectField('servico_id','Serviço',services.map(x=>({value:x.id,label:x.nome+' · '+money(x.preco_base)})),services[0]?.id||'',true)}<div class="grid grid-cols-2 gap-3">${inputField('quantidade','Quantidade','1','number',true,'min="0.001" step="0.001"')}${inputField('preco_unitario','Preço unitário',services[0]?.preco_base||0,'number',true,'min="0" step="0.01"')}${inputField('taxa_imposto','Taxa de imposto',services[0]?.taxa_imposto||0,'number',false,'min="0" step="0.01"')}${inputField('desconto','Desconto','0','number',false,'min="0" step="0.01"')}</div><div class="grid grid-cols-2 gap-3">${inputField('data_operacao','Data da operação',invoiceDateValue(),'date',true)}${inputField('data_vencimento','Vencimento','','date',false)}</div>${selectField('forma_pagamento','Forma de pagamento',['numerario','tpa','transferencia','multicaixa','referencia','outro'].map(x=>({value:x,label:x.replace('_',' ')})),'') }<div id="originWrap" class="hidden">${selectField('documento_origem_id','Documento de origem',docs.data.map(x=>({value:x.id,label:x.document_no+' · '+invoiceTypeLabel(x.tipo_documento)+' · '+money(x.total)})),'',false)}</div>${textareaField('descricao','Descrição do serviço','Serviço clínico CIADI',true)}${textareaField('observacoes','Observações','',true)}<div id="a4Summary" class="rounded-2xl bg-slate-50 p-4 space-y-2 text-sm"></div><div class="flex flex-wrap gap-2"><button type="button" onclick="updateA4Generator()" class="border rounded-xl px-4 py-2">Actualizar A4</button><button type="button" onclick="validateA4Draft()" class="border rounded-xl px-4 py-2">✓ Validar</button><button type="button" onclick="emitA4Document()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Emitir documento</button></div></div><div><div class="flex items-center justify-between mb-3"><div><b>Pré-visualização A4</b><div class="text-xs text-slate-500">Formato profissional CIADI · pronto para impressão</div></div><button type="button" onclick="printA4Generator()" class="border rounded-xl px-4 py-2 font-bold">Imprimir / Guardar PDF</button></div><div id="a4LivePreview" class="bg-slate-100 p-3 md:p-6 rounded-2xl overflow-auto"></div></div></div>`;
+    const body=`<div id="a4Generator" class="grid xl:grid-cols-[390px_1fr] gap-6"><div class="space-y-4"><div class="rounded-2xl bg-orange-50 p-4"><div class="font-black text-orange">Gerador visual A4</div><div class="text-sm text-slate-600">Preencha os dados e veja o documento em tempo real antes de emitir.</div></div><div class="grid grid-cols-2 gap-3">${selectField('tipo_documento','Tipo',['FT','FR','NC','ND','RC'].map(x=>({value:x,label:x+' · '+invoiceTypeLabel(x)})),'FT',true)}${selectField('serie_id','Série',series.map(x=>({value:x.id,label:x.codigo+' · '+(x.nome||'')})),series[0]?.id||'',true)}</div>${selectField('paciente_id','Paciente / Cliente',pa.data.map(x=>({value:x.id,label:x.nome+(x.nif?' · NIF '+x.nif:'')})),'',true)}${selectField('servico_id','Serviço',services.map(x=>({value:x.id,label:x.nome+' · '+money(x.preco_base)})),services[0]?.id||'',true)}<div class="grid grid-cols-2 gap-3">${inputField('quantidade','Quantidade','1','number',true,'min="0.001" step="0.001"')}${inputField('preco_unitario','Preço unitário',services[0]?.preco_base||0,'number',true,'min="0" step="0.01"')}${inputField('taxa_imposto','Taxa de imposto',services[0]?.taxa_imposto||0,'number',false,'min="0" step="0.01"')}${inputField('desconto','Desconto','0','number',false,'min="0" step="0.01"')}</div><div class="grid grid-cols-2 gap-3">${inputField('data_operacao','Data da operação',invoiceDateValue(),'date',true)}${inputField('data_vencimento','Vencimento','','date',false)}</div>${selectField('forma_pagamento','Forma de pagamento',['numerario','tpa','transferencia','multicaixa','referencia','outro'].map(x=>({value:x,label:x.replace('_',' ')})),'') }<div id="originWrap" class="hidden">${selectField('documento_origem_id','Documento de origem',docs.data.map(x=>({value:x.id,label:x.document_no+' · '+invoiceTypeLabel(x.tipo_documento)+' · '+money(x.total)})),'',false)}</div>${textareaField('descricao','Descrição do serviço','Serviço clínico CIADI',true)}${textareaField('observacoes','Observações','',true)}<div id="a4Summary" class="rounded-2xl bg-slate-50 p-4 space-y-2 text-sm"></div><div class="flex flex-wrap gap-2"><button type="button" onclick="updateA4Generator()" class="border rounded-xl px-4 py-2">Actualizar A4</button><button type="button" onclick="validateA4Draft()" class="border rounded-xl px-4 py-2">✓ Validar</button><button type="button" onclick="emitA4Document()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Emitir documento</button></div></div><div><div class="flex items-center justify-between mb-3"><div><b>Pré-visualização A4</b><div class="text-xs text-slate-500">Formato profissional CIADI · pronto para impressão</div></div><button type="button" onclick="printA4Generator()" class="border rounded-xl px-4 py-2 font-bold">Imprimir / Guardar PDF</button></div><div id="a4LivePreview" class="bg-slate-100 p-3 md:p-6 rounded-2xl overflow-auto"></div></div></div>`;
     window.ciadiA4Emitter=em.data||{};openModal('Novo documento fiscal — Gerador A4',body);document.querySelector('#ciadiModal>div').classList.remove('max-w-3xl');document.querySelector('#ciadiModal>div').classList.add('max-w-[1400px]');
     const f=document.getElementById('a4Generator');
     f.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',()=>{if(el.name==='servico_id'){const x=services.find(s=>s.id===el.value);if(x){f.querySelector('[name="preco_unitario"]').value=x.preco_base||0;f.querySelector('[name="taxa_imposto"]').value=x.taxa_imposto||0;}}updateA4Generator()}));
@@ -295,7 +368,25 @@ async function newFinanceInvoice(){
   }catch(e){toast(e?.message||'Não foi possível abrir o gerador A4.')}
 }
 async function collectA4Draft(){
-  const f=document.getElementById('a4Generator');if(!f)throw new Error('Gerador A4 não está aberto.');const fd=new FormData(f);const type=fd.get('tipo_documento'),sid=fd.get('serie_id'),pid=fd.get('paciente_id'),serviceId=fd.get('servico_id');if(!type||!sid||!pid)throw new Error('Preencha tipo, série e cliente.');if(invoiceIsAdjustment(type)&&!fd.get('documento_origem_id'))throw new Error('Notas de Crédito/Débito exigem documento de origem.');const q=Number(fd.get('quantidade')),price=Number(fd.get('preco_unitario')),rate=Number(fd.get('taxa_imposto')||0),discount=Number(fd.get('desconto')||0);if(q<=0||price<0)throw new Error('Quantidade/preço inválidos.');const calc=calcInvoiceLine(q,price,rate,discount);const [{data:pac,error:pe},{data:cli,error:ce},{data:se,error:seErr},{data:sv,error:svErr},{data:em,error:ee}]=await Promise.all([sb.from('pacientes').select('*').eq('id',pid).single(),sb.from('finance_clientes').select('*').eq('paciente_id',pid).maybeSingle(),sb.from('finance_series').select('*').eq('id',sid).single(),sb.from('finance_servicos').select('*').eq('id',serviceId).single(),sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle()]);if(pe)throw pe;if(seErr)throw seErr;if(svErr)throw svErr;if(ee)throw ee;return {fd,type,sid,pid,serviceId,q,price,rate,discount,calc,pac,cli,se,sv,em:em||{},descricao:fd.get('descricao')||sv.nome,observacoes:fd.get('observacoes')||'',forma_pagamento:fd.get('forma_pagamento')||null,data_operacao:fd.get('data_operacao')||invoiceDateValue(),data_vencimento:fd.get('data_vencimento')||null,documento_origem_id:fd.get('documento_origem_id')||null};
+  const f=document.getElementById('a4Generator');if(!f)throw new Error('Gerador A4 não está aberto.');
+  const fd=new FormData(f),type=fd.get('tipo_documento'),sid=fd.get('serie_id'),clientId=fd.get('paciente_id'),serviceId=fd.get('servico_id');
+  if(!type||!sid||!clientId)throw new Error('Preencha tipo, série e cliente.');
+  if(invoiceIsAdjustment(type)&&!fd.get('documento_origem_id'))throw new Error('Notas de Crédito/Débito exigem documento de origem.');
+  const q=Number(fd.get('quantidade')),price=Number(fd.get('preco_unitario')),rate=Number(fd.get('taxa_imposto')||0),discount=Number(fd.get('desconto')||0);
+  if(q<=0||price<0)throw new Error('Quantidade/preço inválidos.');
+  const calc=calcInvoiceLine(q,price,rate,discount);
+  const [{data:cli,error:ce},{data:se,error:seErr},{data:sv,error:svErr},{data:em,error:ee}]=await Promise.all([
+    sb.from('finance_clientes').select('*').eq('id',clientId).single(),
+    sb.from('finance_series').select('*').eq('id',sid).single(),
+    sb.from('finance_servicos').select('*').eq('id',serviceId).single(),
+    sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle()
+  ]);
+  if(ce)throw ce;if(seErr)throw seErr;if(svErr)throw svErr;if(ee)throw ee;
+  if(!cli)throw new Error('Cliente não encontrado.');
+  let pac=null;
+  if(cli.paciente_id){const p=await sb.from('pacientes').select('*').eq('id',cli.paciente_id).maybeSingle();if(p.error)throw p.error;pac=p.data;}
+  if(!pac)pac={id:null,nome_completo:cli.nome,nome_responsavel:null,email:cli.email||null,telefone:cli.telefone||null,endereco:cli.endereco||null};
+  return {fd,type,sid,pid:cli.paciente_id||null,serviceId,q,price,rate,discount,calc,pac,cli,se,sv,em:em||{},descricao:fd.get('descricao')||sv.nome,observacoes:fd.get('observacoes')||'',forma_pagamento:fd.get('forma_pagamento')||null,data_operacao:fd.get('data_operacao')||invoiceDateValue(),data_vencimento:fd.get('data_vencimento')||null,documento_origem_id:fd.get('documento_origem_id')||null};
 }
 async function validateA4Draft(){try{const x=await collectA4Draft();const issues=[];if(!x.em.nif)issues.push('NIF do emitente não configurado.');if(!x.cli?.id)issues.push('Cliente financeiro ainda não está criado para este paciente.');if(!x.pac.nome_completo)issues.push('Paciente sem nome.');if(x.calc.total<=0)issues.push('Total deve ser superior a zero.');if(issues.length){toast('Validação: '+issues.join(' '));return false}toast('Pré-validação A4 concluída sem erros básicos.');return true}catch(e){toast(e.message);return false}}
 async function emitA4Document(){
@@ -666,7 +757,153 @@ async function janeth(){try{const {data,error}=await sb.from('ciadi_conhecimento
 async function newKnowledge(){await modal('Novo conhecimento Janeth',`<div class="grid md:grid-cols-2 gap-4">${inputField('area','Área','', 'text',true)}${inputField('titulo','Título','', 'text',true)}${inputField('nivel','Nível','normal')}${textareaField('conteudo','Conteúdo','',true)}${inputField('palavras_chave','Palavras-chave (separadas por vírgula)') }<label class="flex items-center gap-2"><input type="checkbox" name="ativo" checked> Activo</label></div>`,async fd=>{const row={area:fd.get('area'),titulo:fd.get('titulo'),conteudo:fd.get('conteudo'),nivel:fd.get('nivel')||'normal',palavras_chave:(fd.get('palavras_chave')||'').split(',').map(x=>x.trim()).filter(Boolean),ativo:fd.get('ativo')==='on'};const {data,error}=await sb.from('ciadi_conhecimentos').insert(row).select().single();if(error)throw error;await audit('INSERT','ciadi_conhecimentos',data.id,row);toast('Conhecimento criado.');janeth()})}
 async function editKnowledge(r){await modal('Editar conhecimento Janeth',`<div class="grid md:grid-cols-2 gap-4">${inputField('area','Área',r.area||'','text',true)}${inputField('titulo','Título',r.titulo||'','text',true)}${inputField('nivel','Nível',r.nivel||'normal')}${textareaField('conteudo','Conteúdo',r.conteudo||'',true)}${inputField('palavras_chave','Palavras-chave (separadas por vírgula)',Array.isArray(r.palavras_chave)?r.palavras_chave.join(', '):r.palavras_chave||'')}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={area:fd.get('area'),titulo:fd.get('titulo'),conteudo:fd.get('conteudo'),nivel:fd.get('nivel')||'normal',palavras_chave:(fd.get('palavras_chave')||'').split(',').map(x=>x.trim()).filter(Boolean),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('ciadi_conhecimentos').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','ciadi_conhecimentos',r.id,patch);toast('Conhecimento actualizado.');janeth()})}
 async function users(){try{const {data,error}=await sb.from('perfis').select('*').order('created_at',{ascending:false});if(error)throw error;tablePage('Utilizadores','Perfis de acesso existentes no CIADI.',`<div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Nome</th><th>Email</th><th>Tipo</th><th>Telefone</th><th>Estado</th><th>Acções</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4">${esc(r.nome_exibicao||r.nome_completo)}</td><td>${esc(r.email)}</td><td>${esc(r.tipo)}</td><td>${esc(r.telefone)}</td><td>${r.ativo?'Activo':'Inactivo'}</td><td><button class="border rounded-lg px-2 py-1" onclick='editUser(${JSON.stringify(r).replace(/'/g,'&#39;')})'>Editar</button></td></tr>`).join('')}</tbody></table></div>`)}catch(e){sectionError('Utilizadores',e)}}
-async function editUser(r){await modal('Editar utilizador',`<div class="grid md:grid-cols-2 gap-4">${inputField('nome_completo','Nome completo',r.nome_completo||'','text',true)}${inputField('nome_exibicao','Nome de exibição',r.nome_exibicao||'')}${inputField('email','Email',r.email||'','email')}${inputField('telefone','Telefone',r.telefone||'')}${selectField('tipo','Tipo',['admin','gestor','profissional','paciente','responsavel'].map(x=>({value:x,label:x})),r.tipo,true)}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={nome_completo:fd.get('nome_completo'),nome_exibicao:fd.get('nome_exibicao')||null,email:fd.get('email')||null,telefone:fd.get('telefone')||null,tipo:fd.get('tipo'),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('perfis').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','perfis',r.id,patch);toast('Utilizador actualizado.');users()})}
+async function editUser(r){await modal('Editar utilizador',`<div class="grid md:grid-cols-2 gap-4">${inputField('nome_completo','Nome completo',r.nome_completo||'','text',true)}${inputField('nome_exibicao','Nome de exibição',r.nome_exibicao||'')}${inputField('email','Email',r.email||'','email')}${inputField('telefone','Telefone',r.telefone||'')}${selectField('tipo','Tipo',['admin','gestor','profissional','paciente','responsavel','suporte_informatica'].map(x=>({value:x,label:x==='suporte_informatica'?'Suporte Informática':x})),r.tipo,true)}<label class="flex items-center gap-2"><input type="checkbox" name="ativo" ${r.ativo?'checked':''}> Activo</label></div>`,async fd=>{const patch={nome_completo:fd.get('nome_completo'),nome_exibicao:fd.get('nome_exibicao')||null,email:fd.get('email')||null,telefone:fd.get('telefone')||null,tipo:fd.get('tipo'),ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};const {error}=await sb.from('perfis').update(patch).eq('id',r.id);if(error)throw error;await audit('UPDATE','perfis',r.id,patch);toast('Utilizador actualizado.');users()})}
+
+async function financeClients(){
+  try{
+    const {data,error}=await sb.from('finance_clientes').select('*').order('nome');
+    if(error)throw error;
+    tablePage('Clientes','Cadastro financeiro de clientes/entidades. Os registos são guardados em finance_clientes e podem ser associados a um assistido para faturação.',`<div class="flex flex-wrap justify-between gap-3 mb-4"><p class="text-sm text-slate-500">Registe NIF, contactos e moradas antes de emitir documentos.</p><button onclick="financeClientModal(null)" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Cadastrar cliente</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Nome</th><th>NIF</th><th>Tipo</th><th>Telefone</th><th>Email</th><th>Estado</th><th>Acções</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4 font-semibold">${esc(r.nome)}<div class="text-xs text-slate-500">${esc(r.nome_comercial||'')}</div></td><td>${esc(r.nif||'—')}</td><td>${esc(r.tipo||'particular')}</td><td>${esc(r.telefone||'—')}</td><td>${esc(r.email||'—')}</td><td>${r.ativo?'Activo':'Inactivo'}</td><td><button class="border rounded-lg px-3 py-1" onclick='financeClientModal(${JSON.stringify(r).replace(/'/g,"&#39;")})'>Editar</button></td></tr>`).join('')}</tbody></table></div>`);
+  }catch(e){sectionError('Clientes',e)}
+}
+async function financeClientModal(r){
+  try{
+    const {data:companies,error:companyError}=await sb.from('finance_empresas').select('id,razao_social').eq('ativo',true).order('razao_social');
+    if(companyError)throw companyError;
+    const x=r||{};
+    await modal(r?'Editar cliente':'Cadastrar cliente',`<div class="grid md:grid-cols-2 gap-4">${inputField('nome','Nome / Razão social',x.nome||'','text',true)}${inputField('nome_comercial','Nome comercial',x.nome_comercial||'')}${inputField('nif','NIF',x.nif||'')}${selectField('tipo','Tipo de cliente',[{value:'particular',label:'Particular'},{value:'empresa',label:'Empresa'},{value:'seguradora',label:'Seguradora'},{value:'outro',label:'Outro'}],x.tipo||'particular',true)}${inputField('email','Email',x.email||'','email')}${inputField('telefone','Telefone',x.telefone||'')}${inputField('whatsapp','WhatsApp',x.whatsapp||'')}${inputField('contacto_principal','Contacto principal',x.contacto_principal||'')}${inputField('endereco','Morada',x.endereco||'')}${inputField('bairro','Bairro',x.bairro||'')}${inputField('municipio','Município',x.municipio||x.cidade||'')}${inputField('provincia','Província',x.provincia||'')}${inputField('codigo_postal','Código postal',x.codigo_postal||'')}${inputField('pais','País',x.pais||'AO')}${selectField('empresa_id','Empresa CIADI',[{value:'',label:'Sem empresa associada'},...(companies||[]).map(c=>({value:c.id,label:c.razao_social}))],x.empresa_id||'')}${textareaField('observacoes','Observações',x.observacoes||'',true)}</div><label class="flex items-center gap-2 mt-4"><input type="checkbox" name="ativo" ${x.ativo===false?'':'checked'}> Cliente activo</label>`,async fd=>{
+      const row={nome:String(fd.get('nome')||'').trim(),nome_comercial:fd.get('nome_comercial')||null,nif:fd.get('nif')||null,tipo:fd.get('tipo')||'particular',email:fd.get('email')||null,telefone:fd.get('telefone')||null,whatsapp:fd.get('whatsapp')||null,contacto_principal:fd.get('contacto_principal')||null,endereco:fd.get('endereco')||null,bairro:fd.get('bairro')||null,municipio:fd.get('municipio')||null,cidade:fd.get('municipio')||null,provincia:fd.get('provincia')||null,codigo_postal:fd.get('codigo_postal')||null,pais:fd.get('pais')||'AO',empresa_id:fd.get('empresa_id')||null,observacoes:fd.get('observacoes')||null,ativo:fd.get('ativo')==='on',updated_at:new Date().toISOString()};
+      if(!row.nome)throw new Error('O nome/razão social é obrigatório.');
+      let q=r?.id?await sb.from('finance_clientes').update(row).eq('id',r.id).select().single():await sb.from('finance_clientes').insert(row).select().single();
+      if(q.error)throw q.error;
+      await audit(r?'UPDATE':'INSERT','finance_clientes',q.data.id,{nome:row.nome,nif:row.nif});
+      toast(r?'Cliente actualizado.':'Cliente gravado com sucesso.');closeModal();financeClients();
+    });
+  }catch(e){toast(e?.message||'Não foi possível abrir o cadastro do cliente.')}
+}
+async function financeSuppliers(){
+  const c=document.getElementById('content');
+  try{
+    const {data,error}=await sb.from('finance_fornecedores').select('*').order('nome');
+    if(error)throw error;
+    tablePage('Fornecedores','Cadastro de fornecedores CIADI.',`<div class="flex justify-end mb-4"><button onclick="financeSupplierModal(null)" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Cadastrar fornecedor</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Fornecedor</th><th>NIF</th><th>Contacto</th><th>Email</th><th>Estado</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4">${esc(r.nome)}</td><td>${esc(r.nif||'—')}</td><td>${esc(r.telefone||'—')}</td><td>${esc(r.email||'—')}</td><td>${r.ativo?'Activo':'Inactivo'}</td></tr>`).join('')}</tbody></table></div>`);
+  }catch(e){
+    c.innerHTML=`<div class="card p-6 space-y-3"><h2 class="text-2xl font-black">Fornecedores</h2><p class="text-red-700 font-semibold">O esquema consultado ainda não contém a tabela finance_fornecedores. Por segurança, não vou gravar fornecedores como despesas nem criar uma estrutura de produção sem migração revista.</p><p class="text-sm text-slate-600">A estrutura própria e as políticas RLS têm de ser preparadas e validadas no ramo de homologação antes de activar este cadastro.</p><div class="text-xs text-slate-500">${esc(e?.message||'Tabela indisponível')}</div></div>`;
+  }
+}
+async function financeSupplierModal(){toast('Cadastro de fornecedores aguarda a tabela e as políticas RLS de homologação.');}
+async function polesAccess(){
+  document.getElementById('content').innerHTML=`<div class="card p-6 space-y-4"><h2 class="text-2xl font-black">Polos e acessos</h2><p class="text-slate-600">O ADM e o Suporte Informática têm de gerir todos os polos sem escolher um polo como limite de acesso. O polo seleccionado no instalador não substitui autorização no servidor.</p><div class="rounded-xl border border-amber-300 bg-amber-50 p-4"><b>Estrutura de acessos ainda não aplicada.</b><p class="mt-2 text-sm">A auditoria de esquema não encontrou uma tabela de atribuições explícitas por polo. Esta vista não cria permissões locais nem altera RLS. A associação por polo precisa de migração e políticas verificadas.</p></div><div class="grid md:grid-cols-2 gap-3"><div class="border rounded-xl p-4"><b>ADM</b><p class="text-sm text-slate-600 mt-1">Acesso global a todos os polos e módulos.</p></div><div class="border rounded-xl p-4"><b>Suporte Informática</b><p class="text-sm text-slate-600 mt-1">Acesso global de suporte; agente exclusivo deste perfil.</p></div><div class="border rounded-xl p-4"><b>Polo 001 / Polo 002</b><p class="text-sm text-slate-600 mt-1">A restrição por polo só será efectiva quando a atribuição e as políticas do servidor estiverem implementadas.</p></div></div></div>`;
+}
+async function hrDashboard(){
+  const c=document.getElementById('content');
+  c.innerHTML=`<div class="space-y-5"><div class="card p-6"><h2 class="text-2xl font-black">Recursos Humanos</h2><p class="text-slate-600 mt-1">Trabalhadores, contratos e documentos ficam agrupados aqui. A Folha Salarial deixa de aparecer como item independente na navegação principal.</p><div class="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-5"><button onclick="hrEmployees()" class="border rounded-xl p-4 text-left"><b>👥 Trabalhadores</b><p class="text-sm text-slate-500 mt-1">Cadastro e vínculo laboral</p></button><button onclick="hrContracts()" class="border rounded-xl p-4 text-left"><b>📄 Contratos</b><p class="text-sm text-slate-500 mt-1">Criar e imprimir contratos</p></button><button onclick="hrDocuments()" class="border rounded-xl p-4 text-left"><b>🗂️ Documentos RH</b><p class="text-sm text-slate-500 mt-1">Documentos e comprovativos</p></button><button onclick="hrPayrolls()" class="border rounded-xl p-4 text-left"><b>💵 Folha Salarial</b><p class="text-sm text-slate-500 mt-1">Processar, rever, imprimir e pagar</p></button></div></div></div>`;
+}
+async function hrEmployees(){
+  try{
+    const {data,error}=await sb.from('ciadi_funcionarios').select('*,profissionais(id,nome_completo,email_profissional,telefone_profissional)').order('created_at',{ascending:false});
+    if(error)throw error;
+    tablePage('RH · Trabalhadores','Cadastro laboral associado a um registo profissional. Para evitar duplicados, cada trabalhador tem de estar ligado a um profissional.',`<div class="flex justify-end mb-4"><button onclick="hrNewEmployee()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Cadastrar trabalhador</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Trabalhador</th><th>Código</th><th>Cargo / Departamento</th><th>Vínculo</th><th>Admissão</th><th>Estado</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4 font-semibold">${esc(r.profissionais?.nome_completo||'Profissional não encontrado')}<div class="text-xs text-slate-500">${esc(r.email_corporativo||r.profissionais?.email_profissional||'')}</div></td><td>${esc(r.codigo_funcionario||r.matricula_interna||'—')}</td><td>${esc(r.cargo||'—')}<div class="text-xs text-slate-500">${esc(r.departamento||'')}</div></td><td>${esc(r.tipo_vinculo||'—')}</td><td>${esc(r.data_admissao||'—')}</td><td>${esc(r.estado||'—')}</td></tr>`).join('')}</tbody></table></div>`);
+  }catch(e){sectionError('RH · Trabalhadores',e)}
+}
+async function hrNewEmployee(){
+  try{
+    const {data:pros,error}=await sb.from('profissionais').select('id,nome_completo,email_profissional,telefone_profissional,ativo').eq('ativo',true).order('nome_completo');
+    if(error)throw error;
+    await modal('Cadastrar trabalhador',`<div class="grid md:grid-cols-2 gap-4">${selectField('profissional_id','Profissional associado',(pros||[]).map(p=>({value:p.id,label:p.nome_completo+' · '+(p.email_profissional||'sem email')})),'',true)}${inputField('codigo_funcionario','Código do trabalhador')}${inputField('matricula_interna','Matrícula interna')}${inputField('cargo','Cargo')}${inputField('departamento','Departamento')}${inputField('unidade_local','Unidade / Polo')}${selectField('tipo_vinculo','Tipo de vínculo',[['efetivo','Efetivo'],['contrato','Contrato'],['prestador','Prestador'],['estagio','Estágio'],['voluntario','Voluntário'],['temporario','Temporário'],['outro','Outro']].map(([value,label])=>({value,label})),'contrato',true)}${inputField('data_admissao','Data de admissão',new Date().toISOString().slice(0,10),'date')}${inputField('data_inicio_funcoes','Início de funções',new Date().toISOString().slice(0,10),'date')}${selectField('regime_trabalho','Regime',[['integral','Integral'],['parcial','Parcial'],['turnos','Turnos'],['flexivel','Flexível'],['remoto','Remoto'],['hibrido','Híbrido'],['outro','Outro']].map(([value,label])=>({value,label})),'integral')}${inputField('carga_horaria_semanal','Carga horária semanal','40','number')}${inputField('email_corporativo','Email corporativo','','email')}${inputField('telefone_corporativo','Telefone corporativo')}${inputField('salario_referencia','Salário de referência (Kz)','','number',false,'min="0" step="0.01"')}${textareaField('observacoes_internas','Observações','',true)}</div>`,async fd=>{
+      const pid=fd.get('profissional_id');if(!pid)throw new Error('Seleccione um profissional.');
+      const {data:company,error:companyError}=await sb.from('finance_empresas').select('id').eq('ativo',true).eq('empresa_principal',true).maybeSingle();if(companyError)throw companyError;
+      const row={profissional_id:pid,codigo_funcionario:fd.get('codigo_funcionario')||null,matricula_interna:fd.get('matricula_interna')||null,cargo:fd.get('cargo')||null,departamento:fd.get('departamento')||null,unidade_local:fd.get('unidade_local')||null,tipo_vinculo:fd.get('tipo_vinculo')||'contrato',data_admissao:fd.get('data_admissao')||null,data_inicio_funcoes:fd.get('data_inicio_funcoes')||null,regime_trabalho:fd.get('regime_trabalho')||null,carga_horaria_semanal:fd.get('carga_horaria_semanal')?Number(fd.get('carga_horaria_semanal')):null,email_corporativo:fd.get('email_corporativo')||null,telefone_corporativo:fd.get('telefone_corporativo')||null,observacoes_internas:fd.get('observacoes_internas')||null,estado:'ativo'};
+      const {data:employee,error}=await sb.from('ciadi_funcionarios').insert(row).select().single();if(error)throw error;
+      const salary=Number(fd.get('salario_referencia')||0);
+      if(salary>0){
+        if(!company?.id){await sb.from('ciadi_funcionarios').delete().eq('id',employee.id);throw new Error('Configure primeiro a empresa emitente principal para associar o contrato e o salário.');}
+        const {error:contractError}=await sb.from('ciadi_funcionario_contratos').insert({funcionario_id:employee.id,tipo_contrato:row.tipo_vinculo,numero_contrato:row.codigo_funcionario,data_inicio:row.data_inicio_funcoes||row.data_admissao||new Date().toISOString().slice(0,10),salario_referencia:salary,moeda:'AOA',estado:'ativo',observacoes:'Criado no cadastro RH.'});
+        if(contractError){await sb.from('ciadi_funcionarios').delete().eq('id',employee.id);throw contractError;}
+      }
+      await audit('INSERT','ciadi_funcionarios',employee.id,{profissional_id:pid,cargo:row.cargo});toast('Trabalhador guardado.');closeModal();hrEmployees();
+    });
+  }catch(e){toast(e?.message||'Não foi possível cadastrar trabalhador.')}
+}
+async function hrContracts(){
+  try{
+    const {data,error}=await sb.from('ciadi_funcionario_contratos').select('*,ciadi_funcionarios(codigo_funcionario,profissionais(nome_completo))').order('created_at',{ascending:false});
+    if(error)throw error;
+    tablePage('RH · Contratos','Contratos guardados em ciadi_funcionario_contratos. Esta lista não substitui a validação jurídica do documento.',`<div class="flex justify-end mb-4"><button onclick="hrNewContract()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Novo contrato</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Trabalhador</th><th>N.º contrato</th><th>Tipo</th><th>Período</th><th>Salário base</th><th>Estado</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4">${esc(r.ciadi_funcionarios?.profissionais?.nome_completo||'—')}</td><td>${esc(r.numero_contrato||'—')}</td><td>${esc(r.tipo_contrato)}</td><td>${esc(r.data_inicio)} · ${esc(r.data_fim||'Sem termo')}</td><td>${money(r.salario_referencia)}</td><td>${esc(r.estado)}</td><td><button class="border rounded px-2 py-1" onclick="hrPrintContract('${r.id}')">Minuta / PDF</button></td></tr>`).join('')}</tbody></table></div>`);
+  }catch(e){sectionError('RH · Contratos',e)}
+}
+async function hrNewContract(){
+  try{
+    const {data:employees,error}=await sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissionais(nome_completo)').eq('estado','ativo').order('created_at',{ascending:false});if(error)throw error;
+    await modal('Novo contrato de trabalho',`<div class="grid md:grid-cols-2 gap-4">${selectField('funcionario_id','Trabalhador',(employees||[]).map(x=>({value:x.id,label:(x.profissionais?.nome_completo||'Trabalhador')+' · '+(x.codigo_funcionario||'sem código')})),'',true)}${selectField('tipo_contrato','Tipo de contrato',[{value:'efetivo',label:'Efetivo'},{value:'termo_certo',label:'Termo certo'},{value:'termo_incerto',label:'Termo incerto'},{value:'prestacao_servicos',label:'Prestação de serviços'},{value:'estagio',label:'Estágio'}],'efetivo',true)}${inputField('numero_contrato','Número do contrato')}${inputField('data_inicio','Data de início',new Date().toISOString().slice(0,10),'date',true)}${inputField('data_fim','Data de fim','','date')}${inputField('salario_referencia','Salário de referência (Kz)','0','number',false,'min="0" step="0.01"')}${textareaField('observacoes','Observações','',true)}</div><p class="text-xs text-slate-500 mt-3">O contrato pode ser guardado e impresso como minuta para revisão. Não é uma certificação jurídica.</p>`,async fd=>{
+      const row={funcionario_id:fd.get('funcionario_id'),tipo_contrato:fd.get('tipo_contrato'),numero_contrato:fd.get('numero_contrato')||null,data_inicio:fd.get('data_inicio'),data_fim:fd.get('data_fim')||null,salario_referencia:Number(fd.get('salario_referencia')||0),moeda:'AOA',estado:'rascunho',observacoes:fd.get('observacoes')||null};
+      const {data,error}=await sb.from('ciadi_funcionario_contratos').insert(row).select().single();if(error)throw error;
+      await audit('INSERT','ciadi_funcionario_contratos',data.id,{funcionario_id:row.funcionario_id});toast('Contrato guardado como rascunho.');closeModal();hrContracts();
+    });
+  }catch(e){toast(e?.message||'Não foi possível criar contrato.')}
+}
+async function hrPrintContract(id){
+  try{
+    const {data:r,error}=await sb.from('ciadi_funcionario_contratos').select('*,ciadi_funcionarios(codigo_funcionario,cargo,departamento,data_admissao,profissionais(nome_completo,registro_profissional,email_profissional))').eq('id',id).single();
+    if(error)throw error;
+    const employee=r.ciadi_funcionarios||{},person=employee.profissionais||{};
+    const html=`<div class="invoice-a4"><header><div><div class="invoice-logo">CIADI</div><div class="invoice-org">CENTRO INTEGRADO DE APOIO E DESENVOLVIMENTO INDIVIDUAL</div><div class="invoice-small">Documento interno de Recursos Humanos</div></div><div class="invoice-doc"><div class="invoice-type">MINUTA DE CONTRATO</div><div class="invoice-number">${esc(r.numero_contrato||'Por atribuir')}</div><div>Estado: ${esc(r.estado||'rascunho')}</div></div></header><h2 class="text-xl font-black mt-6 mb-3">Identificação das partes</h2><p>Entidade empregadora: <b>CIADI</b>, a completar/confirmar com os dados jurídicos da entidade.</p><p class="mt-2">Trabalhador(a): <b>${esc(person.nome_completo||'')}</b></p><p>Registo profissional: ${esc(person.registro_profissional||'Não indicado')}</p><p>Cargo: ${esc(employee.cargo||'Não indicado')} · Departamento: ${esc(employee.departamento||'Não indicado')}</p><p>Tipo de contrato: <b>${esc(r.tipo_contrato)}</b></p><p>Número de contrato: ${esc(r.numero_contrato||'Por atribuir')}</p><p>Início: ${esc(r.data_inicio)} · Fim: ${esc(r.data_fim||'Sem termo indicado')}</p><p>Salário de referência: <b>${money(r.salario_referencia||0)}</b></p><p class="mt-4">Observações: ${esc(r.observacoes||'—')}</p><div class="grid grid-cols-2 gap-10 mt-16"><div class="border-t pt-2">Entidade empregadora / data</div><div class="border-t pt-2">Trabalhador(a) / data</div></div><footer class="mt-8">MINUTA PARA REVISÃO. Este documento não constitui parecer jurídico nem substitui a validação dos dados legais, cláusulas, assinaturas e requisitos laborais aplicáveis.</footer><div class="flex gap-2 mt-5 print:hidden"><button class="bg-orange text-white rounded-xl px-4 py-2" onclick="printBase(document.querySelector('.invoice-a4').outerHTML)">Imprimir / Guardar PDF</button><button class="border rounded-xl px-4 py-2" onclick="closeModal()">Fechar</button></div></div>`;
+    openModal('Minuta de contrato · '+(r.numero_contrato||'RH'),html);document.querySelector('#ciadiModal>div').classList.remove('max-w-3xl');document.querySelector('#ciadiModal>div').classList.add('max-w-[1000px]');
+  }catch(e){toast(e?.message||'Não foi possível gerar a minuta do contrato.')}
+}
+async function hrDocuments(){
+  try{
+    const {data,error}=await sb.from('ciadi_funcionario_documentos').select('*,ciadi_funcionarios(codigo_funcionario,profissionais(nome_completo))').order('created_at',{ascending:false});if(error)throw error;
+    tablePage('RH · Documentos','Documentos associados a trabalhadores. O upload depende do bucket privado e das políticas de Storage.',`<div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Trabalhador</th><th>Documento</th><th>Data</th><th>Estado</th><th>Ficheiro</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4">${esc(r.ciadi_funcionarios?.profissionais?.nome_completo||'—')}</td><td>${esc(r.titulo)}</td><td>${esc(r.data_documento||'—')}</td><td>${esc(r.estado)}</td><td>${esc(r.nome_ficheiro||'Sem ficheiro associado')}</td></tr>`).join('')}</tbody></table></div>`);
+  }catch(e){sectionError('RH · Documentos',e)}
+}
+async function hrPayrolls(){
+  try{
+    const {data,error}=await sb.from('ciadi_folhas_salariais').select('*,finance_empresas(razao_social),finance_centros_custo(codigo,nome)').order('periodo_ano',{ascending:false}).order('periodo_mes',{ascending:false});if(error)throw error;
+    tablePage('RH · Folha Salarial','Folhas salariais e recibos. O processamento usa taxas IRT/INSS introduzidas e validadas pela gestão; não inventa taxas fiscais.',`<div class="flex flex-wrap justify-between gap-3 mb-4"><p class="text-sm text-slate-500">Folha salarial está dentro do RH, não no menu principal.</p><button onclick="hrNewPayroll()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Processar folha</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Período</th><th>Empresa</th><th>Centro de custo</th><th>Bruto</th><th>Descontos</th><th>Líquido</th><th>Estado</th><th>Acções</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4 font-semibold">${String(r.periodo_mes).padStart(2,'0')}/${r.periodo_ano}</td><td>${esc(r.finance_empresas?.razao_social||'—')}</td><td>${esc(r.finance_centros_custo?.codigo||'')} ${esc(r.finance_centros_custo?.nome||'')}</td><td>${money(r.total_bruto)}</td><td>${money(r.total_descontos)}</td><td>${money(r.total_liquido)}</td><td>${esc(r.estado)}</td><td class="whitespace-nowrap"><button class="border rounded px-2 py-1" onclick="hrViewPayroll('${r.id}')">Ver / PDF</button> ${r.estado==='rascunho'?`<button class="border rounded px-2 py-1" onclick="hrApprovePayroll('${r.id}')">Aprovar</button>`:''} ${r.estado==='aprovada'?`<button class="border rounded px-2 py-1" onclick="hrMarkPayrollPaid('${r.id}')">Marcar paga</button>`:''}</td></tr>`).join('')}</tbody></table></div>`);
+  }catch(e){sectionError('RH · Folha Salarial',e)}
+}
+async function hrNewPayroll(){
+  try{
+    const [{data:companies,error:ce},{data:centres,error:cc},{data:employees,error:ee}]=await Promise.all([
+      sb.from('finance_empresas').select('id,razao_social').eq('ativo',true).order('razao_social'),
+      sb.from('finance_centros_custo').select('id,codigo,nome,empresa_id').eq('ativo',true).order('codigo'),
+      sb.from('ciadi_funcionarios').select('id,codigo_funcionario,profissionais(nome_completo),ciadi_funcionario_contratos(salario_referencia,estado,data_inicio,data_fim)').eq('estado','ativo')
+    ]);
+    if(ce)throw ce;if(cc)throw cc;if(ee)throw ee;
+    if(!(companies||[]).length)throw new Error('Cadastre a empresa emitente antes de processar salários.');
+    if(!(centres||[]).length)throw new Error('Cadastre um centro de custo válido antes de processar salários.');
+    const now=new Date();
+    await modal('Processar folha salarial',`<div class="grid md:grid-cols-2 gap-4">${selectField('empresa_id','Empresa',(companies||[]).map(x=>({value:x.id,label:x.razao_social})),companies[0]?.id,true)}${selectField('centro_custo_id','Centro de custo',(centres||[]).map(x=>({value:x.id,label:x.codigo+' · '+x.nome})),centres[0]?.id,true)}${inputField('periodo_ano','Ano',String(now.getFullYear()),'number',true,'min="2000" max="2200"')}${inputField('periodo_mes','Mês',String(now.getMonth()+1),'number',true,'min="1" max="12"')}${inputField('irt_percent','IRT (%)','0','number',true,'min="0" max="100" step="0.01"')}${inputField('inss_percent','INSS trabalhador (%)','0','number',true,'min="0" max="100" step="0.01"')}${inputField('inss_entidade_percent','INSS entidade (%)','0','number',true,'min="0" max="100" step="0.01"')}</div><p class="rounded-xl bg-amber-50 p-3 text-sm mt-4">As taxas aparecem a 0% de propósito: confirme as taxas aplicáveis antes de processar. A folha ficará em rascunho para revisão e aprovação.</p><p class="text-sm text-slate-500 mt-2">${(employees||[]).length} trabalhador(es) activo(s) encontrados.</p>`,async fd=>{
+      const year=Number(fd.get('periodo_ano')),month=Number(fd.get('periodo_mes')),irtRate=Number(fd.get('irt_percent'))/100,inssRate=Number(fd.get('inss_percent'))/100,entityRate=Number(fd.get('inss_entidade_percent'))/100;
+      if(year<2000||year>2200||month<1||month>12)throw new Error('Ano ou mês inválido.');
+      const active=(employees||[]).map(e=>{const cs=(e.ciadi_funcionario_contratos||[]).filter(c=>c.estado==='ativo'&&c.salario_referencia!=null).sort((a,b)=>String(b.data_inicio||'').localeCompare(String(a.data_inicio||'')));return {e,contract:cs[0],salary:Number(cs[0]?.salario_referencia||0)}}).filter(x=>x.salary>0);
+      if(!active.length)throw new Error('Nenhum trabalhador activo tem salário de referência num contrato activo. Crie/actualize os contratos primeiro.');
+      const {data:company,error:companyErr}=await sb.from('finance_empresas').select('id').eq('id',fd.get('empresa_id')).single();if(companyErr)throw companyErr;
+      const head={empresa_id:company.id,centro_custo_id:fd.get('centro_custo_id'),periodo_ano:year,periodo_mes:month,estado:'rascunho',moeda:'AOA',total_bruto:0,total_descontos:0,total_liquido:0,criado_por:me.id,atualizado_por:me.id,observacoes:'Processamento inicial; validar taxas fiscais e contributivas antes da aprovação.'};
+      const {data:sheet,error:sheetErr}=await sb.from('ciadi_folhas_salariais').insert(head).select().single();if(sheetErr)throw sheetErr;
+      const lines=active.map(({e,salary})=>{const irt=Math.round(salary*irtRate*100)/100,inss=Math.round(salary*inssRate*100)/100,entity=Math.round(salary*entityRate*100)/100,gross=salary,deductions=irt+inss,net=gross-deductions;return {folha_id:sheet.id,funcionario_id:e.id,salario_base:salary,subsidios:{},total_subsidios:0,horas_extra:0,valor_horas_extra:0,irt,inss,inss_entidade:entity,outros_descontos:0,deducao_faltas:0,descontos:{irt,inss},total_bruto:gross,total_descontos:deductions,total_liquido:net,numero_recibo:'CIADI-'+year+String(month).padStart(2,'0')+'-'+String(e.codigo_funcionario||e.id.slice(0,8)),breakdown_calculo:{irt_percent:irtRate*100,inss_percent:inssRate*100,inss_entidade_percent:entityRate*100}}});
+      const {error:linesErr}=await sb.from('ciadi_folha_salarial_linhas').insert(lines);
+      if(linesErr){await sb.from('ciadi_folha_salarial_linhas').delete().eq('folha_id',sheet.id);await sb.from('ciadi_folhas_salariais').delete().eq('id',sheet.id);throw linesErr;}
+      const totals=lines.reduce((a,l)=>({bruto:a.bruto+l.total_bruto,descontos:a.descontos+l.total_descontos,liquido:a.liquido+l.total_liquido}),{bruto:0,descontos:0,liquido:0});
+      const {error:updateErr}=await sb.from('ciadi_folhas_salariais').update({total_bruto:totals.bruto,total_descontos:totals.descontos,total_liquido:totals.liquido,atualizado_por:me.id,updated_at:new Date().toISOString()}).eq('id',sheet.id);
+      if(updateErr)throw updateErr;
+      await audit('INSERT','ciadi_folhas_salariais',sheet.id,{periodo_ano:year,periodo_mes:month,linhas:lines.length});toast('Folha criada em rascunho. Reveja os valores e aprove após validação.');closeModal();hrPayrolls();
+    });
+  }catch(e){toast(e?.message||'Não foi possível processar a folha salarial.')}
+}
+async function hrApprovePayroll(id){if(!confirm('Aprovar esta folha salarial? Confirme que os valores e as taxas foram revistos.'))return;const {error}=await sb.rpc('ciadi_rh_aprovar_folha',{p_folha_id:id});if(error){toast(error.message);return;}await audit('APROVAR','ciadi_folhas_salariais',id,{});toast('Folha aprovada.');hrPayrolls();}
+async function hrMarkPayrollPaid(id){const date=prompt('Data de pagamento (AAAA-MM-DD):',new Date().toISOString().slice(0,10));if(!date)return;if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('Data inválida.');return;}const {error}=await sb.rpc('ciadi_rh_marcar_folha_paga',{p_folha_id:id,p_data_pagamento:date});if(error){toast(error.message);return;}await audit('MARCAR_PAGA','ciadi_folhas_salariais',id,{data_pagamento:date});toast('Folha marcada como paga.');hrPayrolls();}
+async function hrViewPayroll(id){
+  try{
+    const [{data:sheet,error:se},{data:lines,error:le}]=await Promise.all([sb.from('ciadi_folhas_salariais').select('*,finance_empresas(razao_social,nif,morada),finance_centros_custo(codigo,nome)').eq('id',id).single(),sb.from('ciadi_folha_salarial_linhas').select('*,ciadi_funcionarios(codigo_funcionario,profissionais(nome_completo,cargo:titulo,registro_profissional))').eq('folha_id',id)]);
+    if(se)throw se;if(le)throw le;
+    const html=`<div class="invoice-a4"><header><div><div class="invoice-logo">CIADI</div><div class="invoice-org">${esc(sheet.finance_empresas?.razao_social||'CIADI')}</div><div class="invoice-small">NIF: ${esc(sheet.finance_empresas?.nif||'—')} · ${esc(sheet.finance_empresas?.morada||'')}</div></div><div class="invoice-doc"><div class="invoice-type">FOLHA SALARIAL</div><div class="invoice-number">${String(sheet.periodo_mes).padStart(2,'0')}/${sheet.periodo_ano}</div><div>Estado: ${esc(sheet.estado)}</div></div></header><div class="mt-5 mb-4">Centro de custo: <b>${esc(sheet.finance_centros_custo?.codigo||'')} · ${esc(sheet.finance_centros_custo?.nome||'')}</b></div><table><thead><tr><th>Trabalhador</th><th>Recibo</th><th class="num">Bruto</th><th class="num">IRT</th><th class="num">INSS</th><th class="num">Líquido</th></tr></thead><tbody>${(lines||[]).map(l=>`<tr><td>${esc(l.ciadi_funcionarios?.profissionais?.nome_completo||'—')}</td><td>${esc(l.numero_recibo||'—')}</td><td class="num">${money(l.total_bruto)}</td><td class="num">${money(l.irt)}</td><td class="num">${money(l.inss)}</td><td class="num">${money(l.total_liquido)}</td></tr>`).join('')}</tbody></table><div class="invoice-totals"><div><span>Total bruto</span><b>${money(sheet.total_bruto)}</b></div><div><span>Total descontos</span><b>${money(sheet.total_descontos)}</b></div><div class="invoice-grand"><span>Total líquido</span><b>${money(sheet.total_liquido)}</b></div></div><footer>Documento interno de RH. Valores e taxas sujeitos à validação da gestão antes da aprovação e pagamento.</footer><div class="flex gap-2 mt-5 print:hidden"><button class="bg-orange text-white rounded-xl px-4 py-2" onclick="printBase(document.querySelector('.invoice-a4').outerHTML)">Imprimir / Guardar PDF</button><button class="border rounded-xl px-4 py-2" onclick="closeModal()">Fechar</button></div></div>`;
+    openModal('Folha salarial · '+String(sheet.periodo_mes).padStart(2,'0')+'/'+sheet.periodo_ano,html);document.querySelector('#ciadiModal>div').classList.remove('max-w-3xl');document.querySelector('#ciadiModal>div').classList.add('max-w-[1200px]');
+  }catch(e){toast(e?.message||'Não foi possível abrir a folha.')}
+}
+async function hrContractsAndDocs(){}
+
 async function financeCompanies(){
   try{
     const {data,error}=await sb.from('finance_empresas').select('*').order('empresa_principal',{ascending:false}).order('razao_social');
@@ -790,11 +1027,12 @@ async function enter(u){
     profile=q.data;
     if(!profile){ await sb.auth.signOut(); throw new Error('O utilizador autenticado não possui perfil em public.perfis.'); }
     if(profile.ativo!==true){ await sb.auth.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
-    if(!['admin','gestor','profissional'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso administrativo.'); }
+    if(!['admin','gestor','profissional','suporte_informatica','rh','rececao'].includes(profile.tipo)){ await sb.auth.signOut(); throw new Error('Este utilizador não possui acesso administrativo.'); }
+    if(profile.tipo==='suporte_informatica' && window.ciadiDesktop?.installProfile!=='suporte_informatica'){ await sb.auth.signOut(); throw new Error('O perfil Suporte Informática só pode entrar pela instalação autorizada para Suporte Informática.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
-    nav(); await go('overview');
+    nav(); await go(profile.tipo==='suporte_informatica' ? 'agente' : 'overview');
   }catch(e){
     console.error('CIADI perfil',e);
     document.getElementById('login').classList.remove('hiddenx');

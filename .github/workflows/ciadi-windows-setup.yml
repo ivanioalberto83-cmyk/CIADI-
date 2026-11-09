@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feat/ciadi-setup-profiles-20261028
     tags:
       - 'ciadi-v*'
 
@@ -74,6 +75,10 @@ jobs:
       - name: Instalar dependências
         working-directory: ciadi-windows
         run: npm install --no-audit
+
+      - name: Validar os quatro perfis e a restrição do agente
+        working-directory: ciadi-windows
+        run: npm test
 
       - name: Compilar Setup.exe
         working-directory: ciadi-windows
