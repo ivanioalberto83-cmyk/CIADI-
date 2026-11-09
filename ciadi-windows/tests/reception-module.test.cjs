@@ -894,20 +894,20 @@ test('proposta SQL do stock da Recepção separa requisição interna de compra 
   const fs = require('node:fs');
   const path = require('node:path');
   const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
-  assert.match(sql, /create table if not exists ciadi_ti\\.stock_requisitions/i);
-  assert.match(sql, /create table if not exists ciadi_ti\\.stock_requisition_lines/i);
+  assert.match(sql, /create table if not exists ciadi_ti\.stock_requisitions/i);
+  assert.match(sql, /create table if not exists ciadi_ti\.stock_requisition_lines/i);
   assert.match(sql, /reception_create_stock_requisition/i);
   assert.match(sql, /reception_submit_stock_requisition/i);
   assert.match(sql, /reception_decide_stock_requisition/i);
   assert.match(sql, /reception_register_stock_exit/i);
   assert.match(sql, /approved_request/);
   assert.match(sql, /direct_justified/);
-  assert.match(sql, /length\\(btrim\\(coalesce\\(p_justification/);
-  assert.match(sql, /sum\\(quantity_delta\\)/i);
+  assert.match(sql, /length\(btrim\(coalesce\(p_justification/);
+  assert.match(sql, /sum\(quantity_delta\)/i);
   assert.match(sql, /idempotency_key/i);
-  assert.match(sql, /has_support_access\\(\\)/i);
-  assert.match(sql, /revoke all on function ciadi_ti\\.reception_register_stock_exit/i);
-  assert.doesNotMatch(sql, /grant execute on function ciadi_ti\\.reception_/i);
+  assert.match(sql, /has_support_access\(\)/i);
+  assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit/i);
+  assert.doesNotMatch(sql, /grant execute on function ciadi_ti\.reception_/i);
   assert.match(sql, /PROPOSTA APENAS/i);
 });
 
