@@ -69,6 +69,7 @@
 - [x] Add static SQL contract tests for schema isolation, RLS enabled, event history, no DELETE grants, and absence of policies/grants.
 - [x] Write the additive proposal; static SQL contract tests passed in the full Node suite. PostgreSQL execution remains pending.
 - [ ] Run PostgreSQL 16 isolated homologation through GitHub Actions when the branch workflow is configured.
+- [x] Add daily, per-polo sequential ticket numbers using an atomic upsert counter; keep global call-next order chronological when both polos are shown.
 - [ ] Keep the proposal unapplied to remote Supabase.
 
 ### Task 4: Integration and quality gate
