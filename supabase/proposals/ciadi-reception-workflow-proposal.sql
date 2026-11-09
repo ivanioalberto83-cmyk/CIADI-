@@ -81,13 +81,22 @@ create index if not exists front_desk_visit_events_visit_idx
 -- Compatibilidade idempotente caso a estrutura-base já tenha sido criada antes desta extensão.
 alter table ciadi_reception.front_desk_visits
   add column if not exists destination_specialty_id uuid references public.especialidades(id) on delete restrict;
+alter table ciadi_reception.front_desk_visits
+  add column if not exists referral_status text
+  check (referral_status in ('pending', 'accepted', 'returned'));
+alter table ciadi_reception.front_desk_visits
+  add column if not exists referral_return_reason text;
+alter table ciadi_reception.front_desk_visits
+  add column if not exists referral_accepted_by uuid;
+alter table ciadi_reception.front_desk_visits
+  add column if not exists referral_accepted_at timestamptz;
 alter table ciadi_reception.front_desk_visit_events
   add column if not exists details jsonb not null default '{}'::jsonb;
 alter table ciadi_reception.front_desk_visit_events
   drop constraint if exists front_desk_visit_events_event_type_check;
 alter table ciadi_reception.front_desk_visit_events
   add constraint front_desk_visit_events_event_type_check
-  check (event_type in ('arrival_registered', 'status_changed', 'destination_assigned'));
+  check (event_type in ('arrival_registered', 'status_changed', 'destination_assigned', 'referral_accepted', 'referral_returned'));
 
 create table if not exists ciadi_reception.visitor_entries (
   id uuid primary key default gen_random_uuid(),
@@ -429,6 +438,10 @@ begin
 
   update ciadi_reception.front_desk_visits
   set destination_specialty_id = v_destination.id,
+      referral_status = 'pending',
+      referral_return_reason = null,
+      referral_accepted_by = null,
+      referral_accepted_at = null,
       updated_by = p_actor_id,
       updated_at = now()
   where id = p_visit_id
@@ -450,6 +463,98 @@ begin
   );
 end;
 $route$;
+
+-- Confirmação do serviço de destino: mantém o encaminhamento pendente até aceitação explícita.
+create or replace function ciadi_reception.reception_confirm_referral(
+  p_visit_id uuid,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, auth
+as $referral$
+declare
+  v_visit ciadi_reception.front_desk_visits%rowtype;
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+  select * into v_visit
+  from ciadi_reception.front_desk_visits
+  where id = p_visit_id
+  for update;
+  if not found then raise exception 'Encaminhamento não encontrado.' using errcode = 'P0002'; end if;
+  if v_visit.destination_specialty_id is null or v_visit.referral_status <> 'pending' then
+    raise exception 'Só é possível aceitar encaminhamentos pendentes com destino atribuído.' using errcode = '22023';
+  end if;
+
+  update ciadi_reception.front_desk_visits
+  set referral_status = 'accepted',
+      referral_accepted_by = p_actor_id,
+      referral_accepted_at = now(),
+      updated_by = p_actor_id,
+      updated_at = now()
+  where id = p_visit_id
+  returning * into v_visit;
+
+  insert into ciadi_reception.front_desk_visit_events (
+    visit_id, event_type, from_status, to_status, actor_id, details
+  ) values (
+    v_visit.id, 'referral_accepted', v_visit.status, v_visit.status, p_actor_id,
+    jsonb_build_object('destination_specialty_id', v_visit.destination_specialty_id)
+  );
+  return jsonb_build_object('id', v_visit.id, 'referral_status', v_visit.referral_status,
+    'accepted_at', v_visit.referral_accepted_at);
+end;
+$referral$;
+
+-- Devolução exige motivo e fica registada para correcção pela Recepção.
+create or replace function ciadi_reception.reception_return_referral(
+  p_visit_id uuid,
+  p_reason text,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, auth
+as $referral$
+declare
+  v_visit ciadi_reception.front_desk_visits%rowtype;
+  v_reason text := trim(coalesce(p_reason, ''));
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+  if length(v_reason) not between 3 and 240 then
+    raise exception 'O motivo da devolução deve ter entre 3 e 240 caracteres.' using errcode = '22023';
+  end if;
+  select * into v_visit
+  from ciadi_reception.front_desk_visits
+  where id = p_visit_id
+  for update;
+  if not found then raise exception 'Encaminhamento não encontrado.' using errcode = 'P0002'; end if;
+  if v_visit.destination_specialty_id is null or v_visit.referral_status <> 'pending' then
+    raise exception 'Só é possível devolver encaminhamentos pendentes com destino atribuído.' using errcode = '22023';
+  end if;
+
+  update ciadi_reception.front_desk_visits
+  set referral_status = 'returned',
+      referral_return_reason = v_reason,
+      updated_by = p_actor_id,
+      updated_at = now()
+  where id = p_visit_id
+  returning * into v_visit;
+
+  insert into ciadi_reception.front_desk_visit_events (
+    visit_id, event_type, from_status, to_status, actor_id, details
+  ) values (
+    v_visit.id, 'referral_returned', v_visit.status, v_visit.status, p_actor_id,
+    jsonb_build_object('reason', v_reason, 'destination_specialty_id', v_visit.destination_specialty_id)
+  );
+  return jsonb_build_object('id', v_visit.id, 'referral_status', v_visit.referral_status,
+    'reason', v_visit.referral_return_reason);
+end;
+$referral$;
 
 create or replace function ciadi_reception.reception_get_dashboard(p_polo_code text default null)
 returns jsonb
