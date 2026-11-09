@@ -365,7 +365,29 @@
     }[char]));
   }
 
-  function create({ root: container, navigate, notify = () => {}, supabase, actorId, poloCode } = {}) {
+  function renderBusinessPanel(snapshot = {}) {
+    const cards = [
+      { key: 'services', title: 'Serviços e preços', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.nome) + '</span><strong>' + esc(row.preco_base) + ' Kz</strong></div>').join('') },
+      { key: 'cashboxes', title: 'Caixas', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.nome || row.codigo) + '</span><strong>' + esc(row.estado || '—') + '</strong></div>').join('') },
+      { key: 'documents', title: 'Documentos recentes', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.document_no || row.tipo_documento) + '</span><strong>' + esc(row.document_status || '—') + '</strong></div>').join('') },
+      { key: 'stock', title: 'Stock e inventário', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.item_name) + ' <small class="text-slate-500">' + esc(row.warehouse_name) + '</small></span><strong class="' + (row.below_minimum ? 'text-red-700' : '') + '">' + esc(row.quantity_on_hand) + ' ' + esc(row.unit_of_measure) + '</strong></div>').join('') },
+      { key: 'requests', title: 'Requisições de compra', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') }
+    ];
+    return '<section class="card p-5 space-y-4" data-reception-business-integration>' +
+      '<div><h3 class="font-black text-lg">Facturação, caixa e aprovisionamento</h3><p class="text-xs text-slate-500">Consulta das estruturas centrais existentes. Esta área é apenas de leitura; emissão, pagamentos, compras e movimentos de stock permanecem nos respectivos motores autorizados.</p></div>' +
+      '<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">' +
+      cards.map(card => {
+        const result = snapshot[card.key];
+        let content = '<p class="text-xs text-slate-500">A carregar dados…</p>';
+        if (result && result.error) content = '<p class="text-xs text-amber-700">Sem acesso autorizado ou serviço indisponível.</p>';
+        else if (result && result.rows.length) content = card.render(result.rows);
+        else if (result) content = '<p class="text-xs text-slate-500">Sem registos disponíveis.</p>';
+        return '<article class="rounded-xl border p-3"><h4 class="font-bold text-sm mb-2">' + card.title + '</h4>' + content + '</article>';
+      }).join('') +
+      '</div></section>';
+  }
+
+  function create({ root: container, navigate, notify = () => {}, supabase, actorId, poloCode, companyId: configuredCompanyId } = {}) {
     if (!container || typeof navigate !== 'function') {
       throw new Error('O módulo Recepção necessita do contentor e da navegação do Dashboard.');
     }
@@ -374,6 +396,8 @@
     let dashboard = null;
     let destinations = [];
     let activePolo = POLOS.includes(poloCode) ? poloCode : null;
+    let businessRepository = null;
+    let businessSnapshot = { services: null, cashboxes: null, documents: null, stock: null, requests: null };
 
     function renderUnavailable(error) {
       container.innerHTML = `
@@ -392,13 +416,14 @@
       const visits = Array.isArray(data.visits) ? data.visits : [];
       const visitors = Array.isArray(data.visitors) ? data.visitors : [];
       const summary = data.summary || summarizeReception(visits);
+      const brand = globalThis.CIADI_INSTITUTIONAL_IDENTITY?.getBrand?.() || null;
       container.innerHTML = `
         <section class="space-y-5">
           <header class="card p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Atendimento institucional</span>
-                <h2 class="text-2xl font-black mt-1">Acolhimento e Recepção</h2>
+                <div class="flex items-center gap-3">${brand?.logoDataUrl ? `<img src="${esc(brand.logoDataUrl)}" alt="Logótipo CIADI" class="h-14 w-auto object-contain">` : ""}<div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Atendimento institucional</span>
+                <h2 class="text-2xl font-black mt-1">Acolhimento e Recepção</h2></div></div>
                 <p class="text-sm text-slate-500 mt-2">Gestão de chegadas, fila de espera, visitantes e encaminhamentos.</p>
               </div>
               <div class="flex gap-2 flex-wrap">
@@ -423,6 +448,7 @@
               ['Tempo médio de espera', (summary.averageWaitMinutes || 0) + ' min']
             ].map(([label, value]) => `<article class="card p-4"><p class="text-sm text-slate-500">${label}</p><p class="text-2xl font-black mt-1">${esc(value)}</p></article>`).join('')}
           </div>
+          ${renderBusinessPanel(businessSnapshot)}
           <section class="card p-5" data-reception-call-panel>
             <div class="flex items-center justify-between gap-3 mb-3">
               <div><h3 class="font-black text-lg">Painel de chamadas</h3><p class="text-xs text-slate-500">Pré-visualização pública: apenas senhas, polo e destino.</p></div>
@@ -549,6 +575,39 @@
         </section>`;
     }
 
+    async function loadBusinessSnapshot() {
+      if (!businessRepository) businessRepository = createReceptionBusinessRepository({ supabase });
+      let company = clean(configuredCompanyId, 128);
+      if (!company) {
+        try {
+          const { data, error } = await supabase.from('finance_empresas')
+            .select('id')
+            .eq('ativo', true)
+            .eq('empresa_principal', true)
+            .maybeSingle();
+          if (error) throw error;
+          company = clean(data?.id, 128);
+        } catch (error) {
+          businessSnapshot.services = { rows: [], error };
+          businessSnapshot.cashboxes = { rows: [], error };
+          businessSnapshot.documents = { rows: [], error };
+        }
+      }
+      const tasks = [
+        ['services', () => company ? businessRepository.getActiveServices(company) : Promise.resolve([])],
+        ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
+        ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
+        ['stock', () => businessRepository.getStockBalances()],
+        ['requests', () => businessRepository.getPurchaseRequests()]
+      ];
+      const results = await Promise.all(tasks.map(async ([key, load]) => {
+        if (businessSnapshot[key]?.error && ['services', 'cashboxes', 'documents'].includes(key) && !company) return [key, businessSnapshot[key]];
+        try { return [key, { rows: await load(), error: null }]; }
+        catch (error) { return [key, { rows: [], error }]; }
+      }));
+      businessSnapshot = Object.fromEntries(results);
+    }
+
     async function refresh() {
       if (!repository) repository = createReceptionRepository({ supabase });
       const [nextDashboard, nextDestinations] = await Promise.all([
@@ -557,6 +616,7 @@
       ]);
       dashboard = nextDashboard;
       destinations = nextDestinations;
+      await loadBusinessSnapshot();
       renderDashboard();
     }
 
