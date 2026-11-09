@@ -478,3 +478,46 @@ test('cabeçalho documental falha fechado se a identidade central ou o logótipo
     title: 'Declaração'
   }), /logótipo oficial/i);
 });
+
+
+test('valida recepção parcial de mercadoria ligada a requisição aprovada', () => {
+  const result = reception.validatePurchaseReceiptInput({
+    requestStatus: 'approved',
+    requestedQuantity: 10,
+    alreadyReceivedQuantity: 0,
+    deliveryQuantity: 4,
+    warehouseId: 'warehouse-1',
+    deliveryReference: 'GUIA-ENTREGA-001',
+    idempotencyKey: 'receipt-op-001',
+    actorId: 'actor-1'
+  });
+  assert.equal(result.valid, true);
+  assert.equal(result.value.remainingQuantity, 6);
+  assert.equal(result.value.partial, true);
+});
+
+test('rejeita recepção superior à quantidade ainda em falta', () => {
+  const result = reception.validatePurchaseReceiptInput({
+    requestStatus: 'approved',
+    requestedQuantity: 10,
+    alreadyReceivedQuantity: 8,
+    deliveryQuantity: 3,
+    warehouseId: 'warehouse-1',
+    deliveryReference: 'GUIA-ENTREGA-002',
+    idempotencyKey: 'receipt-op-002',
+    actorId: 'actor-1'
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some(message => /quantidade|excede/i.test(message)));
+});
+
+test('recepção exige armazém, documento de entrega, chave idempotente e actor autenticado', () => {
+  const result = reception.validatePurchaseReceiptInput({
+    requestStatus: 'approved',
+    requestedQuantity: 10,
+    alreadyReceivedQuantity: 0,
+    deliveryQuantity: 4
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.length >= 4);
+});
