@@ -922,3 +922,40 @@ test('proposta SQL de recepção de mercadorias inclui criação idempotente e m
   assert.match(sql, /devolucao_entrada/);
   assert.match(sql, /devolucao_saida/);
 });
+
+
+test('devoluções e transferências de stock têm operações próprias e justificadas', async () => {
+  const validReturn = reception.validateReceptionStockReturnInput({
+    returnType: 'devolucao_entrada', itemId: 'item-1', warehouseId: 'warehouse-1',
+    quantity: 2, reason: 'Material devolvido pelo serviço', actorId: 'actor-1'
+  });
+  assert.equal(validReturn.valid, true);
+  const invalidReturn = reception.validateReceptionStockReturnInput({
+    returnType: 'devolucao_saida', itemId: 'item-1', warehouseId: 'warehouse-1',
+    quantity: 2, reason: 'x', actorId: 'actor-1'
+  });
+  assert.equal(invalidReturn.valid, false);
+  assert.ok(invalidReturn.errors.some(message => /motivo|justificação/i.test(message)));
+
+  const calls = [];
+  const service = reception.createReceptionProcurementService({
+    supabase: { schema() { return { async rpc(method, args) { calls.push({ method, args }); return { data: { movement_id: 'movement-1' }, error: null }; } }; } },
+    actorId: 'actor-1', poloCode: 'talatona', idempotencyKeyFactory: () => 'return-key-0001'
+  });
+  await service.registerStockReturn({
+    returnType: 'devolucao_entrada', itemId: 'item-1', warehouseId: 'warehouse-1',
+    quantity: 2, reason: 'Material devolvido pelo serviço', reference: 'DEV-001'
+  });
+  await service.transferStock({
+    itemId: 'item-1', fromWarehouseId: 'warehouse-1', toWarehouseId: 'warehouse-2',
+    quantity: 1, reference: 'TRF-001', notes: 'Transferência entre armazéns'
+  });
+  assert.deepEqual(calls.map(call => call.method), [
+    'reception_register_stock_return', 'reception_transfer_stock'
+  ]);
+  assert.equal(calls[0].args.p_return_type, 'devolucao_entrada');
+  assert.equal(calls[0].args.p_idempotency_key, 'return-key-0001');
+  assert.equal(calls[1].args.p_from_warehouse_id, 'warehouse-1');
+  assert.equal(calls[1].args.p_to_warehouse_id, 'warehouse-2');
+  assert.equal(calls[1].args.p_polo_code, 'talatona');
+});
