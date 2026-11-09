@@ -527,9 +527,9 @@ test('proposta de recepção de mercadorias enriquece o razão existente sem cri
   const fs = require('node:fs');
   const path = require('node:path');
   const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-ti-purchase-receipt-extension-proposal.sql'), 'utf8');
-  assert.match(sql, /alter table ciadi_ti\.purchase_requests add column if not exists warehouse_id/i);
+  assert.match(sql, /alter table ciadi_ti\\.purchase_requests\\s+add column if not exists warehouse_id/i);
   assert.match(sql, /references public\.finance_centros_custo\(id\)/i);
-  assert.match(sql, /alter table ciadi_ti\.stock_movements add column if not exists purchase_request_id/i);
+  assert.match(sql, /alter table ciadi_ti\\.stock_movements\\s+add column if not exists purchase_request_id/i);
   assert.match(sql, /purchase_request_line_id/i);
   assert.match(sql, /idempotency_key/i);
   assert.match(sql, /create or replace function ciadi_ti\.receive_purchase_request_line/i);
