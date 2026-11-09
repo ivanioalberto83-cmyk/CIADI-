@@ -171,3 +171,19 @@
 - [x] Add a test confirming the document header contains the official embedded logo and fails closed when identity/logo is missing.
 - [x] Dashboard header now displays the central CIADI logo; use only the identity service values.
 - [ ] Use only verified institutional and fiscal details; do not invent legal name, NIF, address or contacts.
+
+
+### Task 12: Enriquecimento do Aprovisionamento existente — auditoria 09/11/2026
+
+- [x] Confirmar colunas e constraints reais de `purchase_requests`, `purchase_request_lines`, `warehouses`, `stock_movements`, `stock_balances`, `inventory_counts`, `inventory_count_lines`, `suppliers`, `items`, `assets` e `audit_events`.
+- [x] Confirmar que `warehouses.polo` já existe; evitar criar campo duplicado no armazém.
+- [x] Confirmar que requisições suportam estados draft/submitted/returned/approved/rejected/received/cancelled, mas não têm quantidade recebida por linha.
+- [x] Confirmar que `stock_movements` já é o livro central e contém referência/notas/actor/data; não criar novo livro.
+- [x] Confirmar que inventário físico é tratado por `inventory_counts` e `inventory_count_lines`; não reutilizar estas linhas como guias de recepção.
+- [x] Rever RLS e políticas: acesso de leitura/escrita de Aprovisionamento está limitado ao acesso de Suporte Informático; decisão financeira exige admin/gestor.
+- [x] Rever funções SECURITY DEFINER `decide_purchase_request`, `post_stock_movement` e `transfer_stock`; nenhuma deve ser chamada como atalho para contornar permissões.
+- [ ] Criar testes TDD para recepção parcial, quantidades superiores às pedidas, divergências, duplicação/idempotência e actor obrigatório.
+- [ ] Preparar proposta SQL aditiva apenas sobre estruturas existentes: requisição, linhas e movimentos; não criar tabelas/livros duplicados.
+- [ ] Definir ligação transaccional de movimento de entrada à requisição e linha, usando o armazém existente e a referência do documento de entrega.
+- [ ] Rever grants, SECURITY DEFINER, actor, empresa/polo e permissões com a Direcção antes de qualquer escrita da Recepção.
+- [ ] Não aplicar DDL, políticas, grants nem dados no Supabase remoto; manter PR #40 Draft.
