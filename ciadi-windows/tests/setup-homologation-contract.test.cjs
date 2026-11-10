@@ -47,8 +47,28 @@ test('o pacote inclui os módulos renderer e a compilação nunca publica automa
   assert.equal(packageJson.build.nsis.include, 'build/installer.nsh');
 });
 
-test('a compilação sincroniza o Dashboard e os serviços renderer para o pacote Windows', () => {
-  assert.match(buildWorkflow, /\$source\s*=\s*["']CIADI_DASHBOARD_FINANCEIRO\.html["']/);
+test('a raiz index.html é a fonte canónica do Setup e coincide com o Dashboard legado', () => {
+  const canonicalPath = path.join(root, 'index.html');
+  const legacyPath = path.join(root, 'CIADI_DASHBOARD_FINANCEIRO.html');
+  const canonical = fs.readFileSync(canonicalPath, 'utf8');
+  const legacy = fs.readFileSync(legacyPath, 'utf8');
+  assert.equal(canonical, legacy, 'index.html e CIADI_DASHBOARD_FINANCEIRO.html não podem divergir antes do Setup');
+  assert.match(buildWorkflow, /\$source\s*=\s*["']index\.html["']/);
+  assert.match(buildWorkflow, /Compare-Object|não correspondem|não coincide/i);
   assert.match(buildWorkflow, /Copy-Item\s+\$source\s+["']ciadi-windows\/index\.html["']\s+-Force/);
-  assert.match(buildWorkflow, /Copy-Item\s+["']renderer\/\*["']\s+["']ciadi-windows\/renderer\/["']\s+-Recurse\s+-Force/);
+  assert.match(buildWorkflow, /Copy-Item\s+["']renderer\/\*["']\s+["']ciadi-windows\/renderer\//);
+});
+
+test('o Dashboard canónico referencia apenas recursos locais presentes no pacote', () => {
+  const canonical = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const packageFiles = new Set(packageJson.build.files);
+  assert.ok(packageFiles.has('index.html'));
+  assert.ok(packageFiles.has('renderer/**/*'));
+  const scriptRefs = [...canonical.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)]
+    .map(([, src]) => src)
+    .filter(src => !/^https?:\/\//i.test(src));
+  assert.ok(scriptRefs.length > 0, 'o Dashboard deve declarar os seus scripts locais');
+  for (const src of scriptRefs) {
+    assert.ok(fs.existsSync(path.join(root, src)), 'Recurso local referenciado em falta: ' + src);
+  }
 });
