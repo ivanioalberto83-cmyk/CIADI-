@@ -14,6 +14,7 @@ on:
     paths:
       - 'renderer/**'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'index.html'
       - 'ciadi-windows/tests/**'
       - '.github/workflows/ciadi-modules-ci.yml'
 
