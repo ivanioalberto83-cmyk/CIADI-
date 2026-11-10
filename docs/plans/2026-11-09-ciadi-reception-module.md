@@ -366,3 +366,10 @@
 - [x] CI de código no commit final: run `42790400047` concluído com sucesso; 184 testes aprovados, 0 falhas. Validação do Dashboard: run `42790400386` concluído com sucesso.
 - [ ] Não aplicar a proposta no Supabase remoto; a fase de permissões, validação de perfis/polo e homologação com sessões reais continua pendente.
 - [ ] A homologação de aprovisionamento da Recepção continua pendente: as chamadas à função central `transfer_stock` e a compatibilidade das escritas com o ledger real precisam de contratos SQL confirmados antes de serem testadas ou ligadas.
+
+
+### Risco identificado na proposta de aprovisionamento da Recepção
+
+- [ ] A proposta `ciadi-reception-stock-workflows-proposal.sql` insere directamente em `ciadi_ti.stock_movements` nas funções de saída e devolução, em vez de chamar o motor central `post_stock_movement`; rever e alinhar a validação, bloqueios e auditoria antes de qualquer homologação de escrita.
+- [ ] A proposta chama `ciadi_ti.transfer_stock` com sete argumentos, mas a assinatura exacta no Supabase remoto ainda não foi confirmada por fonte SQL/tipos fiável. Não adaptar o contrato por suposição.
+- [ ] Manter as RPCs de stock sem EXECUTE e não aplicar a proposta até concluir a revisão do ledger e dos contratos reais.
