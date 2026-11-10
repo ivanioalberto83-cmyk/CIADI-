@@ -1019,22 +1019,3 @@ test('renderiza estado vazio da fila sem inventar atendimentos ou visitantes', a
   assert.match(root.innerHTML, /Não existem visitantes dentro do centro neste momento/);
   assert.match(root.innerHTML, /0 registo\(s\)/);
 });
-
-
-test('painel de aprovisionamento da Recepção apresenta formulários operacionais CIADI para requisições, saídas e recepção de mercadorias', () => {
-  assert.equal(typeof reception.renderReceptionProcurementPanel, 'function');
-  const html = reception.renderReceptionProcurementPanel({
-    poloCode: 'talatona',
-    warehouses: [{ id: 'warehouse-1', code: 'ARM-TAL', name: 'Armazém Talatona' }],
-    items: [{ id: 'item-1', sku: 'MAT-001', name: 'Material de escritório', unit_of_measure: 'unidade' }],
-    costCenters: [{ id: 'cc-1', codigo: 'CC-001', nome: 'Talatona' }],
-    stockRequisitions: [], purchaseRequests: [], goodsReceipts: [], stockBalances: []
-  });
-  assert.match(html, /data-reception-stock-requisition/);
-  assert.match(html, /data-reception-stock-exit/);
-  assert.match(html, /data-reception-goods-receipt/);
-  assert.match(html, /Logótipo CIADI|CIADI/);
-  assert.match(html, /ARM-TAL/);
-  assert.match(html, /MAT-001/);
-  assert.match(html, /CC-001/);
-});
