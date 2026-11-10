@@ -84,8 +84,19 @@ function visibleMenu(){
   ).filter(entry => entry.id !== 'acompanhantes_at' || canAccessAT());
 }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(entry=>`<button onclick="go('${entry.id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===entry.id?'bg-orange/10 text-orange':''}">${entry.label}</button>`).join('')}
+function stationDefaultRoute(){
+  return ({adm:'cash_reports',recepcao:'reception',suporte_informatica:'support'})[stationProfile] || null;
+}
+function canOpenStationRoute(id){
+  return visibleMenu().some(entry=>entry.id===id);
+}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='support')return supportDashboard(); if(id==='rh')return window.CIADI_HR_MODULE.create({supabase:sb,profile,root:c,notify:toast,audit}).renderHome(); if(id==='reception')return window.CIADI_RECEPTION_MODULE.create({root:c,navigate:go,notify:toast,supabase:sb,actorId:me?.id,poloCode:stationPolo||null}).renderHome(); if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='cash_reports')return window.CIADI_CASH_REPORTS_MODULE.create({root:c,supabase:sb,notify:toast}).renderHome(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){
+  if(stationMode && !canOpenStationRoute(id)){
+    toast('Esta funcionalidade não pertence à estação seleccionada.');
+    return;
+  }
+  current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='support')return supportDashboard(); if(id==='rh')return window.CIADI_HR_MODULE.create({supabase:sb,profile,root:c,notify:toast,audit}).renderHome(); if(id==='reception')return window.CIADI_RECEPTION_MODULE.create({root:c,navigate:go,notify:toast,supabase:sb,actorId:me?.id,poloCode:stationPolo||null}).renderHome(); if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='cash_reports')return window.CIADI_CASH_REPORTS_MODULE.create({root:c,supabase:sb,notify:toast}).renderHome(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
   const isManager=['admin','gestor'].includes(profile?.tipo);
@@ -904,7 +915,10 @@ async function enter(u){
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
     document.getElementById('stationLabel').textContent = stationMode ? (stationRequiresPolo ? (stationProfileLabels[stationProfile] + ' · ' + stationPoloLabels[stationPolo]) : stationProfileLabels[stationProfile]) : 'Administração';
-    nav(); await go(stationMode && stationProfile==='suporte_informatica' ? 'support' : 'overview');
+    const initialRoute=stationDefaultRoute();
+    if(!initialRoute) throw new Error('Esta estação não está configurada para utilização. Contacte o Suporte Informático.');
+    nav();
+    await go(initialRoute);
   }catch(e){
     console.error('CIADI perfil',e);
     document.getElementById('login').classList.remove('hiddenx');
