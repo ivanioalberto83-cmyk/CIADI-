@@ -30,7 +30,7 @@ language sql
 stable
 security definer
 set search_path = pg_catalog, public, ciadi_ti, auth
-as $
+as $$
   select auth.uid() is not null
     and p_polo_code in ('talatona','jardim_de_rosas')
     and exists (
@@ -46,7 +46,7 @@ as $
           ))
         )
     );
-$;
+$$;
 revoke all on function ciadi_ti.has_reception_operation_access(text) from public,anon,authenticated;
 
 -- Atribuição/desactivação de polo é uma tarefa de Suporte Informático.
@@ -59,7 +59,7 @@ create or replace function ciadi_ti.reception_set_user_polo(
 language plpgsql
 security definer
 set search_path = pg_catalog, public, ciadi_ti, auth
-as $
+as $$
 begin
   if auth.uid() is null or not ciadi_ti.has_support_access() then
     raise exception 'A gestão de acessos aos polos exige Suporte Informático ou Administração.' using errcode = '42501';
@@ -79,7 +79,7 @@ begin
     set active=excluded.active,assigned_by=excluded.assigned_by,updated_at=now();
   return jsonb_build_object('user_id',p_user_id,'polo_code',p_polo_code,'active',coalesce(p_active,true));
 end;
-$;
+$$;
 revoke all on function ciadi_ti.reception_set_user_polo(uuid,text,boolean) from public,anon;
 grant execute on function ciadi_ti.reception_set_user_polo(uuid,text,boolean) to authenticated;
 
