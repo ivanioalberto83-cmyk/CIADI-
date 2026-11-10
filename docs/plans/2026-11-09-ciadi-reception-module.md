@@ -49,7 +49,7 @@
 - Render the reception home, today's queue, arrival registration, status changes, visitor log and clear unavailable-state messaging.
 - Route to existing areas only through the supplied `navigate` callback; never render patient clinical details.
 
-- [ ] Add focused rendering tests for the empty queue and unavailable schema (not yet covered).
+- [x] Add focused rendering tests for the empty queue and unavailable schema; both states are covered through the module's public `renderHome()` entry point.
 - [x] Implement the dashboard and forms; Dashboard integration workflow passed. The first full CI run exposed three legacy-contract/fixture failures, which were corrected; the subsequent full suite passed.
 - [x] Finance integration fails closed when the principal company cannot be resolved; unavailable/RLS-blocked data is shown as unavailable, not as a successful operation.
 
