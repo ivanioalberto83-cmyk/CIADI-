@@ -141,7 +141,7 @@ language sql
 stable
 security definer
 set search_path = pg_catalog, public, ciadi_ti, auth
-as $
+as $function$
   select auth.uid() is not null
     and p_polo_code in ('talatona','jardim_de_rosas')
     and exists (
@@ -157,7 +157,7 @@ as $
           ))
         )
     );
-$;
+$function$;
 
 create or replace function ciadi_ti.post_stock_movement(
   p_item_id uuid,
