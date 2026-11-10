@@ -79,6 +79,7 @@ test('o pacote Windows exige os motores de Recepção e Suporte Informático', (
     'renderer/modules/support-helpdesk-module.js',
     'renderer/modules/support-inventory-lifecycle-module.js',
     'renderer/modules/reception-module.js',
+    'renderer/modules/cash-reports-module.js',
     'renderer/core/institutional-identity-service.js',
     'renderer/core/station-profile-service.js'
   ]) {
