@@ -1068,7 +1068,7 @@ test('permissões da Recepção limitam o operador ao polo atribuído e reservam
 test('painel operacional da Recepção apresenta formulários de requisição, saída, devolução e transferência sem acções de aprovação', () => {
   assert.equal(typeof reception.renderReceptionProcurementPanel, 'function');
   const html = reception.renderReceptionProcurementPanel({
-    warehouses: [{ id: 'w1', code: 'TAL-01', name: 'Armazém Talatona', polo: 'talatona' }, { id: 'w2', code: 'TAL-02', name: 'Armazém Secundário', polo: 'talatona' }],
+    warehouses: [{ id: 'w1', code: 'TAL-01', name: 'Armazém Talatona', polo: 'talatona' }, { id: 'w2', code: 'JDR-01', name: 'Armazém Secundário', polo: 'jardim_de_rosas' }],
     items: [{ id: 'i1', sku: 'MAT-01', name: 'Material', unit_of_measure: 'unidade' }],
     costCenters: [{ id: 'cc1', codigo: 'CC-001', nome: 'Talatona' }]
   }, 'talatona');
