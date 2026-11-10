@@ -11,6 +11,7 @@
     ['financeiro', '💰 Financeiro'],
     ['faturacao', '🧾 Faturação'],
     ['caixa', '💵 Caixa & Tesouraria'],
+    ['cash_reports', 'Relatórios de Abertura/Fecho de Caixa'],
     ['contabilidade', '📊 Contabilidade'],
     ['saft', '📦 SAF-T(AO)'],
     ['especialidades', 'Especialidades'],
