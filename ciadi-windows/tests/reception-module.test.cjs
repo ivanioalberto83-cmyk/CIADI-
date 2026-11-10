@@ -901,6 +901,21 @@ test('todas as funções SQL da proposta de stock usam delimitadores dollar-quot
   assert.doesNotMatch(sql, /^\s*\$;\s*$/m);
 });
 
+test('recepção, conferência e finalização de mercadorias validam acesso pelo polo atribuído', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'), 'utf8');
+  const create = sql.slice(sql.indexOf('create or replace function ciadi_ti.create_goods_receipt'), sql.indexOf('create or replace function ciadi_ti.check_goods_receipt'));
+  const check = sql.slice(sql.indexOf('create or replace function ciadi_ti.check_goods_receipt'), sql.indexOf('create or replace function ciadi_ti.finalize_goods_receipt'));
+  const finalize = sql.slice(sql.indexOf('create or replace function ciadi_ti.finalize_goods_receipt'), sql.indexOf('create or replace function ciadi_ti.reconcile_inventory_count'));
+  assert.match(create, /has_reception_operation_access\(w\.polo\)/i);
+  assert.match(check, /has_reception_operation_access\(w\.polo\)/i);
+  assert.match(finalize, /has_reception_operation_access\(w\.polo\)/i);
+  assert.doesNotMatch(create, /has_support_access\(\)/i);
+  assert.doesNotMatch(check, /has_support_access\(\)/i);
+  assert.doesNotMatch(finalize, /has_support_access\(\)/i);
+});
+
 test('proposta SQL do stock da Recepção separa requisição interna de compra a fornecedor e protege saídas', () => {
   const fs = require('node:fs');
   const path = require('node:path');
