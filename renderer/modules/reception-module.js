@@ -674,7 +674,18 @@
       async getGoodsReceipts() {
         return rows(supabase.schema('ciadi_ti').from('goods_receipts')
           .select('id,receipt_number,purchase_request_id,warehouse_id,delivery_reference,status,created_at,posted_at')
-          .order('created_at', { ascending: false }).limit(20));
+          .order('created_at', { ascending: false }).limit(50));
+      },
+      async getPurchaseRequestLines() {
+        return rows(supabase.schema('ciadi_ti').from('purchase_request_lines')
+          .select('id,request_id,item_id,description,quantity,unit_of_measure,estimated_unit_cost')
+          .order('created_at', { ascending: true }).limit(500));
+      },
+      async getGoodsReceiptLines() {
+        return rows(supabase.schema('ciadi_ti').from('goods_receipt_lines')
+          .select('purchase_request_line_id,received_quantity,receipt:goods_receipts!inner(status)')
+          .neq('receipt.status', 'cancelled')
+          .limit(2000));
       },
       async getStockRequisitions() {
         return rows(supabase.schema('ciadi_ti').from('stock_requisitions')
@@ -1120,12 +1131,47 @@
       '</div>' + renderReceptionProcurementPanel(snapshot, poloCode) + '</section>';
   }
 
+  function renderGoodsReceiptLineInputs(snapshot = {}, requestId = '') {
+    const rows = key => Array.isArray(snapshot[key]?.rows) ? snapshot[key].rows : Array.isArray(snapshot[key]) ? snapshot[key] : [];
+    const requestLines = rows('purchaseRequestLines').filter(line => String(line.request_id) === String(requestId));
+    const items = rows('items');
+    const receiptLines = rows('goodsReceiptLines');
+    if (!requestLines.length) return '<p class="text-sm text-slate-500">A compra seleccionada não tem linhas de artigos de stock disponíveis para recepção.</p>';
+    return requestLines.map(line => {
+      const receivedBefore = receiptLines
+        .filter(receiptLine => String(receiptLine.purchase_request_line_id) === String(line.id))
+        .reduce((total, receiptLine) => total + Number(receiptLine.received_quantity || 0), 0);
+      const ordered = Number(line.quantity || 0);
+      const remaining = Math.max(0, Math.round((ordered - receivedBefore) * 1000) / 1000);
+      const item = items.find(candidate => String(candidate.id) === String(line.item_id));
+      const description = line.description || item?.name || 'Artigo sem descrição';
+      const unit = line.unit_of_measure || item?.unit_of_measure || 'unidade';
+      const cost = line.estimated_unit_cost === null || line.estimated_unit_cost === undefined ? '' : String(line.estimated_unit_cost);
+      const disabled = remaining <= 0;
+      return '<article data-goods-receipt-line data-request-line-id="' + esc(line.id) + '" data-ordered-quantity="' + esc(ordered) + '" data-already-received-quantity="' + esc(receivedBefore) + '" class="rounded-lg border p-3 space-y-2">' +
+        '<div class="flex flex-wrap justify-between gap-2"><strong class="text-sm">' + esc(description) + '</strong><span class="text-xs text-slate-500">Encomendado: ' + esc(ordered) + ' ' + esc(unit) + ' · Já recebido: ' + esc(receivedBefore) + ' · Em falta: ' + esc(remaining) + '</span></div>' +
+        '<div class="grid grid-cols-2 md:grid-cols-4 gap-2">' +
+        '<label class="text-xs font-semibold">Recebido<input name="receivedQuantity" type="number" min="0.001" max="' + esc(remaining) + '" step="0.001" required ' + (disabled ? 'disabled' : '') + ' class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold">Aceite<input name="acceptedQuantity" type="number" min="0" step="0.001" value="0" required ' + (disabled ? 'disabled' : '') + ' class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold">Danificado<input name="damagedQuantity" type="number" min="0" step="0.001" value="0" required ' + (disabled ? 'disabled' : '') + ' class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold">Devolvido<input name="returnedQuantity" type="number" min="0" step="0.001" value="0" required ' + (disabled ? 'disabled' : '') + ' class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '</div><div class="grid grid-cols-2 gap-2">' +
+        '<label class="text-xs font-semibold">Custo unitário (Kz)<input name="unitCost" type="number" min="0" step="0.01" value="' + esc(cost) + '" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold">Lote / referência<input name="lotCode" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '</div><input type="hidden" name="requestLineId" value="' + esc(line.id) + '"><input type="hidden" name="orderedQuantity" value="' + esc(ordered) + '"><input type="hidden" name="alreadyReceivedQuantity" value="' + esc(receivedBefore) + '">' +
+        '</article>';
+    }).join('');
+  }
+
   function renderReceptionProcurementPanel(snapshot = {}, poloCode = null) {
     const list = key => Array.isArray(snapshot[key]?.rows) ? snapshot[key].rows : Array.isArray(snapshot[key]) ? snapshot[key] : [];
     const polo = POLOS.includes(poloCode) ? poloCode : '';
     const warehouses = list('warehouses').filter(row => row.polo === polo);
     const items = list('items');
     const costCenters = list('costCenters');
+    const approvedRequests = list('requests').filter(row => row.status === 'approved');
+    const receipts = list('goodsReceipts');
+    const initialRequestId = approvedRequests[0]?.id || '';
     const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
     const warehouseOptions = warehouses.map(row => option(row.id, row.code + ' · ' + row.name)).join('');
     const itemOptions = items.map(row => option(row.id, (row.sku ? row.sku + ' · ' : '') + row.name)).join('');
@@ -1134,15 +1180,40 @@
     const disabledText = !polo ? 'Seleccione primeiro o polo da Recepção.' :
       !warehouses.length ? 'Não existem armazéns activos atribuídos a este polo.' :
       !items.length ? 'O catálogo de artigos não está disponível.' : '';
+    const receiptSchemaError = snapshot.goodsReceipts?.error || snapshot.goodsReceiptLines?.error || snapshot.purchaseRequestLines?.error;
+    const receiptReady = !receiptSchemaError && !disabled && approvedRequests.length > 0;
     const brand = globalThis.CIADI_INSTITUTIONAL_IDENTITY?.getBrand?.() || null;
     const logo = brand?.logoDataUrl ? '<img src="' + esc(brand.logoDataUrl) + '" alt="Logótipo CIADI" class="h-8 w-auto object-contain">' : '<strong class="text-orange">CIADI</strong>';
     const warehouseSelect = (name, label) => '<label class="block text-xs font-semibold">' + label + '<select name="' + name + '" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o armazém') + warehouseOptions + '</select></label>';
     const itemSelect = '<label class="block text-xs font-semibold">Artigo<select name="itemId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o artigo') + itemOptions + '</select></label>';
     const commonMessage = '<p data-reception-message role="status" class="text-xs text-amber-800"></p>';
     const button = label => '<button type="submit" class="rounded-lg bg-orange text-white px-4 py-2 font-bold" ' + (disabled ? 'disabled' : '') + '>' + label + '</button>';
+    const requestOptions = approvedRequests.map(row => option(row.id, 'Compra #' + row.request_number + ' · ' + (row.justification || 'Aprovada'))).join('');
+    const requestLabel = request => request ? 'Compra #' + request.request_number : 'Sem compra aprovada';
+    const receiptRows = receipts.slice(0, 12).map(row => {
+      const action = row.status === 'draft'
+        ? '<button type="button" data-goods-receipt-check="' + esc(row.id) + '" class="border rounded-lg px-3 py-1 text-xs font-semibold">Conferir</button>'
+        : row.status === 'checked'
+          ? '<button type="button" data-goods-receipt-finalize="' + esc(row.id) + '" class="rounded-lg bg-orange text-white px-3 py-1 text-xs font-semibold">Dar entrada no stock</button>'
+          : '';
+      return '<article class="flex flex-wrap items-center justify-between gap-2 border-b py-2"><div><strong class="text-sm">' + esc(row.receipt_number ? 'GR-' + row.receipt_number : row.delivery_reference || row.id) + '</strong><p class="text-xs text-slate-500">' + esc(row.delivery_reference || 'Sem referência') + ' · ' + esc(row.status) + '</p></div>' + action + '</article>';
+    }).join('');
+    const lineInputs = initialRequestId ? renderGoodsReceiptLineInputs(snapshot, initialRequestId) : '<p class="text-sm text-slate-500">Não existem compras aprovadas para receber.</p>';
     return '<section class="mt-5 border-t pt-5 space-y-4" data-reception-procurement-operations>' +
       '<header class="flex items-center gap-3">' + logo + '<div><h3 class="font-black text-lg">Operações de aprovisionamento</h3><p class="text-xs text-slate-500">Polo activo: ' + esc(polo ? POLO_LABELS[polo] : 'não seleccionado') + '. As operações são registadas no razão central e validadas pelo servidor.</p></div></header>' +
       (disabledText ? '<p class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">' + esc(disabledText) + '</p>' : '') +
+      '<div class="rounded-xl border border-orange-200 p-4 space-y-3"><div><h4 class="font-bold">Recepção de mercadorias de fornecedor</h4><p class="text-xs text-slate-500">Só permite compras aprovadas. A conferência classifica cada unidade e a entrada em stock considera exclusivamente as quantidades aceites.</p></div>' +
+      (receiptSchemaError ? '<p class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">O motor de recepção ainda não está instalado ou acessível nesta base de dados. Não foi feita qualquer alteração à produção.</p>' : '') +
+      '<form data-procurement-goods-receipt class="space-y-3">' +
+      '<div class="grid md:grid-cols-2 gap-3"><label class="block text-xs font-semibold">Compra aprovada<select name="purchaseRequestId" data-goods-receipt-request required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione a compra') + requestOptions + '</select></label>' +
+      warehouseSelect('warehouseId','Armazém de destino') +
+      '<label class="block text-xs font-semibold">Guia / documento de entrega<input name="deliveryReference" maxlength="100" required class="mt-1 w-full border rounded-lg p-2"></label>' +
+      '<label class="block text-xs font-semibold">Data de entrega<input name="deliveryDate" type="date" class="mt-1 w-full border rounded-lg p-2"></label></div>' +
+      '<label class="block text-xs font-semibold">Observações<textarea name="notes" maxlength="2000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label>' +
+      '<div data-goods-receipt-lines class="space-y-2">' + lineInputs + '</div>' +
+      commonMessage + '<button type="submit" class="rounded-lg bg-orange text-white px-4 py-2 font-bold" ' + (!receiptReady ? 'disabled' : '') + '>Registar recepção em rascunho</button></form></div>' +
+      '<section class="rounded-xl border p-4 space-y-2"><h4 class="font-bold">Recepções pendentes de conferência / entrada</h4>' +
+      (receiptSchemaError ? '<p class="text-sm text-amber-800">Histórico indisponível: estrutura SQL de recepção ausente ou sem acesso.</p>' : receiptRows || '<p class="text-sm text-slate-500">Não existem recepções recentes.</p>') + '</section>' +
       '<div class="grid xl:grid-cols-2 gap-3">' +
       '<form data-procurement-requisition data-requisition-submit class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Nova requisição interna de stock</h4>' +
         warehouseSelect('warehouseId','Armazém de destino') +
@@ -1452,6 +1523,8 @@
         ['costCenters', () => businessRepository.getCostCenters(company)],
         ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()],
+        ['purchaseRequestLines', () => businessRepository.getPurchaseRequestLines()],
+        ['goodsReceiptLines', () => businessRepository.getGoodsReceiptLines()],
         ['stockRequisitions', () => businessRepository.getStockRequisitions()],
         ['goodsReceipts', () => businessRepository.getGoodsReceipts()],
         ['inventoryCounts', () => businessRepository.getInventoryCounts()],
@@ -1505,6 +1578,20 @@
         const button = event.target.closest('button');
         if (!button) return;
         try {
+          if (button.hasAttribute('data-goods-receipt-check')) {
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.checkGoodsReceipt(button.getAttribute('data-goods-receipt-check'));
+            notify('Conferência da recepção confirmada pelo servidor: ' + JSON.stringify(result));
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
+          }
+          if (button.hasAttribute('data-goods-receipt-finalize')) {
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.finalizeGoodsReceipt(button.getAttribute('data-goods-receipt-finalize'));
+            notify('Entrada no stock confirmada pelo servidor: ' + JSON.stringify(result));
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
+          }
           if (button.hasAttribute('data-invoice-preview-close')) {
             const host = container.querySelector('[data-invoice-preview-host]');
             if (host) { host.innerHTML = ''; host.classList.add('hidden'); }
@@ -1626,6 +1713,11 @@
           }
           return;
         }
+        if (event.target.matches('[data-goods-receipt-request]')) {
+          const host = container.querySelector('[data-goods-receipt-lines]');
+          if (host) host.innerHTML = renderGoodsReceiptLineInputs(businessSnapshot, event.target.value);
+          return;
+        }
         if (event.target.matches('[data-reception-polo]')) {
           activePolo = event.target.value || null;
           try { await refresh(); } catch (error) { renderUnavailable(error); }
@@ -1635,6 +1727,36 @@
       container.addEventListener('submit', async event => {
         const form = event.target;
         const procurementActions = [
+          ['[data-procurement-goods-receipt]', async (values, form) => {
+            const request = (businessSnapshot.requests?.rows || []).find(row => String(row.id) === String(values.purchaseRequestId));
+            if (!request || request.status !== 'approved') throw new Error('A recepção exige uma requisição de compra aprovada.');
+            const lines = Array.from(form.querySelectorAll('[data-goods-receipt-line]')).map(row => {
+              const value = name => row.querySelector('[name="' + name + '"]')?.value;
+              return {
+                requestLineId: value('requestLineId'),
+                orderedQuantity: value('orderedQuantity'),
+                alreadyReceivedQuantity: value('alreadyReceivedQuantity'),
+                receivedQuantity: value('receivedQuantity'),
+                acceptedQuantity: value('acceptedQuantity'),
+                damagedQuantity: value('damagedQuantity'),
+                returnedQuantity: value('returnedQuantity'),
+                unitCost: value('unitCost'),
+                lotCode: value('lotCode')
+              };
+            });
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.createGoodsReceipt({
+              requestStatus: request.status,
+              requestId: request.id,
+              warehouseId: values.warehouseId,
+              deliveryReference: values.deliveryReference,
+              deliveryDate: values.deliveryDate || null,
+              notes: values.notes || '',
+              lines
+            });
+            if (!result?.id) throw new Error('O servidor não devolveu o identificador da recepção. Consulte o histórico antes de repetir.');
+            return 'Recepção ' + (result.receipt_number || result.id) + ' registada em rascunho. Faça a conferência e depois autorize a entrada no stock.';
+          }],
           ['[data-procurement-requisition]', async values => {
             const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
             const result = await service.createAndSubmitStockRequisition({
@@ -1678,7 +1800,7 @@
           const submitButton = form.querySelector('button[type="submit"]');
           submitButton.disabled = true;
           try {
-            const confirmation = await procurementAction[1](values);
+            const confirmation = await procurementAction[1](values, form);
             notify(confirmation);
             try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
           } catch (error) {
