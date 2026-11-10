@@ -1131,7 +1131,10 @@ test('painel da Recepção apresenta formulário de recepção apenas para compr
       { id: 'approved-1', request_number: 101, status: 'approved' },
       { id: 'pending-1', request_number: 102, status: 'submitted' }
     ] },
-    purchaseRequestLines: { rows: [{ id: 'line-1', request_id: 'approved-1', item_id: 'item-1', description: 'Material clínico', quantity: 10, unit_of_measure: 'unidade', estimated_unit_cost: 2500 }] },
+    purchaseRequestLines: { rows: [
+      { id: 'line-1', request_id: 'approved-1', item_id: 'item-1', description: 'Material clínico', quantity: 10, unit_of_measure: 'unidade', estimated_unit_cost: 2500 },
+      { id: 'line-service', request_id: 'approved-1', item_id: null, description: 'Serviço sem stock', quantity: 2, unit_of_measure: 'serviço', estimated_unit_cost: 0 }
+    ] },
     goodsReceipts: { rows: [] },
     goodsReceiptLines: { rows: [{ purchase_request_line_id: 'line-1', received_quantity: 3, receipt: { status: 'posted' } }] }
   }, 'talatona');
@@ -1145,4 +1148,5 @@ test('painel da Recepção apresenta formulário de recepção apenas para compr
   assert.match(html, /data-goods-receipt-lines/);
   assert.match(html, /data-already-received-quantity="3"/);
   assert.match(html, /max="7"/);
+  assert.doesNotMatch(html, /Serviço sem stock/);
 });
