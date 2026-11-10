@@ -72,3 +72,22 @@ test('o Dashboard canónico referencia apenas recursos locais presentes no pacot
     assert.ok(fs.existsSync(path.join(root, src)), 'Recurso local referenciado em falta: ' + src);
   }
 });
+
+test('o pacote Windows exige os motores de Recepção e Suporte Informático', () => {
+  for (const relativePath of [
+    'renderer/modules/support-operations-module.js',
+    'renderer/modules/support-helpdesk-module.js',
+    'renderer/modules/support-inventory-lifecycle-module.js',
+    'renderer/modules/reception-module.js',
+    'renderer/core/institutional-identity-service.js',
+    'renderer/core/station-profile-service.js'
+  ]) {
+    assert.ok(fs.existsSync(path.join(root, relativePath)), 'Motor obrigatório em falta na origem: ' + relativePath);
+  }
+  assert.match(buildWorkflow, /support-operations-module\.js/);
+  assert.match(buildWorkflow, /support-helpdesk-module\.js/);
+  assert.match(buildWorkflow, /support-inventory-lifecycle-module\.js/);
+  assert.match(buildWorkflow, /reception-module\.js/);
+  assert.match(buildWorkflow, /institutional-identity-service\.js/);
+  assert.match(buildWorkflow, /station-profile-service\.js/);
+});
