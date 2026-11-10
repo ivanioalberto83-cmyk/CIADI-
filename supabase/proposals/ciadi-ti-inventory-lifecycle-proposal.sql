@@ -70,7 +70,7 @@ language sql
 stable
 security definer
 set search_path = pg_catalog, ciadi_ti
-as $
+as $$
   select auth.uid() is not null
     and exists (
       select 1 from ciadi_ti.warehouses w
@@ -78,7 +78,7 @@ as $
         and w.active = true
         and ciadi_ti.has_reception_operation_access(w.polo)
     );
-$;
+$$;
 
 create or replace function ciadi_ti.has_reception_goods_receipt_access(p_receipt_id uuid)
 returns boolean
@@ -86,14 +86,14 @@ language sql
 stable
 security definer
 set search_path = pg_catalog, ciadi_ti
-as $
+as $$
   select auth.uid() is not null
     and exists (
       select 1 from ciadi_ti.goods_receipts r
       where r.id = p_receipt_id
         and ciadi_ti.has_reception_warehouse_access(r.warehouse_id)
     );
-$;
+$$;
 
 revoke all on function ciadi_ti.has_reception_warehouse_access(uuid) from public, anon;
 revoke all on function ciadi_ti.has_reception_goods_receipt_access(uuid) from public, anon;
