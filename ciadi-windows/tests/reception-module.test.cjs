@@ -913,7 +913,8 @@ test('proposta SQL do stock da Recepção separa requisição interna de compra 
   assert.match(sql, /has_finance_approval\(\)/i);
   assert.doesNotMatch(sql, /has_support_access\(\)/i);
   assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit/i);
-  assert.doesNotMatch(sql, /grant execute on function ciadi_ti\.reception_/i);
+  assert.match(sql, /grant execute on function ciadi_ti\.reception_create_stock_requisition[\s\S]*?to authenticated/i);
+  assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit[\s\S]*?from public,anon/i);
   assert.match(sql, /PROPOSTA APENAS/i);
 });
 
@@ -1054,9 +1055,11 @@ test('permissões da Recepção limitam o operador ao polo atribuído e reservam
   const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
   assert.match(sql, /create table if not exists ciadi_ti\.reception_user_polos/i);
   assert.match(sql, /enable row level security/i);
+  assert.match(sql, /as \$\$[\s\S]*?end;\s*\$\$;/i);
   assert.match(sql, /create or replace function ciadi_ti\.has_reception_operation_access/i);
   assert.match(sql, /p\.tipo\s*=\s*'operador'/i);
   assert.match(sql, /polo_code\s*=\s*p_polo_code/i);
   assert.match(sql, /has_finance_approval\(\)/i);
   assert.match(sql, /grant execute on function ciadi_ti\.reception_/i);
+  assert.match(sql, /revoke all on function ciadi_ti\.reception_/i);
 });
