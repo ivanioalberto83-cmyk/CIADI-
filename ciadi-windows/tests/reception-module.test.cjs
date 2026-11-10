@@ -1027,10 +1027,10 @@ test('proposta de facturação respeita os códigos N/C/A e separa estado docume
   const fs = require('node:fs');
   const path = require('node:path');
   const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-finance-invoice-payment-state-fix.sql'), 'utf8');
-  assert.match(sql, /document_status[\\s\\S]{0,100}'N'/i);
-  assert.match(sql, /fiscal_status[\\s\\S]{0,100}'em_edicao'/i);
-  assert.match(sql, /fiscal_status[\\s\\S]{0,100}'emitido'/i);
-  assert.doesNotMatch(sql, /document_status\\s*=\\s*'emitido'/i);
+  assert.match(sql, /document_status[\s\S]{0,100}'N'/i);
+  assert.match(sql, /fiscal_status[\s\S]{0,100}'em_edicao'/i);
+  assert.match(sql, /fiscal_status[\s\S]{0,100}'emitido'/i);
+  assert.doesNotMatch(sql, /document_status\s*=\s*'emitido'/i);
   assert.match(sql, /ciadi_faturacao_criar_documento/i);
   assert.match(sql, /ciadi_faturacao_emitir_documento/i);
 });
@@ -1039,7 +1039,7 @@ test('formulário de recebimento envia pagamento ao RPC central e apresenta o re
   const fs = require('node:fs');
   const path = require('node:path');
   const source = fs.readFileSync(path.join(__dirname, '../../renderer/modules/reception-module.js'), 'utf8');
-  assert.match(source, /form\\.matches\\('\[data-reception-payment-form\]'\)/);
-  assert.match(source, /financeRepository\\.registerPayment/);
-  assert.match(source, /receipt\\?\\.recibo_no/);
+  assert.match(source, /form\.matches\('\[data-reception-payment-form\]'\)/);
+  assert.match(source, /financeRepository\.registerPayment/);
+  assert.match(source, /receipt\?\.recibo_no/);
 });
