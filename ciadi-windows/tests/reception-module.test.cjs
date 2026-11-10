@@ -910,8 +910,11 @@ test('proposta SQL do stock da Recepção separa requisição interna de compra 
   assert.match(sql, /idempotency_key/i);
   assert.match(sql, /has_reception_operation_access\(/i);
   assert.match(sql, /reception_user_polos/i);
+  assert.match(sql, /reception_set_user_polo/i);
   assert.match(sql, /has_finance_approval\(\)/i);
-  assert.doesNotMatch(sql, /has_support_access\(\)/i);
+  assert.match(sql, /reception_set_user_polo[\s\S]*?has_support_access\(\)/i);
+  assert.match(sql, /tipo = 'operador'/i);
+  assert.match(sql, /reception_set_user_polo\(uuid,text,boolean\)[\s\S]*?to authenticated/i);
   assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit/i);
   assert.match(sql, /grant execute on function ciadi_ti\.reception_create_stock_requisition[\s\S]*?to authenticated/i);
   assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit[\s\S]*?from public,anon/i);
