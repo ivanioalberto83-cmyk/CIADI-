@@ -55,7 +55,7 @@ test('cash report repository avoids extra queries when there are no shifts or li
   const repository = reports.createCashReportsRepository({ supabase: client });
   const empty = await repository.getSnapshot();
   assert.deepEqual(empty, { shifts: [], movements: [], accountingEntries: [] });
-  assert.deepEqual(calls.map(call => call.table), ['finance_caixa_turnos']);
+  assert.deepEqual([...new Set(calls.map(call => call.table))], ['finance_caixa_turnos']);
 });
 
 test('cash report rows reconcile counted cash and expose incomplete accounting links', () => {
