@@ -53,3 +53,10 @@ test('as RPCs da proposta exigem autenticação e validam o acesso de cada opera
   assert.equal((sql.match(/if auth\.uid\(\) is null or/gi) || []).length, 4);
   assert.match(sql, /set search_path = pg_catalog, public, ciadi_ti/gi);
 });
+
+
+test('a proposta SQL do ciclo de inventário usa dollar-quote válido nas funções auxiliares RLS', () => {
+  const sql = read('supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql');
+  assert.doesNotMatch(sql, /^\\s*as \\$(?!\\$)\\s*$/m);
+  assert.doesNotMatch(sql, /^\\s*\\$;\\s*$/m);
+});
