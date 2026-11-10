@@ -68,7 +68,7 @@
 
 - [x] Add static SQL contract tests for schema isolation, RLS enabled, event history, no DELETE grants, and absence of policies/grants.
 - [x] Write the additive proposal; static SQL contract tests passed in the full Node suite. PostgreSQL execution remains pending.
-- [ ] Run PostgreSQL 16 isolated homologation through GitHub Actions when the branch workflow is configured.
+- [x] Run PostgreSQL 16 isolated homologation through GitHub Actions: run `42790400616` passed after correcting a malformed dollar-quote delimiter in `reception_search_appointments`.
 - [x] Add daily, per-polo sequential ticket numbers using an atomic upsert counter; keep global call-next order chronological when both polos are shown.
 - [ ] Keep the proposal unapplied to remote Supabase.
 
@@ -111,7 +111,7 @@
 - [x] Add a transaction-safe RPC proposal that locks the visit, validates an active specialty, updates the destination and records an immutable `destination_assigned` event with actor and details.
 - [x] Extend the dashboard queue with a destination selector and routing action; display the specialty label in the privacy-filtered call panel.
 - [x] Keep routing within the Reception schema proposal; no live SQL or permission changes have been applied.
-- [ ] Verify PostgreSQL execution and RLS behaviour in an isolated homologation environment.
+- [x] Verify PostgreSQL execution and RLS behaviour in isolated PostgreSQL 16: arrival, sequential per-polo tickets, appointment check-in, visitor entry/exit, referral routing/acceptance, dashboard aggregation, RLS enabled and no schema/function grants before the permission phase.
 - [ ] Standardize human-readable room identifiers and map specialty-to-room only after operational confirmation.
 - [ ] Add role/polo authorization, public TV endpoint, automatic refresh and sound in subsequent phases.
 
@@ -122,7 +122,131 @@
 - [x] Extend the SQL proposal with pending/accepted/returned state, actor/time fields and immutable events.
 - [x] Set referrals to pending when a destination is assigned and expose referral state in the dashboard payload.
 - [x] Display referral receipt status in the Reception queue.
-- [ ] Verify the test-first red run and the green GitHub Actions run for the new referral tests.
+- [x] Verify red/green SQL homologation: the first PostgreSQL run exposed the invalid `# CIADI Recepção Implementation Plan
+
+> **For agentic workers:** Use the host's available task-by-task implementation workflow. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Transform the current Recepção navigation page into a professional institutional front-desk module with auditable arrival, queue, visitor, referral, billing/cashier, procurement and branded document workflows.
+
+**Architecture:** Keep the module independent from clinical workflows and integrated with the central Finance/Billing/Cash and Procurement engines. Reuse existing appointments and patient references only when explicitly linked, while storing front-desk operational events in a dedicated `ciadi_reception` schema. All writes go through named RPCs; until a reviewed permission phase is completed, the database proposal remains unapplied and the module must fail closed when the schema is unavailable.
+
+**Tech Stack:** Existing Electron/HTML dashboard, vanilla JavaScript modules, Supabase JS, PostgreSQL proposal SQL, Node.js built-in test runner.
+
+## Global Constraints
+
+- Work only on the Recepção feature branch; do not edit the Support Informática PR or other stations.
+- No writes to the remote Supabase project, no production deployment, no account changes, no RLS activation or permission grants in this phase.
+- Do not store clinical notes or unnecessary child-identifying data in front-desk records.
+- Do not let the reception module modify clinical records, appointments, invoices, cash, procurement or stock directly; use audited central engine contracts, approvals and permissions without duplicate ledgers or stock records.
+- Preserve the current integration contract: `CIADI_RECEPTION_MODULE.create({ root, navigate, notify }).renderHome()`.
+- The station selector is not an authorization mechanism; server-side permissions remain a separate later phase.
+- No paid Supabase branch or staging environment is to be created.
+
+---
+
+### Task 1: Reception domain engine
+
+**Files:**
+- Modify: `renderer/modules/reception-module.js`
+- Test: `ciadi-windows/tests/reception-module.test.cjs`
+
+**Interfaces:**
+- Exports: `validateVisitInput(input)`, `transitionVisitStatus(current, next)`, `validateVisitorInput(input)`, `summarizeReception(rows)`, `createReceptionRepository({ supabase })`, `create({ root, navigate, notify })`.
+- RPC contract: `reception_register_arrival`, `reception_transition_visit`, `reception_register_visitor`, `reception_close_visitor`, all invoked through schema `ciadi_reception`.
+
+- [x] Add tests for valid/invalid arrivals, required appointment reference for appointment visits, allowed/forbidden lifecycle transitions, visitor validation, queue metrics, and RPC-only persistence.
+- [x] TDD red observed: commit f0a1550 added the integration contract tests and CI failed specifically because createReceptionBusinessRepository was not yet exported.
+- [x] Implement validation, state transitions, metrics, and a repository that calls only the named RPCs; reject invalid input before any database call.
+- [x] TDD green verified by GitHub Actions: 162 tests passed, 0 failed on run 42610491365.
+- [x] `node --check renderer/modules/reception-module.js` passed in GitHub Actions.
+- [x] Implementation committed incrementally on the isolated Recepção feature branch.
+
+### Task 2: Front-desk dashboard and queue workflow
+
+**Files:**
+- Modify: `renderer/modules/reception-module.js`
+- Modify: `CIADI_DASHBOARD_FINANCEIRO.html` only if the current script loader or integration contract requires it.
+- Test: `ciadi-windows/tests/reception-module.test.cjs`
+
+**Interfaces:**
+- Preserve the existing module factory contract.
+- Render the reception home, today's queue, arrival registration, status changes, visitor log and clear unavailable-state messaging.
+- Route to existing areas only through the supplied `navigate` callback; never render patient clinical details.
+
+- [x] Add focused rendering tests for the empty queue and unavailable schema; both states are covered through the module's public `renderHome()` entry point.
+- [x] Implement the dashboard and forms; Dashboard integration workflow passed. The first full CI run exposed three legacy-contract/fixture failures, which were corrected; the subsequent full suite passed.
+- [x] Finance integration fails closed when the principal company cannot be resolved; unavailable/RLS-blocked data is shown as unavailable, not as a successful operation.
+
+### Task 3: Dedicated database proposal
+
+**Files:**
+- Create: `supabase/proposals/ciadi-reception-workflow-proposal.sql`
+- Test: `ciadi-windows/tests/reception-module.test.cjs`
+- Create or update: `docs/CIADI_RECEPCAO_ARQUITECTURA.md`
+
+**Interfaces:**
+- Proposed tables: `front_desk_visits`, `front_desk_visit_events`, `visitor_entries`.
+- Proposed RPCs match Task 1 exactly.
+- Include foreign-key references to existing appointments/patients only where verified and nullable; no duplicate clinical master records.
+- Enable RLS and leave policies/grants out of this engine phase; no authenticated writes become available until the later permission design is reviewed.
+
+- [x] Add static SQL contract tests for schema isolation, RLS enabled, event history, no DELETE grants, and absence of policies/grants.
+- [x] Write the additive proposal; static SQL contract tests passed in the full Node suite. PostgreSQL execution remains pending.
+- [x] Run PostgreSQL 16 isolated homologation through GitHub Actions: run `42790400616` passed after correcting a malformed dollar-quote delimiter in `reception_search_appointments`.
+- [x] Add daily, per-polo sequential ticket numbers using an atomic upsert counter; keep global call-next order chronological when both polos are shown.
+- [ ] Keep the proposal unapplied to remote Supabase.
+
+### Task 4: Integration and quality gate
+
+**Files:**
+- Modify: `.github/workflows/ciadi-modules-ci.yml` to include this feature branch and its PR base.
+- Modify: `CIADI_DASHBOARD_FINANCEIRO.html` and `index.html` only if integration is necessary; preserve byte-for-byte equality.
+- Update: `docs/CIADI_RECEPCAO_ARQUITECTURA.md`.
+
+- [x] Earlier Node architecture suite: 145 passed, 0 failed; latest full Node suite: 162 passed, 0 failed (run 42610491365). Dashboard validation passed (run 42610491460).
+- [ ] Inspect the diff for accidental Support Informática, RH, production or permission changes.
+- [ ] Keep the PR Draft until database, profile and end-to-end checks are completed in a controlled environment.
+
+## Product decisions reserved for the permission/homologation phase
+
+- Which reception staff may create, correct, cancel, reopen or export each record.
+- Exact polo-level visibility and any supervisor override.
+- Whether visitor identification documents are ever collected; the current design does not store document numbers.
+- Retention periods for visitor and front-desk event history.
+- Whether WhatsApp/SMS/email channels are configured and approved for institutional use.
+
+
+### Task 5: Privacy-safe call panel preview
+
+- [x] Specify public-panel data contract through tests: ticket label, polo and generic destination only.
+- [x] Add a pure model builder that filters invalid tickets, lists active calls and selects the next waiting ticket chronologically.
+- [x] Add a Reception dashboard preview with no patient/visitor name, purpose, or clinical information.
+- [x] Red-green verification: the test-only commit `4e6ebaff553ecf886199b7208bc7f4e2ee05a9d0` failed in the module test stage; implementation commit `a5e347805ac950b5e85e98a95ef05d76db5e27e5` passed the full module CI.
+- [x] Latest module CI: run 42607316292, completed successfully.
+- [ ] Dedicated TV/public route and read-only data endpoint remain pending. Do not expose anonymous access or grant public database permissions before a separate security design and approval.
+- [ ] Sound, automatic refresh, room routing and PostgreSQL integration tests remain pending.
+
+
+### Task 6: Service destination routing
+
+- [x] Audited the live public schema read-only: `public.especialidades` has six active service rows; `public.agendamentos.sala_nome` currently contains generated technical room identifiers, so those values are not suitable for public display.
+- [x] Use the existing active specialty catalogue as the routing destination source; do not invent room names or expose internal room identifiers.
+- [x] Add repository contracts for reading active destinations and assigning a destination to a visit.
+- [x] Add a transaction-safe RPC proposal that locks the visit, validates an active specialty, updates the destination and records an immutable `destination_assigned` event with actor and details.
+- [x] Extend the dashboard queue with a destination selector and routing action; display the specialty label in the privacy-filtered call panel.
+- [x] Keep routing within the Reception schema proposal; no live SQL or permission changes have been applied.
+- [x] Verify PostgreSQL execution and RLS behaviour in isolated PostgreSQL 16: arrival, sequential per-polo tickets, appointment check-in, visitor entry/exit, referral routing/acceptance, dashboard aggregation, RLS enabled and no schema/function grants before the permission phase.
+- [ ] Standardize human-readable room identifiers and map specialty-to-room only after operational confirmation.
+- [ ] Add role/polo authorization, public TV endpoint, automatic refresh and sound in subsequent phases.
+
+
+### Task 7: Referral receipt confirmation and return
+
+- [x] Add repository contracts for service acceptance and return with mandatory reason.
+- [x] Extend the SQL proposal with pending/accepted/returned state, actor/time fields and immutable events.
+- [x] Set referrals to pending when a destination is assigned and expose referral state in the dashboard payload.
+- [x] Display referral receipt status in the Reception queue.
+ function delimiter; the corrected proposal passed run `42790400616`.
 - [ ] Add service-side acceptance UI only after the destination-service workflow and role authorization are specified.
 - [ ] Keep the SQL proposal unapplied and grants absent.
 
@@ -229,3 +353,16 @@
 - [ ] A proposta SQL não foi aplicada; as RPCs novas não existem no Supabase remoto e as permissões permanecem fechadas.
 - [ ] Faltam UI transaccional completa para cada formulário e homologação ponta a ponta num ambiente seguro, depois de aplicar e rever as propostas.
 - [ ] A fase de permissões deve autorizar explicitamente Recepção por polo e separar Administração (decisão), Recepção (requisição/recepção/saída) e Suporte (gestão técnica), sem alargar permissões financeiras.
+
+
+### Task 15 — Homologação SQL isolada da Recepção (10/11/2026)
+
+- [x] Criar fixture PostgreSQL 16 descartável com as dependências mínimas de agenda, utentes e especialidades; sem dados reais.
+- [x] Criar workflow dedicado que executa apenas no PostgreSQL efémero do GitHub Actions, sem ligação ao Supabase CIADI remoto.
+- [x] Testar chegada walk-in, numeração sequencial por polo, check-in de marcação existente, transições válidas/inválidas, visitantes, encaminhamento, aceitação, pesquisa de agenda e painel diário.
+- [x] Testar RLS activo e ausência de policies, USAGE e EXECUTE para authenticated antes da fase de permissões.
+- [x] RED confirmado no run `42790189352`: PostgreSQL detectou erro de sintaxe no delimitador da função `reception_search_appointments`.
+- [x] Correcção SQL aplicada no branch; GREEN confirmado no run `42790400616` — proposta aplicada e testes funcionais aprovados em PostgreSQL 16 isolado.
+- [x] CI de código no commit final: run `42790400047` concluído com sucesso; 184 testes aprovados, 0 falhas. Validação do Dashboard: run `42790400386` concluído com sucesso.
+- [ ] Não aplicar a proposta no Supabase remoto; a fase de permissões, validação de perfis/polo e homologação com sessões reais continua pendente.
+- [ ] A homologação de aprovisionamento da Recepção continua pendente: as chamadas à função central `transfer_stock` e a compatibilidade das escritas com o ledger real precisam de contratos SQL confirmados antes de serem testadas ou ligadas.
