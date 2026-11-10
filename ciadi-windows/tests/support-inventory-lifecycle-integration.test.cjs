@@ -44,7 +44,7 @@ test('as RPCs da proposta exigem autenticação e validam o acesso de cada opera
   const sql = read('supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql');
   const receptionGuards = sql.match(/has_reception_operation_access\(w\.polo\)/gi) || [];
   const supportGuards = sql.match(/if auth\.uid\(\) is null or not ciadi_ti\.has_support_access\(\) then/gi) || [];
-  assert.equal(receptionGuards.length, 3);
+  assert.equal(receptionGuards.length, 5);
   assert.equal(supportGuards.length, 1);
   assert.equal((sql.match(/if auth\.uid\(\) is null or/gi) || []).length, 4);
   assert.match(sql, /set search_path = pg_catalog, public, ciadi_ti/gi);
