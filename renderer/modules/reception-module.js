@@ -1152,7 +1152,7 @@
           <h2 class="text-2xl font-black">Serviço de Recepção</h2>
           <p class="text-slate-600">O motor está preparado, mas a ligação ao serviço de dados ainda não está homologada.</p>
           <p class="text-sm text-amber-700">${esc(error?.message || 'Serviço indisponível.')}</p>
-          <p class="text-xs text-slate-500">Nenhum atendimento ou visitante foi registado. A activação depende da proposta de base de dados e da fase de permissões.</p>
+          <p class="text-xs text-slate-500">Nenhuma operação de escrita foi executada nesta tentativa. Os registos existentes não foram alterados.</p>
           <button type="button" data-reception-retry class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Tentar novamente</button>
         </section>`;
     }
