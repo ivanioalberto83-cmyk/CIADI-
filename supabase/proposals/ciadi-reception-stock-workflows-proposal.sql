@@ -551,6 +551,14 @@ begin
 end;
 $;
 
+revoke all on function ciadi_ti.reception_create_goods_receipt(uuid,uuid,text,date,text,jsonb,text) from public,anon;
+revoke all on function ciadi_ti.reception_create_stock_requisition(text,uuid,uuid,text,text,text,jsonb) from public,anon;
+revoke all on function ciadi_ti.reception_submit_stock_requisition(uuid) from public,anon;
+revoke all on function ciadi_ti.reception_decide_stock_requisition(uuid,text,text) from public,anon;
+revoke all on function ciadi_ti.reception_register_stock_exit(text,uuid,uuid,numeric,uuid,uuid,text,text,text,text) from public,anon;
+revoke all on function ciadi_ti.reception_register_stock_return(uuid,uuid,numeric,text,text,text,text,text) from public,anon;
+revoke all on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) from public,anon;
+
 -- As operações são executáveis apenas por authenticated; cada função valida perfil, polo e estado.
 grant execute on function ciadi_ti.reception_create_goods_receipt(uuid,uuid,text,date,text,jsonb,text) to authenticated;
 grant execute on function ciadi_ti.reception_create_stock_requisition(text,uuid,uuid,text,text,text,jsonb) to authenticated;
