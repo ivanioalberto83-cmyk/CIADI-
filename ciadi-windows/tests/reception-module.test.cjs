@@ -908,7 +908,10 @@ test('proposta SQL do stock da Recepção separa requisição interna de compra 
   assert.match(sql, /length\(btrim\(coalesce\(p_justification/);
   assert.match(sql, /sum\(quantity_delta\)/i);
   assert.match(sql, /idempotency_key/i);
-  assert.match(sql, /has_support_access\(\)/i);
+  assert.match(sql, /has_reception_operation_access\(/i);
+  assert.match(sql, /reception_user_polos/i);
+  assert.match(sql, /has_finance_approval\(\)/i);
+  assert.doesNotMatch(sql, /has_support_access\(\)/i);
   assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit/i);
   assert.doesNotMatch(sql, /grant execute on function ciadi_ti\.reception_/i);
   assert.match(sql, /PROPOSTA APENAS/i);
@@ -1042,4 +1045,18 @@ test('formulário de recebimento envia pagamento ao RPC central e apresenta o re
   assert.match(source, /form\.matches\('\[data-reception-payment-form\]'\)/);
   assert.match(source, /financeRepository\.registerPayment/);
   assert.match(source, /receipt\?\.recibo_no/);
+});
+
+
+test('permissões da Recepção limitam o operador ao polo atribuído e reservam aprovação a admin/gestor', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
+  assert.match(sql, /create table if not exists ciadi_ti\.reception_user_polos/i);
+  assert.match(sql, /enable row level security/i);
+  assert.match(sql, /create or replace function ciadi_ti\.has_reception_operation_access/i);
+  assert.match(sql, /p\.tipo\s*=\s*'operador'/i);
+  assert.match(sql, /polo_code\s*=\s*p_polo_code/i);
+  assert.match(sql, /has_finance_approval\(\)/i);
+  assert.match(sql, /grant execute on function ciadi_ti\.reception_/i);
 });
