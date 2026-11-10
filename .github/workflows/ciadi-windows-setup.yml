@@ -21,21 +21,34 @@ jobs:
       - name: Confirmar dashboard de origem
         shell: pwsh
         run: |
-          $source = "CIADI_DASHBOARD_FINANCEIRO.html"
-          if (!(Test-Path $source)) {
-            throw "Falta o ficheiro '$source' na raiz do repositório. Carregue o dashboard financeiro CIADI para o GitHub e volte a executar."
+          $source = "index.html"
+          $legacy = "CIADI_DASHBOARD_FINANCEIRO.html"
+          if (!(Test-Path $source)) { throw "Falta a fonte canónica '$source' na raiz do repositório." }
+          if (!(Test-Path $legacy)) { throw "Falta o Dashboard legado '$legacy'; não é possível confirmar a sincronização." }
+          $canonicalContent = Get-Content $source -Raw
+          $legacyContent = Get-Content $legacy -Raw
+          if ($canonicalContent -cne $legacyContent) {
+            throw "index.html e CIADI_DASHBOARD_FINANCEIRO.html não correspondem. Corrija a divergência antes de compilar o Setup."
           }
           Copy-Item $source "ciadi-windows/index.html" -Force
           if (Test-Path "ciadi-windows/renderer") { Remove-Item "ciadi-windows/renderer" -Recurse -Force }
           Copy-Item "renderer" "ciadi-windows/renderer" -Recurse -Force
-          if (!(Test-Path "ciadi-windows/renderer/modules/support-operations-module.js")) {
-            throw "O módulo de Suporte Informático não foi copiado para o pacote Windows."
+          $requiredModules = @(
+            "ciadi-windows/renderer/modules/support-operations-module.js",
+            "ciadi-windows/renderer/modules/support-helpdesk-module.js",
+            "ciadi-windows/renderer/modules/support-inventory-lifecycle-module.js",
+            "ciadi-windows/renderer/modules/reception-module.js",
+            "ciadi-windows/renderer/core/institutional-identity-service.js",
+            "ciadi-windows/renderer/core/station-profile-service.js"
+          )
+          foreach ($module in $requiredModules) {
+            if (!(Test-Path $module)) { throw "Módulo/serviço obrigatório não incluído no pacote Windows: $module" }
           }
 
       - name: Criar ícone Windows a partir do logótipo CIADI
         shell: pwsh
         run: |
-          $html = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
+          $html = Get-Content "index.html" -Raw
           $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
           if (!$match.Success) {
             throw "Não foi encontrado um logótipo PNG incorporado no dashboard CIADI."

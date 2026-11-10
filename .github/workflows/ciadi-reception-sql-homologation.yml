@@ -1,0 +1,57 @@
+name: CIADI Reception SQL Homologation
+
+on:
+  push:
+    branches:
+      - feature/ciadi-reception-completion-20261109
+    paths:
+      - 'supabase/proposals/ciadi-reception-workflow-proposal.sql'
+      - 'ciadi-windows/tests/sql/bootstrap-reception.sql'
+      - 'ciadi-windows/tests/sql/reception-workflow-proposal.test.sql'
+      - '.github/workflows/ciadi-reception-sql-homologation.yml'
+  pull_request:
+    paths:
+      - 'supabase/proposals/ciadi-reception-workflow-proposal.sql'
+      - 'ciadi-windows/tests/sql/bootstrap-reception.sql'
+      - 'ciadi-windows/tests/sql/reception-workflow-proposal.test.sql'
+      - '.github/workflows/ciadi-reception-sql-homologation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-homologation:
+    name: PostgreSQL 16 isolated Reception homologation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ciadi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ciadi_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: ciadi_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Prepare isolated Reception fixture
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-reception.sql
+      - name: Apply proposal to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-workflow-proposal.sql
+      - name: Verify arrival, queue, visitors, referrals, appointment check-in and grants
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-workflow-proposal.test.sql

@@ -1,0 +1,630 @@
+-- CIADI Recepção — proposta aditiva de estrutura operacional.
+-- NÃO APLICAR EM PRODUÇÃO. RLS fica activa e sem policies/grants nesta fase.
+-- A homologação de perfis e acesso por polo será entregue separadamente.
+
+begin;
+
+create schema if not exists ciadi_reception;
+
+create table if not exists ciadi_reception.front_desk_visits (
+  id uuid primary key default gen_random_uuid(),
+  service_day date not null default (timezone('Africa/Luanda', now())::date),
+  ticket_number integer not null check (ticket_number > 0),
+  visit_type text not null check (visit_type in ('appointment', 'walk_in')),
+  appointment_id uuid,
+  patient_id uuid,
+  display_name text not null check (length(trim(display_name)) between 2 and 120),
+  purpose text not null check (length(trim(purpose)) between 2 and 160),
+  destination_specialty_id uuid references public.especialidades(id) on delete restrict,
+  polo_code text not null check (polo_code in ('talatona', 'jardim_de_rosas')),
+  status text not null default 'waiting'
+    check (status in ('waiting', 'in_service', 'referred', 'completed', 'no_show', 'cancelled')),
+  arrived_at timestamptz not null default now(),
+  service_started_at timestamptz,
+  closed_at timestamptz,
+  created_by uuid not null,
+  updated_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint front_desk_visits_appointment_reference_check
+    check (visit_type <> 'appointment' or (appointment_id is not null and patient_id is not null)),
+  constraint front_desk_visits_ticket_unique
+    unique (polo_code, service_day, ticket_number)
+);
+
+create table if not exists ciadi_reception.front_desk_queue_counters (
+  polo_code text not null check (polo_code in ('talatona', 'jardim_de_rosas')),
+  service_day date not null,
+  last_ticket_number integer not null check (last_ticket_number > 0),
+  primary key (polo_code, service_day)
+);
+
+comment on table ciadi_reception.front_desk_queue_counters is
+  'Contador transaccional de senhas por polo e dia; evita duplicação em chegadas concorrentes.';
+
+comment on table ciadi_reception.front_desk_visits is
+  'Registo operacional de chegada e fila; não contém notas clínicas nem cópia do processo do utente.';
+comment on column ciadi_reception.front_desk_visits.display_name is
+  'Nome do responsável/visitante que se apresenta na Recepção, não o nome da criança.';
+comment on column ciadi_reception.front_desk_visits.appointment_id is
+  'Referência opcional à marcação existente; a FK será definida após validação do tipo/estrutura remota.';
+comment on column ciadi_reception.front_desk_visits.patient_id is
+  'Referência opcional ao utente existente; não cria nem duplica o registo clínico.';
+
+create index if not exists front_desk_visits_arrived_idx
+  on ciadi_reception.front_desk_visits (arrived_at desc);
+create index if not exists front_desk_visits_polo_status_idx
+  on ciadi_reception.front_desk_visits (polo_code, status, arrived_at desc);
+
+-- Uma marcação só pode originar um registo de chegada no balcão.
+create unique index if not exists front_desk_visits_appointment_unique_idx
+  on ciadi_reception.front_desk_visits (appointment_id)
+  where visit_type = 'appointment' and appointment_id is not null;
+
+create table if not exists ciadi_reception.front_desk_visit_events (
+  id uuid primary key default gen_random_uuid(),
+  visit_id uuid not null references ciadi_reception.front_desk_visits(id) on delete restrict,
+  event_type text not null check (event_type in ('arrival_registered', 'status_changed', 'destination_assigned')),
+  details jsonb not null default '{}'::jsonb,
+  from_status text,
+  to_status text not null check (to_status in ('waiting', 'in_service', 'referred', 'completed', 'no_show', 'cancelled')),
+  actor_id uuid not null,
+  created_at timestamptz not null default now()
+);
+
+comment on table ciadi_reception.front_desk_visit_events is
+  'Histórico cronológico imutável dos eventos de atendimento da Recepção.';
+
+create index if not exists front_desk_visit_events_visit_idx
+  on ciadi_reception.front_desk_visit_events (visit_id, created_at);
+
+-- Compatibilidade idempotente caso a estrutura-base já tenha sido criada antes desta extensão.
+alter table ciadi_reception.front_desk_visits
+  add column if not exists destination_specialty_id uuid references public.especialidades(id) on delete restrict;
+alter table ciadi_reception.front_desk_visits
+  add column if not exists referral_status text
+  check (referral_status in ('pending', 'accepted', 'returned'));
+alter table ciadi_reception.front_desk_visits
+  add column if not exists referral_return_reason text;
+alter table ciadi_reception.front_desk_visits
+  add column if not exists referral_accepted_by uuid;
+alter table ciadi_reception.front_desk_visits
+  add column if not exists referral_accepted_at timestamptz;
+alter table ciadi_reception.front_desk_visit_events
+  add column if not exists details jsonb not null default '{}'::jsonb;
+alter table ciadi_reception.front_desk_visit_events
+  drop constraint if exists front_desk_visit_events_event_type_check;
+alter table ciadi_reception.front_desk_visit_events
+  add constraint front_desk_visit_events_event_type_check
+  check (event_type in ('arrival_registered', 'status_changed', 'destination_assigned', 'referral_accepted', 'referral_returned'));
+
+create table if not exists ciadi_reception.visitor_entries (
+  id uuid primary key default gen_random_uuid(),
+  visitor_number bigint generated by default as identity unique,
+  display_name text not null check (length(trim(display_name)) between 2 and 120),
+  purpose text not null check (length(trim(purpose)) between 2 and 160),
+  host_department text not null check (length(trim(host_department)) between 2 and 100),
+  polo_code text not null check (polo_code in ('talatona', 'jardim_de_rosas')),
+  status text not null default 'inside' check (status in ('inside', 'exited')),
+  entered_at timestamptz not null default now(),
+  exited_at timestamptz,
+  created_by uuid not null,
+  closed_by uuid,
+  created_at timestamptz not null default now()
+);
+
+comment on table ciadi_reception.visitor_entries is
+  'Livro operacional de visitantes; não recolhe número de BI nem identificadores documentais nesta fase.';
+
+create index if not exists visitor_entries_inside_idx
+  on ciadi_reception.visitor_entries (polo_code, status, entered_at desc);
+
+-- Pesquisa de agenda em modo exclusivamente de leitura. Devolve apenas os campos
+-- operacionais necessários à recepção; não expõe resumo clínico nem notas do utente.
+create or replace function ciadi_reception.reception_search_appointments(
+  p_search_term text,
+  p_date_from date,
+  p_date_to date
+) returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = pg_catalog, ciadi_reception, public, auth
+as $$
+declare
+  v_term text;
+  v_result jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Sessão autenticada necessária.' using errcode = '42501';
+  end if;
+  v_term := trim(regexp_replace(coalesce(p_search_term, ''), '[%_(),\\]', ' ', 'g'));
+  if length(v_term) < 2
+     or p_date_from is null
+     or p_date_to is null
+     or p_date_from > p_date_to
+     or p_date_to > p_date_from + 30 then
+    raise exception 'Critérios de pesquisa inválidos; o intervalo máximo é de 31 dias.' using errcode = '22023';
+  end if;
+
+  select coalesce(jsonb_agg(q.item order by q.data_hora), '[]'::jsonb)
+  into v_result
+  from (
+    select a.data_hora,
+      jsonb_build_object(
+        'id', a.id,
+        'paciente_id', a.paciente_id,
+        'patient_name', p.nome_completo,
+        'responsible_name', p.nome_responsavel,
+        'data_hora', a.data_hora,
+        'duracao_minutos', a.duracao_minutos,
+        'tipo', a.tipo,
+        'estado', a.estado,
+        'modalidade', a.modalidade
+      ) as item
+    from public.agendamentos a
+    join public.pacientes p on p.id = a.paciente_id
+    where a.data_hora >= (p_date_from::timestamp at time zone 'Africa/Luanda')
+      and a.data_hora < ((p_date_to + 1)::timestamp at time zone 'Africa/Luanda')
+      and a.estado in ('agendada', 'confirmada')
+      and a.checkin_em is null
+      and (
+        p.nome_completo ilike '%' || v_term || '%'
+        or coalesce(p.codigo_paciente, '') ilike '%' || v_term || '%'
+        or coalesce(p.nome_responsavel, '') ilike '%' || v_term || '%'
+      )
+    order by a.data_hora
+    limit 50
+  ) q;
+
+  return v_result;
+end;
+$$;
+
+-- A API só valida identidade e integridade do ciclo. A autorização funcional por perfil/polo
+-- será definida na fase própria; estas funções não recebem grants nesta proposta.
+create or replace function ciadi_reception.reception_register_arrival(
+  p_visit_type text,
+  p_appointment_id uuid,
+  p_patient_id uuid,
+  p_display_name text,
+  p_purpose text,
+  p_polo_code text,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, auth
+as $$
+declare
+  v_visit ciadi_reception.front_desk_visits%rowtype;
+  v_service_day date := timezone('Africa/Luanda', now())::date;
+  v_ticket_number integer;
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+  if p_visit_type not in ('appointment', 'walk_in')
+     or p_polo_code not in ('talatona', 'jardim_de_rosas')
+     or length(trim(coalesce(p_display_name, ''))) not between 2 and 120
+     or length(trim(coalesce(p_purpose, ''))) not between 2 and 160 then
+    raise exception 'Dados de chegada inválidos.' using errcode = '22023';
+  end if;
+  if p_visit_type = 'appointment' then
+    if p_appointment_id is null or p_patient_id is null then
+      raise exception 'A chegada com marcação exige referências existentes de marcação e utente.' using errcode = '22023';
+    end if;
+
+    -- A recepção não cria marcações: valida e actualiza apenas a marcação existente.
+    perform 1
+      from public.agendamentos a
+      where a.id = p_appointment_id
+        and a.paciente_id = p_patient_id
+        and a.estado in ('agendada', 'confirmada')
+        and a.checkin_em is null
+      for update;
+    if not found then
+      raise exception 'Marcação inexistente, já recebida ou sem estado elegível para check-in.' using errcode = '22023';
+    end if;
+
+    update public.agendamentos
+      set estado = 'check-in',
+          checkin_em = now(),
+          updated_at = now(),
+          atualizado_por = p_actor_id
+      where id = p_appointment_id;
+  end if;
+
+  insert into ciadi_reception.front_desk_queue_counters (polo_code, service_day, last_ticket_number)
+  values (p_polo_code, v_service_day, 1)
+  on conflict (polo_code, service_day)
+  do update set last_ticket_number = ciadi_reception.front_desk_queue_counters.last_ticket_number + 1
+  returning last_ticket_number into v_ticket_number;
+
+  insert into ciadi_reception.front_desk_visits (
+    service_day, ticket_number, visit_type, appointment_id, patient_id,
+    display_name, purpose, polo_code, created_by
+  ) values (
+    v_service_day, v_ticket_number, p_visit_type, p_appointment_id, p_patient_id,
+    trim(p_display_name), trim(p_purpose), p_polo_code, p_actor_id
+  ) returning * into v_visit;
+
+  insert into ciadi_reception.front_desk_visit_events (
+    visit_id, event_type, from_status, to_status, actor_id
+  ) values (v_visit.id, 'arrival_registered', null, 'waiting', p_actor_id);
+
+  return jsonb_build_object(
+    'id', v_visit.id, 'ticket_number', v_visit.ticket_number, 'service_day', v_visit.service_day,
+    'status', v_visit.status, 'arrived_at', v_visit.arrived_at
+  );
+end;
+$$;
+
+create or replace function ciadi_reception.reception_transition_visit(
+  p_visit_id uuid,
+  p_from_status text,
+  p_to_status text,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, auth
+as $$
+declare
+  v_visit ciadi_reception.front_desk_visits%rowtype;
+  v_allowed boolean := false;
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+
+  v_allowed := case p_from_status
+    when 'waiting' then p_to_status in ('in_service', 'no_show', 'cancelled')
+    when 'in_service' then p_to_status in ('waiting', 'referred', 'completed')
+    when 'referred' then p_to_status in ('waiting', 'completed')
+    else false
+  end;
+  if not v_allowed then
+    raise exception 'Transição de estado não permitida.' using errcode = '22023';
+  end if;
+
+  select * into v_visit
+  from ciadi_reception.front_desk_visits
+  where id = p_visit_id
+  for update;
+
+  if not found then raise exception 'Atendimento não encontrado.' using errcode = 'P0002'; end if;
+  if v_visit.status <> p_from_status then
+    raise exception 'O estado do atendimento foi alterado; actualize a fila.' using errcode = '40001';
+  end if;
+
+  update ciadi_reception.front_desk_visits
+  set status = p_to_status,
+      service_started_at = case when p_to_status = 'in_service' then coalesce(service_started_at, now()) else service_started_at end,
+      closed_at = case when p_to_status in ('completed', 'no_show', 'cancelled') then now() else null end,
+      updated_by = p_actor_id,
+      updated_at = now()
+  where id = p_visit_id
+  returning * into v_visit;
+
+  insert into ciadi_reception.front_desk_visit_events (
+    visit_id, event_type, from_status, to_status, actor_id
+  ) values (v_visit.id, 'status_changed', p_from_status, p_to_status, p_actor_id);
+
+  return jsonb_build_object('id', v_visit.id, 'status', v_visit.status, 'updated_at', v_visit.updated_at);
+end;
+$$;
+
+create or replace function ciadi_reception.reception_register_visitor(
+  p_display_name text,
+  p_purpose text,
+  p_host_department text,
+  p_polo_code text,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, auth
+as $$
+declare
+  v_visitor ciadi_reception.visitor_entries%rowtype;
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+  if p_polo_code not in ('talatona', 'jardim_de_rosas')
+     or length(trim(coalesce(p_display_name, ''))) not between 2 and 120
+     or length(trim(coalesce(p_purpose, ''))) not between 2 and 160
+     or length(trim(coalesce(p_host_department, ''))) not between 2 and 100 then
+    raise exception 'Dados do visitante inválidos.' using errcode = '22023';
+  end if;
+
+  insert into ciadi_reception.visitor_entries (
+    display_name, purpose, host_department, polo_code, created_by
+  ) values (
+    trim(p_display_name), trim(p_purpose), trim(p_host_department), p_polo_code, p_actor_id
+  ) returning * into v_visitor;
+
+  return jsonb_build_object(
+    'id', v_visitor.id, 'visitor_number', v_visitor.visitor_number,
+    'status', v_visitor.status, 'entered_at', v_visitor.entered_at
+  );
+end;
+$$;
+
+create or replace function ciadi_reception.reception_close_visitor(
+  p_visitor_id uuid,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, auth
+as $$
+declare
+  v_visitor ciadi_reception.visitor_entries%rowtype;
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+
+  update ciadi_reception.visitor_entries
+  set status = 'exited', exited_at = now(), closed_by = p_actor_id
+  where id = p_visitor_id and status = 'inside'
+  returning * into v_visitor;
+
+  if not found then raise exception 'Visitante não encontrado ou já saiu.' using errcode = 'P0002'; end if;
+
+  return jsonb_build_object('id', v_visitor.id, 'status', v_visitor.status, 'exited_at', v_visitor.exited_at);
+end;
+$$;
+
+-- Catálogo público de destinos: apenas especialidades activas, sem dados de utentes.
+create or replace function ciadi_reception.reception_get_destinations()
+returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = pg_catalog, ciadi_reception, public, auth
+as $route$
+declare
+  v_result jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Sessão autenticada necessária.' using errcode = '42501';
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id', e.id, 'name', e.nome) order by e.ordem, e.nome), '[]'::jsonb)
+    into v_result
+  from public.especialidades e
+  where e.ativo is true;
+  return v_result;
+end;
+$route$;
+
+-- Encaminhamento transaccional: valida destino activo, bloqueia a visita e regista evento auditável.
+create or replace function ciadi_reception.reception_route_visit(
+  p_visit_id uuid,
+  p_destination_specialty_id uuid,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, public, auth
+as $route$
+declare
+  v_visit ciadi_reception.front_desk_visits%rowtype;
+  v_destination public.especialidades%rowtype;
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+
+  select * into v_destination
+  from public.especialidades
+  where id = p_destination_specialty_id and ativo is true;
+  if not found then
+    raise exception 'O serviço de destino não existe ou está inactivo.' using errcode = '22023';
+  end if;
+
+  select * into v_visit
+  from ciadi_reception.front_desk_visits
+  where id = p_visit_id
+  for update;
+  if not found then
+    raise exception 'Atendimento não encontrado.' using errcode = 'P0002';
+  end if;
+  if v_visit.status not in ('waiting', 'in_service') then
+    raise exception 'Só é possível encaminhar atendimentos em espera ou em serviço.' using errcode = '22023';
+  end if;
+
+  update ciadi_reception.front_desk_visits
+  set destination_specialty_id = v_destination.id,
+      referral_status = 'pending',
+      referral_return_reason = null,
+      referral_accepted_by = null,
+      referral_accepted_at = null,
+      updated_by = p_actor_id,
+      updated_at = now()
+  where id = p_visit_id
+  returning * into v_visit;
+
+  insert into ciadi_reception.front_desk_visit_events (
+    visit_id, event_type, from_status, to_status, actor_id, details
+  ) values (
+    v_visit.id, 'destination_assigned', v_visit.status, v_visit.status, p_actor_id,
+    jsonb_build_object('destination_specialty_id', v_destination.id, 'destination_name', v_destination.nome)
+  );
+
+  return jsonb_build_object(
+    'id', v_visit.id,
+    'destination_specialty_id', v_destination.id,
+    'destination_service', v_destination.nome,
+    'status', v_visit.status,
+    'updated_at', v_visit.updated_at
+  );
+end;
+$route$;
+
+-- Confirmação do serviço de destino: mantém o encaminhamento pendente até aceitação explícita.
+create or replace function ciadi_reception.reception_confirm_referral(
+  p_visit_id uuid,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, auth
+as $referral$
+declare
+  v_visit ciadi_reception.front_desk_visits%rowtype;
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+  select * into v_visit
+  from ciadi_reception.front_desk_visits
+  where id = p_visit_id
+  for update;
+  if not found then raise exception 'Encaminhamento não encontrado.' using errcode = 'P0002'; end if;
+  if v_visit.destination_specialty_id is null or v_visit.referral_status <> 'pending' then
+    raise exception 'Só é possível aceitar encaminhamentos pendentes com destino atribuído.' using errcode = '22023';
+  end if;
+
+  update ciadi_reception.front_desk_visits
+  set referral_status = 'accepted',
+      referral_accepted_by = p_actor_id,
+      referral_accepted_at = now(),
+      updated_by = p_actor_id,
+      updated_at = now()
+  where id = p_visit_id
+  returning * into v_visit;
+
+  insert into ciadi_reception.front_desk_visit_events (
+    visit_id, event_type, from_status, to_status, actor_id, details
+  ) values (
+    v_visit.id, 'referral_accepted', v_visit.status, v_visit.status, p_actor_id,
+    jsonb_build_object('destination_specialty_id', v_visit.destination_specialty_id)
+  );
+  return jsonb_build_object('id', v_visit.id, 'referral_status', v_visit.referral_status,
+    'accepted_at', v_visit.referral_accepted_at);
+end;
+$referral$;
+
+-- Devolução exige motivo e fica registada para correcção pela Recepção.
+create or replace function ciadi_reception.reception_return_referral(
+  p_visit_id uuid,
+  p_reason text,
+  p_actor_id uuid
+) returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, ciadi_reception, auth
+as $referral$
+declare
+  v_visit ciadi_reception.front_desk_visits%rowtype;
+  v_reason text := trim(coalesce(p_reason, ''));
+begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Sessão autenticada inválida.' using errcode = '42501';
+  end if;
+  if length(v_reason) not between 3 and 240 then
+    raise exception 'O motivo da devolução deve ter entre 3 e 240 caracteres.' using errcode = '22023';
+  end if;
+  select * into v_visit
+  from ciadi_reception.front_desk_visits
+  where id = p_visit_id
+  for update;
+  if not found then raise exception 'Encaminhamento não encontrado.' using errcode = 'P0002'; end if;
+  if v_visit.destination_specialty_id is null or v_visit.referral_status <> 'pending' then
+    raise exception 'Só é possível devolver encaminhamentos pendentes com destino atribuído.' using errcode = '22023';
+  end if;
+
+  update ciadi_reception.front_desk_visits
+  set referral_status = 'returned',
+      referral_return_reason = v_reason,
+      updated_by = p_actor_id,
+      updated_at = now()
+  where id = p_visit_id
+  returning * into v_visit;
+
+  insert into ciadi_reception.front_desk_visit_events (
+    visit_id, event_type, from_status, to_status, actor_id, details
+  ) values (
+    v_visit.id, 'referral_returned', v_visit.status, v_visit.status, p_actor_id,
+    jsonb_build_object('reason', v_reason, 'destination_specialty_id', v_visit.destination_specialty_id)
+  );
+  return jsonb_build_object('id', v_visit.id, 'referral_status', v_visit.referral_status,
+    'reason', v_visit.referral_return_reason);
+end;
+$referral$;
+
+create or replace function ciadi_reception.reception_get_dashboard(p_polo_code text default null)
+returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = pg_catalog, ciadi_reception
+as $$
+declare
+  v_start timestamptz := date_trunc('day', timezone('Africa/Luanda', now())) at time zone 'Africa/Luanda';
+  v_end timestamptz;
+  v_result jsonb;
+begin
+  v_end := v_start + interval '1 day';
+  if p_polo_code is not null and p_polo_code not in ('talatona', 'jardim_de_rosas') then
+    raise exception 'Polo inválido.' using errcode = '22023';
+  end if;
+
+  select jsonb_build_object(
+    'summary', jsonb_build_object(
+      'total', count(*),
+      'waiting', count(*) filter (where status = 'waiting'),
+      'inService', count(*) filter (where status = 'in_service'),
+      'referred', count(*) filter (where status = 'referred'),
+      'completed', count(*) filter (where status = 'completed'),
+      'noShow', count(*) filter (where status = 'no_show'),
+      'cancelled', count(*) filter (where status = 'cancelled'),
+      'averageWaitMinutes', coalesce(round(avg(extract(epoch from (service_started_at - arrived_at)) / 60)
+        filter (where service_started_at is not null and service_started_at >= arrived_at)), 0)
+    ),
+    'visits', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', v.id, 'ticket_number', v.ticket_number, 'service_day', v.service_day, 'visit_type', v.visit_type,
+        'display_name', v.display_name, 'purpose', v.purpose, 'polo_code', v.polo_code,
+        'destination_specialty_id', v.destination_specialty_id, 'destination_service', e.nome,
+        'referral_status', v.referral_status, 'referral_return_reason', v.referral_return_reason,
+        'referral_accepted_at', v.referral_accepted_at,
+        'status', v.status, 'arrived_at', v.arrived_at, 'service_started_at', v.service_started_at
+      ) order by v.arrived_at, v.ticket_number)
+      from ciadi_reception.front_desk_visits v
+      left join public.especialidades e on e.id = v.destination_specialty_id
+      where v.arrived_at >= v_start and v.arrived_at < v_end
+        and (p_polo_code is null or v.polo_code = p_polo_code)
+    ), '[]'::jsonb),
+    'visitors', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', g.id, 'visitor_number', g.visitor_number, 'display_name', g.display_name,
+        'purpose', g.purpose, 'host_department', g.host_department,
+        'polo_code', g.polo_code, 'status', g.status, 'entered_at', g.entered_at
+      ) order by g.entered_at)
+      from ciadi_reception.visitor_entries g
+      where g.status = 'inside'
+        and (p_polo_code is null or g.polo_code = p_polo_code)
+    ), '[]'::jsonb)
+  ) into v_result
+  from ciadi_reception.front_desk_visits f
+  where f.arrived_at >= v_start and f.arrived_at < v_end
+    and (p_polo_code is null or f.polo_code = p_polo_code);
+
+  return v_result;
+end;
+$$;
+
+alter table ciadi_reception.front_desk_visits enable row level security;
+alter table ciadi_reception.front_desk_visit_events enable row level security;
+alter table ciadi_reception.visitor_entries enable row level security;
+
+revoke all on schema ciadi_reception from public, anon, authenticated;
+revoke all on all tables in schema ciadi_reception from public, anon, authenticated;
+revoke all on all sequences in schema ciadi_reception from public, anon, authenticated;
+revoke execute on all functions in schema ciadi_reception from public, anon, authenticated;
+
+commit;

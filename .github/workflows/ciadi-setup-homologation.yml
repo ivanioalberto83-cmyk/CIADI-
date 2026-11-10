@@ -5,6 +5,8 @@ on:
   push:
     branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104']
     paths:
+      - 'index.html'
+      - 'index.html'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'renderer/**'
       - 'ciadi-windows/**'
@@ -12,6 +14,8 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'index.html'
+      - 'index.html'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'renderer/**'
       - 'ciadi-windows/**'
@@ -39,15 +43,31 @@ jobs:
       - name: Sincronizar Dashboard e módulos renderer
         shell: pwsh
         run: |
-          $source = "CIADI_DASHBOARD_FINANCEIRO.html"
-          if (!(Test-Path $source)) { throw "Dashboard de origem em falta." }
+          $source = "index.html"
+          $legacy = "CIADI_DASHBOARD_FINANCEIRO.html"
+          if (!(Test-Path $source)) { throw "Fonte canónica index.html em falta." }
+          if (!(Test-Path $legacy)) { throw "Dashboard legado em falta; não é possível validar a sincronização." }
+          if ((Get-Content $source -Raw) -cne (Get-Content $legacy -Raw)) {
+            throw "index.html e CIADI_DASHBOARD_FINANCEIRO.html não correspondem. Homologação interrompida."
+          }
           Copy-Item $source "ciadi-windows/index.html" -Force
           New-Item -ItemType Directory -Force -Path "ciadi-windows/renderer" | Out-Null
           Copy-Item "renderer/*" "ciadi-windows/renderer/" -Recurse -Force
+          $requiredModules = @(
+            "ciadi-windows/renderer/modules/support-operations-module.js",
+            "ciadi-windows/renderer/modules/support-helpdesk-module.js",
+            "ciadi-windows/renderer/modules/support-inventory-lifecycle-module.js",
+            "ciadi-windows/renderer/modules/reception-module.js",
+            "ciadi-windows/renderer/core/institutional-identity-service.js",
+            "ciadi-windows/renderer/core/station-profile-service.js"
+          )
+          foreach ($module in $requiredModules) {
+            if (!(Test-Path $module)) { throw "Módulo/serviço obrigatório não incluído no pacote Windows: $module" }
+          }
       - name: Gerar ícone Windows a partir do logótipo CIADI
         shell: pwsh
         run: |
-          $html = Get-Content "CIADI_DASHBOARD_FINANCEIRO.html" -Raw
+          $html = Get-Content "index.html" -Raw
           $match = [regex]::Match($html, "data:image/png;base64,([A-Za-z0-9+/=]+)")
           if (!$match.Success) { throw "Logótipo PNG não encontrado no Dashboard." }
           $png = [Convert]::FromBase64String($match.Groups[1].Value)
