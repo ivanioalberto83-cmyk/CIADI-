@@ -31,7 +31,7 @@ test('cash report repository reads shifts, cash movements and accounting entries
     { id: 'movement-1', turno_id: 'shift-1', tipo: 'entrada', valor: 100, pagamento_id: 'payment-1', estado: 'confirmado' },
     { id: 'movement-2', turno_id: 'shift-1', tipo: 'saida', valor: 20, pagamento_id: null, estado: 'confirmado' }
   ];
-  const entries = [{ id: 'entry-1', origem_tipo: 'PAGAMENTO', origem_id: 'payment-1', estado: 'contabilizado' }];
+  const entries = [{ id: 'entry-1', origem_tipo: 'PAGAMENTO', origem_id: 'payment-1', estado: 'contabilizado', total_debito: 100 }];
   const { client, calls } = makeSupabase({
     finance_caixa_turnos: shifts,
     finance_movimentos_caixa: movements,
@@ -69,8 +69,8 @@ test('cash report rows reconcile counted cash and expose incomplete accounting l
       { turno_id: 'shift-1', tipo: 'saida', valor: 20, pagamento_id: null, estado: 'confirmado' }
     ],
     accountingEntries: [
-      { origem_tipo: 'PAGAMENTO', origem_id: 'payment-1', estado: 'contabilizado' },
-      { origem_tipo: 'PAGAMENTO', origem_id: 'payment-2', estado: 'rascunho' }
+      { origem_tipo: 'PAGAMENTO', origem_id: 'payment-1', estado: 'contabilizado', total_debito: 100 },
+      { origem_tipo: 'PAGAMENTO', origem_id: 'payment-2', estado: 'rascunho', total_debito: 50 }
     ]
   });
 
