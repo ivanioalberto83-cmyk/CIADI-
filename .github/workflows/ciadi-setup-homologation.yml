@@ -6,6 +6,7 @@ on:
     branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104']
     paths:
       - 'index.html'
+      - 'index.html'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'renderer/**'
       - 'ciadi-windows/**'
@@ -13,6 +14,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'index.html'
       - 'index.html'
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'renderer/**'
