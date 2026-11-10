@@ -1137,7 +1137,7 @@
       '<header class="flex items-center gap-3">' + logo + '<div><h3 class="font-black text-lg">Operações de aprovisionamento</h3><p class="text-xs text-slate-500">Polo activo: ' + esc(polo ? POLO_LABELS[polo] : 'não seleccionado') + '. As operações são registadas no razão central e validadas pelo servidor.</p></div></header>' +
       (disabledText ? '<p class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">' + esc(disabledText) + '</p>' : '') +
       '<div class="grid xl:grid-cols-2 gap-3">' +
-      '<form data-procurement-requisition class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Nova requisição interna de stock</h4>' +
+      '<form data-procurement-requisition data-requisition-submit class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Nova requisição interna de stock</h4>' +
         warehouseSelect('warehouseId','Armazém de destino') +
         '<label class="block text-xs font-semibold">Centro de custo<select name="costCenterId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o centro de custo') + costCenterOptions + '</select></label>' +
         itemSelect + '<label class="block text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label>' +
