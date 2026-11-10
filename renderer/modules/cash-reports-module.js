@@ -187,6 +187,9 @@
                   <td>${formatDate(row.aberto_em)}</td><td>${formatDate(row.fechado_em)}</td>
                   <td>${formatMoney(row.saldo_inicial)}</td><td>${formatMoney(row.saldo_esperado)}</td><td>${formatMoney(row.saldo_contado)}</td>
                   <td class="${Number(row.diferenca) < 0 ? 'text-red-700' : ''}">${formatMoney(row.diferenca)}</td>
+                  <td>${formatMoney(row.totalEntradas)}</td><td>${formatMoney(row.totalSaidas)}</td>
+                  <td>${formatMoney(row.accountingPostedTotal)}</td>
+                  <td class="${Math.abs(Number(row.accountingDifference) || 0) > 0.005 ? 'text-amber-700 font-bold' : ''}">${formatMoney(row.accountingDifference)}</td>
                   <td><span class="rounded-full bg-slate-100 px-2 py-1 text-xs">${escapeHtml(row.estado || '—')}</span></td>
                   <td><strong class="${status}">${escapeHtml(row.accountingStatus)}</strong><div class="text-xs text-slate-500">${row.accountingPostedCount}/${row.accountingPaymentCount} recebimentos contabilizados</div></td>
                 </tr>`;
