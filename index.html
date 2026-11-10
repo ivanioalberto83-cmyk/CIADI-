@@ -49,6 +49,22 @@ const stationParams = new URLSearchParams(window.location.search);
 const stationMode = stationParams.has('ciadi_profile');
 const stationProfile = (stationParams.get('ciadi_profile') || '').toLowerCase();
 const stationPolo = (stationParams.get('ciadi_polo') || '').toLowerCase();
+const stationAccountAllowlist = Object.freeze({
+  adm: 'teste@ciadi.ao',
+  recepcao: 'teste@recepcaociadi.ao',
+  suporte_informatica: 'teste@suportciadi.ao'
+});
+function validateStationAccount(userOrEmail){
+  const email = String(typeof userOrEmail === 'string' ? userOrEmail : userOrEmail?.email || '').trim().toLowerCase();
+  if(!stationMode || !Object.prototype.hasOwnProperty.call(stationAccountAllowlist, stationProfile)){
+    return { ok:false, message:'Estação não identificada. Abra o CIADI através do atalho oficial da sua estação.' };
+  }
+  const expected = stationAccountAllowlist[stationProfile];
+  if(email !== expected){
+    return { ok:false, message:'Esta conta não está autorizada a abrir a estação ' + (stationProfileLabels[stationProfile] || stationProfile) + '. Utilize a conta institucional atribuída a esta estação.' };
+  }
+  return { ok:true };
+}
 const stationProfileLabels = Object.freeze({
   adm: 'Administração',
   suporte_informatica: 'Suporte Informático',
@@ -870,6 +886,11 @@ async function boot(){
 async function enter(u){
   try{
     initSupabase();
+    const stationAccess = validateStationAccount(u);
+    if(!stationAccess.ok){
+      await authService.signOut();
+      throw new Error(stationAccess.message);
+    }
     me=u;
     const q=await profileService.getCurrentProfile(u.id);
     if(q.error) throw new Error('Não foi possível validar o perfil administrativo: '+q.error.message);
@@ -902,9 +923,11 @@ document.getElementById('loginForm').addEventListener('submit',async e=>{
   if(button){button.disabled=true;button.textContent='A entrar…';}
   try{
     initSupabase();
-    const email=emailEl.value.trim();
+    const email=emailEl.value.trim().toLowerCase();
     const password=passwordEl.value;
     if(!email||!password) throw new Error('Introduza o e-mail e a palavra-passe.');
+    const stationAccess = validateStationAccount(email);
+    if(!stationAccess.ok) throw new Error(stationAccess.message);
     const {data,error}=await authService.signInWithPassword({email,password});
     if(error) throw error;
     if(!data?.user) throw new Error('O Supabase não devolveu um utilizador autenticado.');
