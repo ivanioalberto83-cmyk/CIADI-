@@ -893,6 +893,14 @@ test('cria e submete requisição interna usando RPCs próprios sem confundir co
 });
 
 
+test('todas as funções SQL da proposta de stock usam delimitadores dollar-quote válidos', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
+  assert.doesNotMatch(sql, /^\s*as \$(?!\$)\s*$/m);
+  assert.doesNotMatch(sql, /^\s*\$;\s*$/m);
+});
+
 test('proposta SQL do stock da Recepção separa requisição interna de compra a fornecedor e protege saídas', () => {
   const fs = require('node:fs');
   const path = require('node:path');
