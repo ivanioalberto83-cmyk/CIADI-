@@ -33,8 +33,16 @@ jobs:
           Copy-Item $source "ciadi-windows/index.html" -Force
           if (Test-Path "ciadi-windows/renderer") { Remove-Item "ciadi-windows/renderer" -Recurse -Force }
           Copy-Item "renderer" "ciadi-windows/renderer" -Recurse -Force
-          if (!(Test-Path "ciadi-windows/renderer/modules/support-operations-module.js")) {
-            throw "O módulo de Suporte Informático não foi copiado para o pacote Windows."
+          $requiredModules = @(
+            "ciadi-windows/renderer/modules/support-operations-module.js",
+            "ciadi-windows/renderer/modules/support-helpdesk-module.js",
+            "ciadi-windows/renderer/modules/support-inventory-lifecycle-module.js",
+            "ciadi-windows/renderer/modules/reception-module.js",
+            "ciadi-windows/renderer/core/institutional-identity-service.js",
+            "ciadi-windows/renderer/core/station-profile-service.js"
+          )
+          foreach ($module in $requiredModules) {
+            if (!(Test-Path $module)) { throw "Módulo/serviço obrigatório não incluído no pacote Windows: $module" }
           }
 
       - name: Criar ícone Windows a partir do logótipo CIADI
