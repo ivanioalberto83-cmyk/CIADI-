@@ -989,3 +989,33 @@ test('falha fechada sem afirmar que não existem registos quando uma fonte auxil
   assert.doesNotMatch(root.innerHTML, /Nenhum atendimento ou visitante foi registado/);
   assert.match(root.innerHTML, /não foi possível carregar|serviço de dados ainda não está homologada/i);
 });
+
+
+test('renderiza estado vazio da fila sem inventar atendimentos ou visitantes', async () => {
+  function emptyQuery() {
+    const query = {
+      select() { return query; }, eq() { return query; }, in() { return query; },
+      order() { return query; }, limit() { return query; }, maybeSingle() { return Promise.resolve({ data: null, error: null }); },
+      then(resolve, reject) { return Promise.resolve({ data: [], error: null }).then(resolve, reject); }
+    };
+    return query;
+  }
+  const root = { innerHTML: '', addEventListener() {} };
+  const supabase = {
+    from() { return emptyQuery(); },
+    schema(name) {
+      if (name === 'ciadi_reception') return { async rpc(method) {
+        if (method === 'reception_get_dashboard') return { data: { visits: [], visitors: [], summary: { total: 0, waiting: 0, inService: 0, averageWaitMinutes: 0 } }, error: null };
+        if (method === 'reception_get_destinations') return { data: [], error: null };
+        throw new Error('RPC inesperada: ' + method);
+      } };
+      if (name === 'ciadi_ti') return { from() { return emptyQuery(); } };
+      throw new Error('Schema inesperado: ' + name);
+    }
+  };
+  const module = reception.create({ root, navigate() {}, notify() {}, supabase, actorId: 'actor-1', companyId: 'company-1' });
+  await module.renderHome();
+  assert.match(root.innerHTML, /Não existem chegadas registadas para o filtro seleccionado/);
+  assert.match(root.innerHTML, /Não existem visitantes dentro do centro neste momento/);
+  assert.match(root.innerHTML, /0 registo\(s\)/);
+});
