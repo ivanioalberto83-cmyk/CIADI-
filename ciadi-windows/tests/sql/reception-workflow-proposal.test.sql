@@ -1,0 +1,159 @@
+-- Homologação funcional em PostgreSQL isolado. Executar após bootstrap-reception.sql e proposta.
+\set ON_ERROR_STOP on
+
+insert into public.especialidades(id,nome,ativo,ordem) values
+ ('21000000-0000-4000-8000-000000000001','Psicologia',true,1),
+ ('21000000-0000-4000-8000-000000000002','Terapia Ocupacional',true,2),
+ ('21000000-0000-4000-8000-000000000003','Especialidade Inactiva',false,3);
+
+insert into public.pacientes(id,nome_completo,codigo_paciente,nome_responsavel) values
+ ('22000000-0000-4000-8000-000000000001','Utente de Homologação','CIADI-TEST-001','Responsável de Homologação');
+
+insert into public.agendamentos(id,paciente_id,data_hora,duracao_minutos,tipo,estado,modalidade) values
+ ('23000000-0000-4000-8000-000000000001','22000000-0000-4000-8000-000000000001',now()+interval '1 hour',60,'consulta','confirmada','presencial');
+
+select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000001',false);
+
+do $$
+declare
+  v_actor uuid := '24000000-0000-4000-8000-000000000001';
+  v_walk jsonb;
+  v_walk_two jsonb;
+  v_appointment jsonb;
+  v_visitor jsonb;
+  v_transition jsonb;
+  v_referral jsonb;
+  v_dashboard jsonb;
+  v_search jsonb;
+  v_visit_id uuid;
+  v_visitor_id uuid;
+  v_count integer;
+begin
+  if auth.uid() is distinct from v_actor then
+    raise exception 'Fixture de sessão não configurada.';
+  end if;
+
+  v_walk := ciadi_reception.reception_register_arrival(
+    'walk_in',null,null,'Responsável Teste','Entrega de documentação','talatona',v_actor
+  );
+  v_visit_id := (v_walk->>'id')::uuid;
+  if (v_walk->>'ticket_number')::integer <> 1 then
+    raise exception 'A primeira senha do polo deveria ser 1.';
+  end if;
+
+  v_walk_two := ciadi_reception.reception_register_arrival(
+    'walk_in',null,null,'Outro Responsável','Pedido de informação','talatona',v_actor
+  );
+  if (v_walk_two->>'ticket_number')::integer <> 2 then
+    raise exception 'A senha sequencial do polo deveria ser 2.';
+  end if;
+
+  begin
+    perform ciadi_reception.reception_register_arrival(
+      'walk_in',null,null,'Actor inválido','Teste de segurança','talatona',
+      '24000000-0000-4000-8000-000000000099'
+    );
+    raise exception 'Actor diferente da sessão deveria ser recusado.';
+  exception when sqlstate '42501' then null;
+  end;
+
+  v_transition := ciadi_reception.reception_transition_visit(v_visit_id,'waiting','in_service',v_actor);
+  if v_transition->>'status' <> 'in_service' then
+    raise exception 'A transição para atendimento não foi persistida.';
+  end if;
+
+  begin
+    perform ciadi_reception.reception_transition_visit(v_visit_id,'in_service','no_show',v_actor);
+    raise exception 'A transição inválida deveria ser recusada.';
+  exception when sqlstate '22023' then null;
+  end;
+
+  v_referral := ciadi_reception.reception_route_visit(
+    (v_walk_two->>'id')::uuid,'21000000-0000-4000-8000-000000000001',v_actor
+  );
+  if v_referral->>'destination_service' <> 'Psicologia' then
+    raise exception 'O encaminhamento não devolveu o destino correcto.';
+  end if;
+  v_referral := ciadi_reception.reception_confirm_referral((v_walk_two->>'id')::uuid,v_actor);
+  if v_referral->>'referral_status' <> 'accepted' then
+    raise exception 'O encaminhamento não ficou aceite.';
+  end if;
+
+  v_visitor := ciadi_reception.reception_register_visitor(
+    'Visitante Teste','Reunião administrativa','Administração','talatona',v_actor
+  );
+  v_visitor_id := (v_visitor->>'id')::uuid;
+  if v_visitor->>'status' <> 'inside' then
+    raise exception 'O visitante deveria ficar registado como presente.';
+  end if;
+  v_visitor := ciadi_reception.reception_close_visitor(v_visitor_id,v_actor);
+  if v_visitor->>'status' <> 'exited' then
+    raise exception 'A saída do visitante não foi registada.';
+  end if;
+
+  v_search := ciadi_reception.reception_search_appointments(
+    'CIADI-TEST-001',current_date,current_date+1
+  );
+  if jsonb_array_length(v_search) <> 1 then
+    raise exception 'A pesquisa não encontrou a marcação de teste.';
+  end if;
+
+  v_appointment := ciadi_reception.reception_register_arrival(
+    'appointment','23000000-0000-4000-8000-000000000001',
+    '22000000-0000-4000-8000-000000000001',
+    'Responsável de Homologação','Consulta agendada','jardim_de_rosas',v_actor
+  );
+  if (v_appointment->>'ticket_number')::integer <> 1 then
+    raise exception 'A sequência de senhas deve ser independente por polo.';
+  end if;
+  if not exists (
+    select 1 from public.agendamentos
+    where id='23000000-0000-4000-8000-000000000001'
+      and estado='check-in' and checkin_em is not null
+      and atualizado_por=v_actor
+  ) then
+    raise exception 'O check-in não actualizou a marcação existente.';
+  end if;
+
+  v_dashboard := ciadi_reception.reception_get_dashboard('talatona');
+  if (v_dashboard#>>'{summary,total}')::integer <> 2 then
+    raise exception 'O dashboard não reflecte os dois atendimentos de Talatona.';
+  end if;
+  if jsonb_array_length(v_dashboard->'visitors') <> 0 then
+    raise exception 'O visitante que já saiu não deve constar como presente.';
+  end if;
+
+  select count(*) into v_count from ciadi_reception.front_desk_visit_events
+  where visit_id in (v_visit_id,(v_walk_two->>'id')::uuid);
+  if v_count < 4 then
+    raise exception 'O histórico de eventos não foi integralmente registado.';
+  end if;
+end;
+$$;
+
+do $$
+begin
+  if not has_schema_privilege('authenticated','ciadi_reception','USAGE') then
+    null; -- O schema permanece fechado nesta fase de permissões.
+  else
+    raise exception 'O schema não deve estar exposto antes da fase de permissões.';
+  end if;
+  if has_function_privilege('authenticated',
+    'ciadi_reception.reception_register_arrival(text,uuid,uuid,text,text,text,uuid)','EXECUTE') then
+    raise exception 'A função de chegada não deve ser executável antes da fase de permissões.';
+  end if;
+  if (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+      where n.nspname='ciadi_reception'
+        and c.relname in ('front_desk_visits','front_desk_visit_events','visitor_entries')
+        and c.relrowsecurity) <> 3 then
+    raise exception 'RLS deve estar activa nas três tabelas operacionais.';
+  end if;
+  if (select count(*) from pg_policies
+      where schemaname='ciadi_reception'
+        and tablename in ('front_desk_visits','front_desk_visit_events','visitor_entries')) <> 0 then
+    raise exception 'Não devem existir policies antes da fase de permissões.';
+  end if;
+end;
+$$;
+
+select 'CIADI reception SQL homologation: PASS' as result;
