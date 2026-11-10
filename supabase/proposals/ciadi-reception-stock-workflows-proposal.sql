@@ -49,6 +49,41 @@ as $
 $;
 revoke all on function ciadi_ti.has_reception_operation_access(text) from public,anon,authenticated;
 
+-- Atribuição/desactivação de polo é uma tarefa de Suporte Informático.
+-- O operador não pode atribuir a si próprio nem a terceiros um polo.
+create or replace function ciadi_ti.reception_set_user_polo(
+  p_user_id uuid,
+  p_polo_code text,
+  p_active boolean default true
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public, ciadi_ti, auth
+as $
+begin
+  if auth.uid() is null or not ciadi_ti.has_support_access() then
+    raise exception 'A gestão de acessos aos polos exige Suporte Informático ou Administração.' using errcode = '42501';
+  end if;
+  if p_polo_code is null or p_polo_code not in ('talatona','jardim_de_rosas') then
+    raise exception 'Polo CIADI inválido.' using errcode = '22023';
+  end if;
+  if not exists (
+    select 1 from public.perfis
+    where id = p_user_id and tipo = 'operador' and ativo = true
+  ) then
+    raise exception 'Só é possível atribuir polos a contas activas do perfil operador.' using errcode = '22023';
+  end if;
+  insert into ciadi_ti.reception_user_polos(user_id,polo_code,active,assigned_by,updated_at)
+  values (p_user_id,p_polo_code,coalesce(p_active,true),auth.uid(),now())
+  on conflict (user_id,polo_code) do update
+    set active=excluded.active,assigned_by=excluded.assigned_by,updated_at=now();
+  return jsonb_build_object('user_id',p_user_id,'polo_code',p_polo_code,'active',coalesce(p_active,true));
+end;
+$;
+revoke all on function ciadi_ti.reception_set_user_polo(uuid,text,boolean) from public,anon;
+grant execute on function ciadi_ti.reception_set_user_polo(uuid,text,boolean) to authenticated;
+
+
 
 
 create table if not exists ciadi_ti.stock_requisitions (
