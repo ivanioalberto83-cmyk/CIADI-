@@ -65,19 +65,30 @@ alter table ciadi_ti.goods_receipts enable row level security;
 alter table ciadi_ti.goods_receipt_lines enable row level security;
 
 drop policy if exists goods_receipts_select_support on ciadi_ti.goods_receipts;
-create policy goods_receipts_select_support
+drop policy if exists goods_receipts_select_reception on ciadi_ti.goods_receipts;
+create policy goods_receipts_select_reception
   on ciadi_ti.goods_receipts
   for select to authenticated
-  using (ciadi_ti.has_support_access());
+  using (
+    exists (
+      select 1 from ciadi_ti.warehouses w
+      where w.id = warehouse_id and w.active = true
+        and ciadi_ti.has_reception_operation_access(w.polo)
+    )
+  );
 
 drop policy if exists goods_receipt_lines_select_support on ciadi_ti.goods_receipt_lines;
-create policy goods_receipt_lines_select_support
+drop policy if exists goods_receipt_lines_select_reception on ciadi_ti.goods_receipt_lines;
+create policy goods_receipt_lines_select_reception
   on ciadi_ti.goods_receipt_lines
   for select to authenticated
   using (
     exists (
-      select 1 from ciadi_ti.goods_receipts r
-      where r.id = receipt_id and ciadi_ti.has_support_access()
+      select 1
+      from ciadi_ti.goods_receipts r
+      join ciadi_ti.warehouses w on w.id = r.warehouse_id
+      where r.id = receipt_id and w.active = true
+        and ciadi_ti.has_reception_operation_access(w.polo)
     )
   );
 
