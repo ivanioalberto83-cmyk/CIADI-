@@ -145,7 +145,11 @@ declare
   v_cost numeric(14,2);
   v_line_id uuid;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not exists (
+    select 1 from ciadi_ti.warehouses w
+    where w.id = p_warehouse_id and w.active = true
+      and ciadi_ti.has_reception_operation_access(w.polo)
+  ) then
     raise exception 'Acesso não autorizado à recepção de mercadorias.' using errcode = '42501';
   end if;
   if nullif(btrim(p_delivery_reference), '') is null then
@@ -253,7 +257,12 @@ declare
   v_count integer;
   v_unclassified integer;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not exists (
+    select 1 from ciadi_ti.goods_receipts r
+    join ciadi_ti.warehouses w on w.id = r.warehouse_id
+    where r.id = p_receipt_id and w.active = true
+      and ciadi_ti.has_reception_operation_access(w.polo)
+  ) then
     raise exception 'Acesso não autorizado à conferência de mercadorias.' using errcode = '42501';
   end if;
   select * into v_receipt
@@ -297,7 +306,12 @@ declare
   v_count integer := 0;
   v_reference text;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not exists (
+    select 1 from ciadi_ti.goods_receipts r
+    join ciadi_ti.warehouses w on w.id = r.warehouse_id
+    where r.id = p_receipt_id and w.active = true
+      and ciadi_ti.has_reception_operation_access(w.polo)
+  ) then
     raise exception 'Acesso não autorizado à finalização da recepção.' using errcode = '42501';
   end if;
   select * into v_receipt
