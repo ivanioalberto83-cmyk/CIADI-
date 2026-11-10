@@ -57,6 +57,6 @@ test('as RPCs da proposta exigem autenticação e validam o acesso de cada opera
 
 test('a proposta SQL do ciclo de inventário usa dollar-quote válido nas funções auxiliares RLS', () => {
   const sql = read('supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql');
-  assert.doesNotMatch(sql, /^\\s*as \\$(?!\\$)\\s*$/m);
-  assert.doesNotMatch(sql, /^\\s*\\$;\\s*$/m);
+  assert.doesNotMatch(sql, /^\s*as \$(?!\$)\s*$/m);
+  assert.doesNotMatch(sql, /^\s*\$;\s*$/m);
 });
