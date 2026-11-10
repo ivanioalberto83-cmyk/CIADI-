@@ -156,3 +156,30 @@ test('marca recepção conferida através de RPC sem alterar stock antes da fina
   assert.equal(result.status, 'checked');
   assert.deepEqual(calls, [{ name: 'check_goods_receipt', args: { p_receipt_id: 'receipt-3' } }]);
 });
+
+
+test('o motor aceita a chave da linha da encomenda recolhida pelo formulário do Suporte', async () => {
+  const calls = [];
+  const db = { rpc: async (name, args) => {
+    calls.push({ name, args });
+    return { data: { id: 'receipt-ui-1', status: 'draft' }, error: null };
+  }};
+  const service = lifecycle.createInventoryLifecycleService({
+    db, role: 'suporte_informatica', actorId: 'user-1'
+  });
+  await service.createGoodsReceipt({
+    purchaseRequestId: 'request-1',
+    warehouseId: 'warehouse-1',
+    deliveryReference: 'GUIA-UI-01',
+    lines: [{
+      purchase_request_line_id: 'line-from-form',
+      ordered_quantity: 5,
+      received_quantity: 4,
+      accepted_quantity: 4,
+      damaged_quantity: 0,
+      returned_quantity: 0
+    }]
+  });
+  assert.equal(calls[0].name, 'create_goods_receipt');
+  assert.equal(calls[0].args.p_lines[0].purchase_request_line_id, 'line-from-form');
+});
