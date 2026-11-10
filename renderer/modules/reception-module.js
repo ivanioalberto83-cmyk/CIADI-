@@ -366,6 +366,13 @@
         if (!id) throw new Error('Identificador da requisição interna obrigatório.');
         return invoke('reception_submit_stock_requisition', { p_requisition_id: id });
       },
+      async createAndSubmitStockRequisition(input = {}) {
+        const created = await this.createStockRequisition(input);
+        const id = clean(created?.id || created?.requisition_id, 128);
+        if (!id) throw new Error('O servidor não devolveu o identificador da requisição criada; consulte o registo antes de repetir.');
+        const submitted = await this.submitStockRequisition(id);
+        return Object.freeze({ ...(created || {}), ...(submitted || {}), id, status: submitted?.status || 'submitted' });
+      },
       async registerStockExit(input = {}) {
         ensureActor();
         const validation = validateReceptionStockExitInput({ ...input, actorId: actor });
@@ -1630,7 +1637,7 @@
         const procurementActions = [
           ['[data-procurement-requisition]', async values => {
             const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
-            const result = await service.createStockRequisition({
+            const result = await service.createAndSubmitStockRequisition({
               warehouseId: values.warehouseId, costCenterId: values.costCenterId,
               purpose: values.purpose, priority: values.priority,
               lines: [{ itemId: values.itemId, quantity: values.quantity }]
