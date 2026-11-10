@@ -39,3 +39,16 @@ test('dashboard loads the registry and cash report module and Windows package in
   assert.match(setupWorkflow, /Copy-Item\s+"renderer\/\*"\s+"ciadi-windows\/renderer\/"\s+-Recurse\s+-Force/);
   assert.match(dashboard, /const menu\s*=\s*window\.CIADI_MODULE_REGISTRY\.listNavigationEntries\(\)/);
 });
+
+test('overview respects station boundaries and does not expose global cashier or billing shortcuts', () => {
+  const start = dashboard.indexOf('async function overview(){');
+  const end = dashboard.indexOf('function tablePage', start);
+  assert.ok(start >= 0 && end > start, 'overview function must exist');
+  const overview = dashboard.slice(start, end);
+  assert.match(overview, /stationProfile/);
+  assert.match(overview, /cash_reports/);
+  assert.match(overview, /contabilidade/);
+  assert.match(overview, /recepcao/);
+  assert.doesNotMatch(overview, /v_ciadi_financeiro_resumo/);
+  assert.doesNotMatch(overview, /go\('financeiro'\)|go\('faturacao'\)/);
+});
