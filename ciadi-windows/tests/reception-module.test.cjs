@@ -919,7 +919,9 @@ test('proposta SQL do stock da Recepção separa requisição interna de compra 
   const transferFunction = sql.slice(sql.indexOf('create or replace function ciadi_ti.reception_transfer_stock'), sql.indexOf('revoke all on function ciadi_ti.reception_create_goods_receipt'));
   assert.match(transferFunction, /as \\$\\$[\\s\\S]*?end;\\s*\\$\\$;/i);
   assert.match(sql, /grant execute on function ciadi_ti\.reception_create_stock_requisition[\s\S]*?to authenticated/i);
-  assert.doesNotMatch(sql, /revoke all on function ciadi_ti\\.reception_create_stock_requisition\\([\\s\\S]*?from public,anon,authenticated/i);
+  const requisitionGrantAt = sql.indexOf('grant execute on function ciadi_ti.reception_create_stock_requisition');
+  assert.ok(requisitionGrantAt >= 0);
+  assert.equal(sql.indexOf('revoke all on function ciadi_ti.reception_create_stock_requisition', requisitionGrantAt), -1);
   assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit[\s\S]*?from public,anon/i);
   assert.match(sql, /PROPOSTA APENAS/i);
 });
