@@ -21,11 +21,11 @@
   // Receção concentra atendimento, faturação, caixa e aprovisionamento.
   // ADM consulta fechos e trabalha a respetiva integração contabilística.
   const PROFILE_ROUTES = Object.freeze({
-    adm: Object.freeze(['cash_reports', 'contabilidade']),
+    adm: Object.freeze(['cash_reports', 'contabilidade', 'auditoria']),
     suporte_informatica: Object.freeze(['support']),
-    recepcao: Object.freeze(['reception']),
-    // RH não faz parte das três estações actualmente autorizadas.
-    rh: Object.freeze([])
+    recepcao: Object.freeze(['reception', 'overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias', 'triagens']),
+    // A estação RH mantém o seu espaço próprio, independente das três estações em validação.
+    rh: Object.freeze(['rh'])
   });
 
   function isKnownProfile(profileId) {
