@@ -146,7 +146,8 @@
         throw new Error('A recepção deve conter pelo menos uma linha.');
       }
       const lines = input.lines.map((line) => {
-        if (typeof line?.purchaseRequestLineId !== 'string' || !line.purchaseRequestLineId.trim()) {
+        const purchaseRequestLineId = line?.purchaseRequestLineId ?? line?.purchase_request_line_id;
+        if (typeof purchaseRequestLineId !== 'string' || !purchaseRequestLineId.trim()) {
           throw new Error('Cada linha deve conter uma referência à linha da encomenda.');
         }
         const quantities = validateReceiptLines([{
@@ -162,7 +163,7 @@
           if (!Number.isFinite(unitCost) || unitCost < 0) throw new Error('Custo unitário inválido.');
         }
         return {
-          purchase_request_line_id: line.purchaseRequestLineId,
+          purchase_request_line_id: purchaseRequestLineId,
           received_quantity: quantities.received_quantity,
           accepted_quantity: quantities.accepted_quantity,
           damaged_quantity: quantities.damaged_quantity,
