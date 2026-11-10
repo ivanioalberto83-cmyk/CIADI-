@@ -876,13 +876,13 @@ test('cria e submete requisição interna usando RPCs próprios sem confundir co
     } }; } },
     actorId: 'actor-1', poloCode: 'talatona', idempotencyKeyFactory: () => 'stock-key-0001'
   });
-  const created = await service.createStockRequisition({
+  const created = await service.createAndSubmitStockRequisition({
     warehouseId: 'warehouse-1', costCenterId: 'cc-001',
     purpose: 'Materiais para atendimento diário', priority: 'normal',
     lines: [{ itemId: 'item-1', quantity: 5, unitOfMeasure: 'unidade' }]
   });
   assert.equal(created.id, 'stock-req-1');
-  await service.submitStockRequisition('stock-req-1');
+  assert.equal(created.status, 'submitted');
   assert.deepEqual(calls.map(call => call.method), [
     'reception_create_stock_requisition', 'reception_submit_stock_requisition'
   ]);
