@@ -1133,7 +1133,7 @@ test('painel da Recepção apresenta formulário de recepção apenas para compr
     ] },
     purchaseRequestLines: { rows: [{ id: 'line-1', request_id: 'approved-1', item_id: 'item-1', description: 'Material clínico', quantity: 10, unit_of_measure: 'unidade', estimated_unit_cost: 2500 }] },
     goodsReceipts: { rows: [] },
-    goodsReceiptLines: { rows: [] }
+    goodsReceiptLines: { rows: [{ purchase_request_line_id: 'line-1', received_quantity: 3, receipt: { status: 'posted' } }] }
   }, 'talatona');
   assert.match(html, /data-procurement-goods-receipt/);
   assert.match(html, /name="purchaseRequestId"/);
@@ -1143,4 +1143,6 @@ test('painel da Recepção apresenta formulário de recepção apenas para compr
   assert.match(html, /damagedQuantity/);
   assert.match(html, /returnedQuantity/);
   assert.match(html, /data-goods-receipt-lines/);
+  assert.match(html, /data-already-received-quantity="3"/);
+  assert.match(html, /max="7"/);
 });
