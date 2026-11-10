@@ -1133,7 +1133,7 @@
 
   function renderGoodsReceiptLineInputs(snapshot = {}, requestId = '') {
     const rows = key => Array.isArray(snapshot[key]?.rows) ? snapshot[key].rows : Array.isArray(snapshot[key]) ? snapshot[key] : [];
-    const requestLines = rows('purchaseRequestLines').filter(line => String(line.request_id) === String(requestId));
+    const requestLines = rows('purchaseRequestLines').filter(line => String(line.request_id) === String(requestId) && Boolean(line.item_id));
     const items = rows('items');
     const receiptLines = rows('goodsReceiptLines');
     if (!requestLines.length) return '<p class="text-sm text-slate-500">A compra seleccionada não tem linhas de artigos de stock disponíveis para recepção.</p>';
@@ -1181,7 +1181,8 @@
       !warehouses.length ? 'Não existem armazéns activos atribuídos a este polo.' :
       !items.length ? 'O catálogo de artigos não está disponível.' : '';
     const receiptSchemaError = snapshot.goodsReceipts?.error || snapshot.goodsReceiptLines?.error || snapshot.purchaseRequestLines?.error;
-    const receiptReady = !receiptSchemaError && !disabled && approvedRequests.length > 0;
+    const initialRequestLines = list('purchaseRequestLines').filter(line => String(line.request_id) === String(initialRequestId) && Boolean(line.item_id));
+    const receiptReady = !receiptSchemaError && !disabled && approvedRequests.length > 0 && initialRequestLines.length > 0;
     const brand = globalThis.CIADI_INSTITUTIONAL_IDENTITY?.getBrand?.() || null;
     const logo = brand?.logoDataUrl ? '<img src="' + esc(brand.logoDataUrl) + '" alt="Logótipo CIADI" class="h-8 w-auto object-contain">' : '<strong class="text-orange">CIADI</strong>';
     const warehouseSelect = (name, label) => '<label class="block text-xs font-semibold">' + label + '<select name="' + name + '" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o armazém') + warehouseOptions + '</select></label>';
@@ -1715,7 +1716,11 @@
         }
         if (event.target.matches('[data-goods-receipt-request]')) {
           const host = container.querySelector('[data-goods-receipt-lines]');
-          if (host) host.innerHTML = renderGoodsReceiptLineInputs(businessSnapshot, event.target.value);
+          if (host) {
+            host.innerHTML = renderGoodsReceiptLineInputs(businessSnapshot, event.target.value);
+            const submit = event.target.closest('form')?.querySelector('button[type="submit"]');
+            if (submit) submit.disabled = !host.querySelector('[data-goods-receipt-line]');
+          }
           return;
         }
         if (event.target.matches('[data-reception-polo]')) {
