@@ -657,7 +657,7 @@ test('motor documental da faturação compõe pré-visualização A4 com identid
   const calls = [];
   const document = {
     id: 'invoice-1', document_no: 'FT A/2026/0001', tipo_documento: 'FT',
-    document_status: 'emitido', fiscal_status: 'emitido', data_emissao: '2026-11-09',
+    document_status: 'N', fiscal_status: 'emitido', data_emissao: '2026-11-09',
     data_vencimento: '2026-11-30', subtotal: 10000, imposto: 1400, total: 11400,
     observacoes: 'Consulta', finance_clientes: { nome: 'Família Teste', nif: '5000000000', email: 'familia@example.ao' },
     finance_series: { codigo: 'A', nome: 'Série A' }
