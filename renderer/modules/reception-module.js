@@ -627,6 +627,27 @@
           .order('aberto_em', { ascending: false })
           .limit(20));
       },
+      async getWarehouses(poloCode) {
+        const polo = clean(poloCode, 32);
+        if (!POLOS.includes(polo)) return [];
+        return rows(supabase.schema('ciadi_ti').from('warehouses')
+          .select('id,code,name,polo,active')
+          .eq('active', true).eq('polo', polo)
+          .order('name', { ascending: true }).limit(100));
+      },
+      async getStockItems() {
+        return rows(supabase.schema('ciadi_ti').from('items')
+          .select('id,sku,name,unit_of_measure,active')
+          .eq('active', true).order('name', { ascending: true }).limit(200));
+      },
+      async getCostCenters(companyId) {
+        let query = supabase.from('finance_centros_custo')
+          .select('id,codigo,nome,empresa_id')
+          .eq('ativo', true).order('codigo', { ascending: true }).limit(100);
+        const company = clean(companyId, 128);
+        if (company) query = query.eq('empresa_id', company);
+        return rows(query);
+      },
       async getStockBalances() {
         return rows(supabase.schema('ciadi_ti').from('stock_balances')
           .select('item_id,sku,item_name,unit_of_measure,minimum_stock,warehouse_id,warehouse_code,warehouse_name,quantity_on_hand,below_minimum')
@@ -1066,7 +1087,7 @@
     }[char]));
   }
 
-  function renderBusinessPanel(snapshot = {}) {
+  function renderBusinessPanel(snapshot = {}, poloCode = null) {
     const cards = [
       { key: 'services', title: 'Serviços e preços', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.nome) + '</span><strong>' + esc(row.preco_base) + ' Kz</strong></div>').join('') },
       { key: 'cashboxes', title: 'Caixas', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.nome || row.codigo) + '</span><strong>' + esc(row.estado || '—') + '</strong></div>').join('') },
@@ -1089,7 +1110,56 @@
         else if (result) content = '<p class="text-xs text-slate-500">Sem registos disponíveis.</p>';
         return '<article class="rounded-xl border p-3"><h4 class="font-bold text-sm mb-2">' + card.title + '</h4>' + content + '</article>';
       }).join('') +
-      '</div></section>';
+      '</div>' + renderReceptionProcurementPanel(snapshot, poloCode) + '</section>';
+  }
+
+  function renderReceptionProcurementPanel(snapshot = {}, poloCode = null) {
+    const list = key => Array.isArray(snapshot[key]?.rows) ? snapshot[key].rows : Array.isArray(snapshot[key]) ? snapshot[key] : [];
+    const polo = POLOS.includes(poloCode) ? poloCode : '';
+    const warehouses = list('warehouses').filter(row => row.polo === polo);
+    const items = list('items');
+    const costCenters = list('costCenters');
+    const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
+    const warehouseOptions = warehouses.map(row => option(row.id, row.code + ' · ' + row.name)).join('');
+    const itemOptions = items.map(row => option(row.id, (row.sku ? row.sku + ' · ' : '') + row.name)).join('');
+    const costCenterOptions = costCenters.map(row => option(row.id, row.codigo + ' · ' + row.nome)).join('');
+    const disabled = !polo || !warehouses.length || !items.length;
+    const disabledText = !polo ? 'Seleccione primeiro o polo da Recepção.' :
+      !warehouses.length ? 'Não existem armazéns activos atribuídos a este polo.' :
+      !items.length ? 'O catálogo de artigos não está disponível.' : '';
+    const brand = globalThis.CIADI_INSTITUTIONAL_IDENTITY?.getBrand?.() || null;
+    const logo = brand?.logoDataUrl ? '<img src="' + esc(brand.logoDataUrl) + '" alt="Logótipo CIADI" class="h-8 w-auto object-contain">' : '<strong class="text-orange">CIADI</strong>';
+    const warehouseSelect = (name, label) => '<label class="block text-xs font-semibold">' + label + '<select name="' + name + '" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o armazém') + warehouseOptions + '</select></label>';
+    const itemSelect = '<label class="block text-xs font-semibold">Artigo<select name="itemId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o artigo') + itemOptions + '</select></label>';
+    const commonMessage = '<p data-reception-message role="status" class="text-xs text-amber-800"></p>';
+    const button = label => '<button type="submit" class="rounded-lg bg-orange text-white px-4 py-2 font-bold" ' + (disabled ? 'disabled' : '') + '>' + label + '</button>';
+    return '<section class="mt-5 border-t pt-5 space-y-4" data-reception-procurement-operations>' +
+      '<header class="flex items-center gap-3">' + logo + '<div><h3 class="font-black text-lg">Operações de aprovisionamento</h3><p class="text-xs text-slate-500">Polo activo: ' + esc(polo ? POLO_LABELS[polo] : 'não seleccionado') + '. As operações são registadas no razão central e validadas pelo servidor.</p></div></header>' +
+      (disabledText ? '<p class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">' + esc(disabledText) + '</p>' : '') +
+      '<div class="grid xl:grid-cols-2 gap-3">' +
+      '<form data-procurement-requisition class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Nova requisição interna de stock</h4>' +
+        warehouseSelect('warehouseId','Armazém de destino') +
+        '<label class="block text-xs font-semibold">Centro de custo<select name="costCenterId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o centro de custo') + costCenterOptions + '</select></label>' +
+        itemSelect + '<label class="block text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="block text-xs font-semibold">Finalidade<textarea name="purpose" minlength="10" maxlength="1000" required class="mt-1 w-full border rounded-lg p-2" rows="2"></textarea></label>' +
+        '<label class="block text-xs font-semibold">Prioridade<select name="priority" class="mt-1 w-full border rounded-lg p-2">' + option('normal','Normal') + option('alta','Alta') + option('urgente','Urgente') + '</select></label>' + commonMessage + button('Criar e submeter requisição') + '</form>' +
+      '<form data-procurement-exit class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registar saída de stock</h4><p class="text-xs text-slate-500">A saída directa exige justificação. A saída por requisição só será aceite pelo servidor quando a requisição estiver aprovada.</p>' +
+        warehouseSelect('warehouseId','Armazém') + itemSelect +
+        '<label class="block text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="block text-xs font-semibold">Justificação (mínimo 10 caracteres)<textarea name="justification" minlength="10" maxlength="1000" required class="mt-1 w-full border rounded-lg p-2" rows="2"></textarea></label>' +
+        '<label class="block text-xs font-semibold">Referência (opcional)<input name="reference" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label>' + commonMessage + button('Registar saída justificada') + '</form>' +
+      '<form data-procurement-return class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registar devolução</h4>' +
+        '<label class="block text-xs font-semibold">Tipo<select name="returnType" required class="mt-1 w-full border rounded-lg p-2">' + option('devolucao_entrada','Devolução ao stock') + option('devolucao_saida','Devolução ao fornecedor') + '</select></label>' +
+        warehouseSelect('warehouseId','Armazém') + itemSelect +
+        '<label class="block text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="block text-xs font-semibold">Motivo (mínimo 10 caracteres)<textarea name="reason" minlength="10" maxlength="1000" required class="mt-1 w-full border rounded-lg p-2" rows="2"></textarea></label>' +
+        '<label class="block text-xs font-semibold">Referência<input name="reference" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label>' + commonMessage + button('Registar devolução') + '</form>' +
+      '<form data-procurement-transfer class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Transferência entre armazéns</h4>' +
+        itemSelect + warehouseSelect('fromWarehouseId','Armazém de origem') + warehouseSelect('toWarehouseId','Armazém de destino') +
+        '<label class="block text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="block text-xs font-semibold">Referência<input name="reference" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="block text-xs font-semibold">Observações<textarea name="notes" maxlength="1000" class="mt-1 w-full border rounded-lg p-2" rows="2"></textarea></label>' + commonMessage + button('Executar transferência') + '</form>' +
+      '</div><p class="text-xs text-slate-500">Aprovação de requisições e compras não está disponível nesta estação. Continua reservada a perfis Administração (admin/gestor).</p></section>';
   }
 
   function renderReceptionFinancePanel(snapshot = {}) {
@@ -1194,7 +1264,7 @@
               ['Tempo médio de espera', (summary.averageWaitMinutes || 0) + ' min']
             ].map(([label, value]) => `<article class="card p-4"><p class="text-sm text-slate-500">${label}</p><p class="text-2xl font-black mt-1">${esc(value)}</p></article>`).join('')}
           </div>
-          ${renderBusinessPanel(businessSnapshot)}
+          ${renderBusinessPanel(businessSnapshot, activePolo)}
           ${renderReceptionFinancePanel({
             clients: businessSnapshot.clients?.rows,
             documentTypes: businessSnapshot.documentTypes?.rows,
@@ -1370,6 +1440,9 @@
         ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
         ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
         ['shifts', () => businessRepository.getOpenCashboxShifts()],
+        ['warehouses', () => businessRepository.getWarehouses(activePolo)],
+        ['items', () => businessRepository.getStockItems()],
+        ['costCenters', () => businessRepository.getCostCenters(company)],
         ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()],
         ['stockRequisitions', () => businessRepository.getStockRequisitions()],
@@ -1554,6 +1627,59 @@
 
       container.addEventListener('submit', async event => {
         const form = event.target;
+        const procurementActions = [
+          ['[data-procurement-requisition]', async values => {
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.createStockRequisition({
+              warehouseId: values.warehouseId, costCenterId: values.costCenterId,
+              purpose: values.purpose, priority: values.priority,
+              lines: [{ itemId: values.itemId, quantity: values.quantity }]
+            });
+            return 'Requisição criada: ' + (result.request_number || result.id || 'confirmada pelo servidor');
+          }],
+          ['[data-procurement-exit]', async values => {
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.registerStockExit({
+              mode: 'direct_justified', itemId: values.itemId, warehouseId: values.warehouseId,
+              quantity: values.quantity, justification: values.justification, reference: values.reference
+            });
+            return 'Saída registada: ' + (result.id || result.movement_id || JSON.stringify(result));
+          }],
+          ['[data-procurement-return]', async values => {
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.registerStockReturn({
+              returnType: values.returnType, itemId: values.itemId, warehouseId: values.warehouseId,
+              quantity: values.quantity, reason: values.reason, reference: values.reference
+            });
+            return 'Devolução registada: ' + (result.id || result.movement_id || JSON.stringify(result));
+          }],
+          ['[data-procurement-transfer]', async values => {
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.transferStock({
+              itemId: values.itemId, fromWarehouseId: values.fromWarehouseId,
+              toWarehouseId: values.toWarehouseId, quantity: values.quantity,
+              reference: values.reference, notes: values.notes
+            });
+            return 'Transferência registada: ' + (result.id || result.out_movement_id || 'confirmada pelo servidor');
+          }]
+        ];
+        const procurementAction = procurementActions.find(([selector]) => form.matches(selector));
+        if (procurementAction) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-reception-message]');
+          const submitButton = form.querySelector('button[type="submit"]');
+          submitButton.disabled = true;
+          try {
+            const confirmation = await procurementAction[1](values);
+            notify(confirmation);
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+          } catch (error) {
+            submitButton.disabled = false;
+            message.textContent = error.message || 'A operação de aprovisionamento não foi confirmada pelo servidor.';
+          }
+          return;
+        }
         if (form.matches('[data-reception-invoice-form]')) {
           event.preventDefault();
           const values = Object.fromEntries(new FormData(form).entries());
@@ -1708,6 +1834,6 @@
     validateReceptionStockExitInput, validateReceptionStockRequisitionInput, validateReceptionStockReturnInput,
     validateReceptionStockTransferInput, validateReceptionGoodsInput, createReceptionProcurementService,
     buildReceptionInvoiceHtml, createReceptionInvoicePdfService,
-    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionDocumentHeader, create
+    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionProcurementPanel, renderReceptionDocumentHeader, create
   });
 });
