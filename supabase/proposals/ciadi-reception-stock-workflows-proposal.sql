@@ -602,13 +602,6 @@ grant execute on function ciadi_ti.reception_decide_stock_requisition(uuid,text,
 grant execute on function ciadi_ti.reception_register_stock_exit(text,uuid,uuid,numeric,uuid,uuid,text,text,text,text) to authenticated;
 grant execute on function ciadi_ti.reception_register_stock_return(uuid,uuid,numeric,text,text,text,text,text) to authenticated;
 grant execute on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) to authenticated;
-revoke all on function ciadi_ti.reception_create_goods_receipt(uuid,uuid,text,date,text,jsonb,text) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_create_stock_requisition(text,uuid,uuid,text,text,text,jsonb) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_submit_stock_requisition(uuid) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_decide_stock_requisition(uuid,text,text) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_register_stock_exit(text,uuid,uuid,numeric,uuid,uuid,text,text,text,text) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_register_stock_return(uuid,uuid,numeric,text,text,text,text,text) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) from public,anon,authenticated;
 
 comment on table ciadi_ti.stock_requisitions is 'Requisição interna de artigos de stock por polo, armazém e centro de custo; distinta da compra a fornecedor.';
 comment on table ciadi_ti.stock_requisition_lines is 'Linhas aprovadas e expedidas de uma requisição interna de stock.';
