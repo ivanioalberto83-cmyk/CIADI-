@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const registry = require('../../renderer/core/module-registry.js');
 
-test('ADM keeps administration routes but excludes Reception, operational cash and Support modules', () => {
+test('ADM keeps administration routes, Accounting and read-only cash reports but excludes operational stations', () => {
   const service = require('../../renderer/core/station-profile-service.js');
   const entries = [
     { id: 'support', label: 'Suporte Informático', route: 'support', moduleId: 'support' },
@@ -12,6 +12,7 @@ test('ADM keeps administration routes but excludes Reception, operational cash a
   for (const forbidden of ['support', 'reception', 'caixa', 'faturacao', 'financeiro']) {
     assert.equal(adm.includes(forbidden), false, 'ADM must not expose ' + forbidden);
   }
+  assert.ok(adm.includes('cash_reports'), 'ADM must retain cash opening/closing reports');
   assert.ok(adm.includes('contabilidade'), 'ADM must retain Accounting');
   assert.ok(adm.includes('auditoria'), 'ADM must retain administrative audit');
 });
