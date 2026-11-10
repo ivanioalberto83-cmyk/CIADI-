@@ -11,8 +11,10 @@ const main = fs.readFileSync(path.join(root, 'ciadi-windows', 'main.cjs'), 'utf8
 const preload = fs.readFileSync(path.join(root, 'ciadi-windows', 'preload.cjs'), 'utf8');
 const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ciadi-setup-homologation.yml'), 'utf8');
 
-test('Windows build copies the canonical dashboard source into the packaged entry point', () => {
-  assert.match(workflow, /\$source\s*=\s*"CIADI_DASHBOARD_FINANCEIRO\.html"/);
+test('Windows build copies the root index.html only after checking the legacy dashboard matches', () => {
+  assert.match(workflow, /\$source\s*=\s*"index\.html"/);
+  assert.match(workflow, /\$legacy\s*=\s*"CIADI_DASHBOARD_FINANCEIRO\.html"/);
+  assert.match(workflow, /-cne/);
   assert.match(workflow, /Copy-Item\s+\$source\s+"ciadi-windows\/index\.html"\s+-Force/);
 });
 
