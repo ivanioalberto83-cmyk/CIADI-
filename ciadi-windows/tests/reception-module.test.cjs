@@ -1112,3 +1112,12 @@ test('painel operacional da Recepção apresenta formulários de requisição, s
   assert.match(html, /Armazém Talatona/);
   assert.doesNotMatch(html, /Armazém Secundário/);
 });
+
+test('acesso global do Suporte Informático é reconhecido pelo helper de operações da Recepção sem remover o âmbito por polo dos operadores', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
+  const helper = sql.slice(sql.indexOf('create or replace function ciadi_ti.has_reception_operation_access'), sql.indexOf('revoke all on function ciadi_ti.has_reception_operation_access'));
+  assert.match(helper, /has_support_access\(\)/i);
+  assert.match(helper, /p\.tipo\s*=\s*'operador'[\s\S]*?reception_user_polos/i);
+});
