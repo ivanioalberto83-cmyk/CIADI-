@@ -24,7 +24,7 @@ begin
     (v_user, true, 'suporte_informatica'),
     (v_other_user, true, 'profissional');
   insert into ciadi_ti.suppliers(id, name) values (v_supplier, 'Fornecedor de teste');
-  insert into ciadi_ti.warehouses(id, code, name) values (v_warehouse, 'WH-TEST', 'Armazém de homologação');
+  insert into ciadi_ti.warehouses(id, code, name, polo) values (v_warehouse, 'WH-TEST', 'Armazém de homologação', 'talatona');
   insert into ciadi_ti.items(id, sku, name) values
     (v_item_a, 'IT-TEST-A', 'Artigo A'),
     (v_item_b, 'IT-TEST-B', 'Artigo B');
