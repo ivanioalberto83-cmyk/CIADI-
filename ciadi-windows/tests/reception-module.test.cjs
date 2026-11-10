@@ -1138,7 +1138,7 @@ test('painel da Recepção apresenta formulário de recepção apenas para compr
   assert.match(html, /data-procurement-goods-receipt/);
   assert.match(html, /name="purchaseRequestId"/);
   assert.match(html, /101/);
-  assert.doesNotMatch(html, /102/);
+  assert.doesNotMatch(html, /pending-1/);
   assert.match(html, /acceptedQuantity/);
   assert.match(html, /damagedQuantity/);
   assert.match(html, /returnedQuantity/);
