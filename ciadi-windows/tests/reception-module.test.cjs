@@ -1063,3 +1063,20 @@ test('permissões da Recepção limitam o operador ao polo atribuído e reservam
   assert.match(sql, /grant execute on function ciadi_ti\.reception_/i);
   assert.match(sql, /revoke all on function ciadi_ti\.reception_/i);
 });
+
+
+test('painel operacional da Recepção apresenta formulários de requisição, saída, devolução e transferência sem acções de aprovação', () => {
+  assert.equal(typeof reception.renderReceptionProcurementPanel, 'function');
+  const html = reception.renderReceptionProcurementPanel({
+    warehouses: [{ id: 'w1', code: 'TAL-01', name: 'Armazém Talatona', polo: 'talatona' }, { id: 'w2', code: 'TAL-02', name: 'Armazém Secundário', polo: 'talatona' }],
+    items: [{ id: 'i1', sku: 'MAT-01', name: 'Material', unit_of_measure: 'unidade' }],
+    costCenters: [{ id: 'cc1', codigo: 'CC-001', nome: 'Talatona' }]
+  }, 'talatona');
+  for (const marker of ['data-procurement-requisition','data-procurement-exit','data-procurement-return','data-procurement-transfer']) {
+    assert.match(html, new RegExp(marker));
+  }
+  assert.match(html, /data-requisition-submit/);
+  assert.doesNotMatch(html, /data-requisition-approve|data-purchase-approve/);
+  assert.match(html, /Armazém Talatona/);
+  assert.doesNotMatch(html, /Armazém Secundário/);
+});
