@@ -87,18 +87,30 @@
       const accountingPostedCount = accountingForPayments.filter(list => list.some(entry => entry.estado === 'contabilizado')).length;
       const accountingMissingCount = accountingForPayments.filter(list => list.length === 0).length;
       const accountingPendingCount = accountingForPayments.filter(list => list.length > 0 && !list.some(entry => entry.estado === 'contabilizado')).length;
+      const paymentMovementTotal = turnMovements
+        .filter(row => row.pagamento_id)
+        .reduce((sum, row) => sum + (Number(row.valor) || 0), 0);
+      const accountingPostedTotal = accountingForPayments.reduce((sum, list) => sum + list
+        .filter(entry => entry.estado === 'contabilizado')
+        .reduce((entrySum, entry) => entrySum + (Number(entry.total_debito) || 0), 0), 0);
+      const accountingDifference = Math.round((paymentMovementTotal - accountingPostedTotal) * 100) / 100;
       const accountingStatus = paymentIds.length === 0
         ? 'Sem pagamentos associados'
         : accountingMissingCount > 0
           ? 'Por verificar'
           : accountingPendingCount > 0
             ? 'Pendente'
-            : 'Conciliado';
+            : Math.abs(accountingDifference) > 0.005
+              ? 'Divergência'
+              : 'Conciliado';
 
       return Object.freeze({
         ...shift,
         totalEntradas,
         totalSaidas,
+        paymentMovementTotal,
+        accountingPostedTotal,
+        accountingDifference,
         accountingPaymentCount: paymentIds.length,
         accountingPostedCount,
         accountingPendingCount,
@@ -137,7 +149,7 @@
       ? '<img src="' + escapeHtml(brand.logoDataUrl) + '" alt="Logótipo CIADI" class="h-12 w-auto object-contain">'
       : '<strong class="text-orange text-2xl">CIADI</strong>';
     const pendingApproval = rows.filter(row => row.estado === 'pendente_aprovacao').length;
-    const unresolved = rows.filter(row => ['Por verificar', 'Pendente'].includes(row.accountingStatus)).length;
+    const unresolved = rows.filter(row => ['Por verificar', 'Pendente', 'Divergência'].includes(row.accountingStatus)).length;
     const differenceTotal = rows.reduce((sum, row) => sum + (Number(row.diferenca) || 0), 0);
 
     rootElement.innerHTML = `
@@ -164,7 +176,7 @@
           <div class="overflow-auto">
             <table class="w-full text-sm min-w-[1050px]">
               <thead><tr class="border-b text-left text-slate-500">
-                <th class="p-3">Caixa / Operador</th><th>Abertura</th><th>Fecho</th><th>Saldo inicial</th><th>Esperado</th><th>Contado</th><th>Diferença</th><th>Estado</th><th>Contabilidade</th>
+                <th class="p-3">Caixa / Operador</th><th>Abertura</th><th>Fecho</th><th>Saldo inicial</th><th>Esperado</th><th>Contado</th><th>Diferença de caixa</th><th>Entradas</th><th>Saídas</th><th>Débito contabilizado</th><th>Diferença contabilística</th><th>Estado</th><th>Conciliação</th>
               </tr></thead>
               <tbody>${rows.map(row => {
                 const cashbox = relationOne(row.finance_caixas);
@@ -178,11 +190,11 @@
                   <td><span class="rounded-full bg-slate-100 px-2 py-1 text-xs">${escapeHtml(row.estado || '—')}</span></td>
                   <td><strong class="${status}">${escapeHtml(row.accountingStatus)}</strong><div class="text-xs text-slate-500">${row.accountingPostedCount}/${row.accountingPaymentCount} recebimentos contabilizados</div></td>
                 </tr>`;
-              }).join('') || '<tr><td colspan="9" class="p-6 text-center text-slate-500">Ainda não existem turnos de caixa disponíveis para consulta.</td></tr>'}</tbody>
+              }).join('') || '<tr><td colspan="13" class="p-6 text-center text-slate-500">Ainda não existem turnos de caixa disponíveis para consulta.</td></tr>'}</tbody>
             </table>
           </div>
         </div>
-        <p class="text-xs text-slate-500">Nota de reconciliação: o fecho do turno regista os saldos e a diferença; não cria, por si só, um lançamento contabilístico. Esta vista cruza os recebimentos associados a pagamentos com os lançamentos existentes. Movimentos sem pagamento associado não são classificados automaticamente como contabilizados.</p>
+        <p class="text-xs text-slate-500">Nota de reconciliação: o fecho do turno regista os saldos e a diferença; não cria, por si só, um lançamento contabilístico. Esta vista compara o valor dos recebimentos associados a pagamentos com o débito dos lançamentos efectivamente contabilizados. Movimentos sem pagamento associado não são classificados automaticamente como contabilizados.</p>
       </section>`;
   }
 
