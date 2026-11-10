@@ -130,7 +130,7 @@ language plpgsql
 stable
 security invoker
 set search_path = pg_catalog, ciadi_reception, public, auth
-as $
+as $$
 declare
   v_term text;
   v_result jsonb;
@@ -179,7 +179,7 @@ begin
 
   return v_result;
 end;
-$;
+$$;
 
 -- A API só valida identidade e integridade do ciclo. A autorização funcional por perfil/polo
 -- será definida na fase própria; estas funções não recebem grants nesta proposta.
