@@ -1121,3 +1121,26 @@ test('acesso global do Suporte Informático é reconhecido pelo helper de opera�
   assert.match(helper, /has_support_access\(\)/i);
   assert.match(helper, /p\.tipo\s*=\s*'operador'[\s\S]*?reception_user_polos/i);
 });
+
+
+test('painel da Recepção apresenta formulário de recepção apenas para compras aprovadas e classifica as quantidades', () => {
+  const html = reception.renderReceptionProcurementPanel({
+    warehouses: { rows: [{ id: 'warehouse-1', code: 'TAL-01', name: 'Armazém Talatona', polo: 'talatona' }] },
+    items: { rows: [{ id: 'item-1', sku: 'MAT-01', name: 'Material clínico' }] },
+    requests: { rows: [
+      { id: 'approved-1', request_number: 101, status: 'approved' },
+      { id: 'pending-1', request_number: 102, status: 'submitted' }
+    ] },
+    purchaseRequestLines: { rows: [{ id: 'line-1', request_id: 'approved-1', item_id: 'item-1', description: 'Material clínico', quantity: 10, unit_of_measure: 'unidade', estimated_unit_cost: 2500 }] },
+    goodsReceipts: { rows: [] },
+    goodsReceiptLines: { rows: [] }
+  }, 'talatona');
+  assert.match(html, /data-procurement-goods-receipt/);
+  assert.match(html, /name="purchaseRequestId"/);
+  assert.match(html, /101/);
+  assert.doesNotMatch(html, /102/);
+  assert.match(html, /acceptedQuantity/);
+  assert.match(html, /damagedQuantity/);
+  assert.match(html, /returnedQuantity/);
+  assert.match(html, /data-goods-receipt-lines/);
+});
