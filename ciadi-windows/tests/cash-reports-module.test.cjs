@@ -76,6 +76,9 @@ test('cash report rows reconcile counted cash and expose incomplete accounting l
 
   assert.equal(rows[0].totalEntradas, 150);
   assert.equal(rows[0].totalSaidas, 20);
+  assert.equal(rows[0].paymentMovementTotal, 150);
+  assert.equal(rows[0].accountingPostedTotal, 100);
+  assert.equal(rows[0].accountingDifference, 50);
   assert.equal(rows[0].diferenca, -5);
   assert.equal(rows[0].accountingPaymentCount, 2);
   assert.equal(rows[0].accountingPostedCount, 1);
@@ -91,5 +94,18 @@ test('cash report rows mark payments without accounting entries for verification
     accountingEntries: []
   });
   assert.equal(rows[0].accountingMissingCount, 1);
+  assert.equal(rows[0].paymentMovementTotal, 40);
+  assert.equal(rows[0].accountingPostedTotal, 0);
+  assert.equal(rows[0].accountingDifference, 40);
   assert.equal(rows[0].accountingStatus, 'Por verificar');
+});
+
+test('cash report detects amount differences between cash receipts and posted accounting entries', () => {
+  const rows = reports.buildCashReportRows({
+    shifts: [{ id: 'shift-3', estado: 'fechado' }],
+    movements: [{ turno_id: 'shift-3', tipo: 'entrada', valor: 40, pagamento_id: 'payment-3', estado: 'confirmado' }],
+    accountingEntries: [{ origem_tipo: 'PAGAMENTO', origem_id: 'payment-3', estado: 'contabilizado', total_debito: 35 }]
+  });
+  assert.equal(rows[0].accountingDifference, 5);
+  assert.equal(rows[0].accountingStatus, 'Divergência');
 });
