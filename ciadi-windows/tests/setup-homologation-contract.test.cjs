@@ -33,6 +33,20 @@ test('o Setup apresenta os quatro perfis de estação sem os confundir com permi
   assert.match(installer, /não concede permissões|Não concede permissões/i);
 });
 
+test('o acesso web apresenta um selector de estação quando o URL não contém perfil', () => {
+  assert.match(dashboard, /id="stationChooser"/);
+  assert.match(dashboard, /id="stationChoice"/);
+  assert.match(dashboard, /function selectStation\(\)/);
+  assert.match(dashboard, /function initialiseStationChooser\(\)/);
+  assert.match(dashboard, /window\.location\.assign\(window\.location\.pathname \+ '\?' \+ params\.toString\(\)\)/);
+  for (const id of ['adm', 'suporte_informatica', 'rh', 'recepcao']) {
+    assert.match(dashboard, new RegExp('value="' + id + '"'));
+  }
+  assert.match(dashboard, /stationPoloChoiceWrap/);
+  assert.match(dashboard, /validateStationAccount\(_userOrEmail\)/);
+  assert.doesNotMatch(dashboard, /stationAccountAllowlist/);
+});
+
 test('o processo Electron lê o perfil instalado e transmite-o ao Dashboard', () => {
   for (const id of ['adm', 'suporte_informatica', 'rh', 'recepcao']) {
     assert.ok(main.includes(id), 'O processo Electron não reconhece ' + id);
