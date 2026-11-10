@@ -10,11 +10,28 @@
     recepcao: 'Receção'
   });
 
+  const SUPPORT_ENTRY = Object.freeze({
+    id: 'support',
+    label: 'Suporte Informático',
+    route: 'support',
+    moduleId: 'support'
+  });
+
+  const ADM_HIDDEN_ROUTES = new Set([
+    'support',
+    'reception',
+    'caixa',
+    'faturacao',
+    'financeiro'
+  ]);
+
   const PROFILE_ROUTES = Object.freeze({
+    // ADM retains its administrative routes; cash operations remain in Reception.
     adm: null,
-    suporte_informatica: null,
-    // Until the dedicated HR workspace is implemented, retain only real legacy routes.
+    suporte_informatica: Object.freeze(['support']),
+    // Until the dedicated HR workspace is implemented, retain only the real HR route.
     rh: Object.freeze(['rh']),
+    // Billing, cash operations and procurement are embedded in the Reception workspace.
     recepcao: Object.freeze(['reception', 'overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias', 'triagens'])
   });
 
@@ -37,14 +54,17 @@
       unique.push({ ...entry });
     }
 
-    if (profileId === 'adm' || profileId === 'suporte_informatica') {
-      if (profileId === 'suporte_informatica') {
-        return [{ id: 'support', label: 'Suporte Informático', route: 'support', moduleId: 'support' }, ...unique];
-      }
-      return unique;
+    if (profileId === 'suporte_informatica') {
+      return [unique.find(entry => entry.id === 'support') || { ...SUPPORT_ENTRY }];
     }
 
-    return PROFILE_ROUTES[profileId].map(id => unique.find(entry => entry.id === id)).filter(Boolean);
+    if (profileId === 'adm') {
+      return unique.filter(entry => !ADM_HIDDEN_ROUTES.has(entry.id));
+    }
+
+    return PROFILE_ROUTES[profileId]
+      .map(id => unique.find(entry => entry.id === id) || (id === 'support' ? { ...SUPPORT_ENTRY } : null))
+      .filter(Boolean);
   }
 
   return Object.freeze({ getVisibleEntries, getProfileLabel, isKnownProfile });
