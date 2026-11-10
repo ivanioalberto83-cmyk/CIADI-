@@ -637,12 +637,15 @@ test('painel financeiro da Recepção apresenta formulários centrais e sinaliza
     series: [{ id: 'series-1', codigo: '2026', nome: 'Série 2026', tipo_documento: 'FT' }],
     services: [{ id: 'service-1', codigo: 'ABA', nome: 'Terapia ABA', preco_base: 15000 }],
     cashboxes: [{ id: 'cash-1', codigo: 'CX01', nome: 'Caixa Recepção', estado: 'aberto' }],
-    documents: [{ id: 'doc-1', document_no: 'FT 1', document_status: 'emitido', fiscal_status: 'emitido', total: 15000 }],
+    documents: [{ id: 'doc-1', document_no: 'FT 1', document_status: 'N', fiscal_status: 'emitido', total: 15000 }],
     shifts: []
   });
   assert.match(html, /data-reception-invoice-form/);
   assert.match(html, /data-reception-cashbox-open/);
   assert.match(html, /data-reception-payment-form/);
+  assert.match(html, /Registar pagamento/);
+  assert.doesNotMatch(html, /Registar pagamento — bloqueado/);
+  assert.doesNotMatch(html, /<fieldset disabled/);
   assert.match(html, /data-reception-cashbox-close/);
   assert.match(html, /&lt;Família CIADI&gt;/);
   assert.doesNotMatch(html, /<Família CIADI>/);
