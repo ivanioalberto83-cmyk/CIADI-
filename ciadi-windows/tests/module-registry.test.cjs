@@ -11,7 +11,7 @@ const setupWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'c
 
 const expectedIds = [
   'overview', 'sos', 'pedidos_site', 'agendamentos', 'financeiro',
-  'faturacao', 'caixa', 'contabilidade', 'saft', 'especialidades',
+  'faturacao', 'caixa', 'cash_reports', 'contabilidade', 'saft', 'especialidades',
   'triagens', 'pacientes', 'profissionais', 'rh', 'reception', 'documentos', 'familias',
   'conteudos', 'multimedia', 'marketing', 'janeth', 'utilizadores',
   'instituicao', 'empresas', 'clinica', 'auditoria', 'acompanhantes_at'
@@ -31,9 +31,11 @@ test('module registry preserves every current navigation identifier exactly once
   }
 });
 
-test('dashboard loads the registry and Windows package includes its renderer assets', () => {
+test('dashboard loads the registry and cash report module and Windows package includes renderer assets', () => {
   assert.match(dashboard, /<script\s+src=["']renderer\/core\/module-registry\.js["']><\/script>/);
+  assert.match(dashboard, /<script\s+src=["']renderer\/modules\/cash-reports-module\.js["']><\/script>/);
   assert.ok(packageJson.build.files.includes('renderer/**/*'));
+  assert.match(setupWorkflow, /cash-reports-module\.js/);
   assert.match(setupWorkflow, /Copy-Item\s+"renderer\/\*"\s+"ciadi-windows\/renderer\/"\s+-Recurse\s+-Force/);
   assert.match(dashboard, /const menu\s*=\s*window\.CIADI_MODULE_REGISTRY\.listNavigationEntries\(\)/);
 });
