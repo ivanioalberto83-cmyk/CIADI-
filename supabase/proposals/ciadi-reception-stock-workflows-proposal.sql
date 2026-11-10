@@ -535,7 +535,7 @@ create or replace function ciadi_ti.reception_transfer_stock(
 language plpgsql
 security definer
 set search_path = pg_catalog, public, ciadi_ti, auth
-as $
+as $$
 declare
   v_key text := btrim(coalesce(p_idempotency_key,''));
   v_from ciadi_ti.stock_movements%rowtype;
@@ -584,7 +584,7 @@ begin
     'idempotent_replay',false
   );
 end;
-$;
+$$;
 
 revoke all on function ciadi_ti.reception_create_goods_receipt(uuid,uuid,text,date,text,jsonb,text) from public,anon;
 revoke all on function ciadi_ti.reception_create_stock_requisition(text,uuid,uuid,text,text,text,jsonb) from public,anon;
