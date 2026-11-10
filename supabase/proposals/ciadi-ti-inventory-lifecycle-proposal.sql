@@ -65,21 +65,21 @@ alter table ciadi_ti.goods_receipts enable row level security;
 alter table ciadi_ti.goods_receipt_lines enable row level security;
 
 drop policy if exists goods_receipts_select_support on ciadi_ti.goods_receipts;
-drop policy if exists goods_receipts_select_reception on ciadi_ti.goods_receipts;
-create policy goods_receipts_select_reception
+drop policy if exists goods_receipts_select_support on ciadi_ti.goods_receipts;
+create policy goods_receipts_select_support
   on ciadi_ti.goods_receipts
   for select to authenticated
   using (
     exists (
       select 1 from ciadi_ti.warehouses w
       where w.id = warehouse_id and w.active = true
-        and ciadi_ti.has_reception_operation_access(w.polo)
+        and ciadi_ti.has_support_access()
     )
   );
 
 drop policy if exists goods_receipt_lines_select_support on ciadi_ti.goods_receipt_lines;
-drop policy if exists goods_receipt_lines_select_reception on ciadi_ti.goods_receipt_lines;
-create policy goods_receipt_lines_select_reception
+drop policy if exists goods_receipt_lines_select_support on ciadi_ti.goods_receipt_lines;
+create policy goods_receipt_lines_select_support
   on ciadi_ti.goods_receipt_lines
   for select to authenticated
   using (
@@ -88,7 +88,7 @@ create policy goods_receipt_lines_select_reception
       from ciadi_ti.goods_receipts r
       join ciadi_ti.warehouses w on w.id = r.warehouse_id
       where r.id = receipt_id and w.active = true
-        and ciadi_ti.has_reception_operation_access(w.polo)
+        and ciadi_ti.has_support_access()
     )
   );
 
@@ -159,7 +159,7 @@ begin
   if auth.uid() is null or not exists (
     select 1 from ciadi_ti.warehouses w
     where w.id = p_warehouse_id and w.active = true
-      and ciadi_ti.has_reception_operation_access(w.polo)
+      and ciadi_ti.has_support_access()
   ) then
     raise exception 'Acesso não autorizado à recepção de mercadorias.' using errcode = '42501';
   end if;
@@ -272,7 +272,7 @@ begin
     select 1 from ciadi_ti.goods_receipts r
     join ciadi_ti.warehouses w on w.id = r.warehouse_id
     where r.id = p_receipt_id and w.active = true
-      and ciadi_ti.has_reception_operation_access(w.polo)
+      and ciadi_ti.has_support_access()
   ) then
     raise exception 'Acesso não autorizado à conferência de mercadorias.' using errcode = '42501';
   end if;
@@ -321,7 +321,7 @@ begin
     select 1 from ciadi_ti.goods_receipts r
     join ciadi_ti.warehouses w on w.id = r.warehouse_id
     where r.id = p_receipt_id and w.active = true
-      and ciadi_ti.has_reception_operation_access(w.polo)
+      and ciadi_ti.has_support_access()
   ) then
     raise exception 'Acesso não autorizado à finalização da recepção.' using errcode = '42501';
   end if;
