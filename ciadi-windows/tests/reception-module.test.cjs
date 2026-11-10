@@ -960,3 +960,32 @@ test('devoluções e transferências de stock têm operações próprias e justi
   assert.equal(calls[1].args.p_to_warehouse_id, 'warehouse-2');
   assert.equal(calls[1].args.p_polo_code, 'talatona');
 });
+
+
+test('falha fechada sem afirmar que não existem registos quando uma fonte auxiliar falha', async () => {
+  const root = {
+    innerHTML: '',
+    addEventListener() {}
+  };
+  const supabase = {
+    schema(schemaName) {
+      assert.equal(schemaName, 'ciadi_reception');
+      return {
+        async rpc(name) {
+          if (name === 'reception_get_dashboard') {
+            return { data: { visits: [{ id: 'visit-existing', status: 'waiting' }], visitors: [], summary: { total: 1, waiting: 1 } }, error: null };
+          }
+          if (name === 'reception_get_destinations') {
+            return { data: null, error: new Error('Catálogo de destinos indisponível') };
+          }
+          throw new Error('RPC inesperada: ' + name);
+        }
+      };
+    }
+  };
+  const module = reception.create({ root, navigate() {}, notify() {}, supabase, actorId: 'actor-1' });
+  await module.renderHome();
+  assert.match(root.innerHTML, /Catálogo de destinos indisponível/);
+  assert.doesNotMatch(root.innerHTML, /Nenhum atendimento ou visitante foi registado/);
+  assert.match(root.innerHTML, /não foi possível carregar|serviço de dados ainda não está homologada/i);
+});
