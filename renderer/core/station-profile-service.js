@@ -17,22 +17,15 @@
     moduleId: 'support'
   });
 
-  const ADM_HIDDEN_ROUTES = new Set([
-    'support',
-    'reception',
-    'caixa',
-    'faturacao',
-    'financeiro'
-  ]);
-
+  // Cada estação abre apenas o seu módulo de trabalho.
+  // Receção concentra atendimento, faturação, caixa e aprovisionamento.
+  // ADM consulta fechos e trabalha a respetiva integração contabilística.
   const PROFILE_ROUTES = Object.freeze({
-    // ADM retains its administrative routes; cash operations remain in Reception.
-    adm: null,
+    adm: Object.freeze(['cash_reports', 'contabilidade']),
     suporte_informatica: Object.freeze(['support']),
-    // Until the dedicated HR workspace is implemented, retain only the real HR route.
-    rh: Object.freeze(['rh']),
-    // Billing, cash operations and procurement are embedded in the Reception workspace.
-    recepcao: Object.freeze(['reception', 'overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias', 'triagens'])
+    recepcao: Object.freeze(['reception']),
+    // RH não faz parte das três estações actualmente autorizadas.
+    rh: Object.freeze([])
   });
 
   function isKnownProfile(profileId) {
@@ -52,14 +45,6 @@
       if (!entry || typeof entry.id !== 'string' || !entry.id.trim() || seen.has(entry.id)) continue;
       seen.add(entry.id);
       unique.push({ ...entry });
-    }
-
-    if (profileId === 'suporte_informatica') {
-      return [unique.find(entry => entry.id === 'support') || { ...SUPPORT_ENTRY }];
-    }
-
-    if (profileId === 'adm') {
-      return unique.filter(entry => !ADM_HIDDEN_ROUTES.has(entry.id));
     }
 
     return PROFILE_ROUTES[profileId]
