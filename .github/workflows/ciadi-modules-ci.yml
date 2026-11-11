@@ -1,4 +1,5 @@
 name: CIADI Workstation Modules CI
+# Revalidar o contrato de inicialização do módulo Recepção com polo explícito.
 
 on:
   push:
