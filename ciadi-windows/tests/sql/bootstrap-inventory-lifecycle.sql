@@ -6,16 +6,16 @@ begin
   create role anon nologin;
 exception when duplicate_object then null;
 end $$;
-do $
+do $create_authenticated$
 begin
   create role authenticated nologin;
 exception when duplicate_object then null;
-end $;
-do $
+end $create_authenticated$;
+do $create_authenticator$
 begin
   create role authenticator nologin;
 exception when duplicate_object then null;
-end $;
+end $create_authenticator$;
 
 create schema if not exists auth;
 create or replace function auth.uid()
