@@ -521,6 +521,30 @@ async function financeAccounting(){try{
   <button onclick="financeExpenses()" class="border rounded-xl px-4 py-2">Despesas</button>
   <button onclick="financeAccountingReports()" class="border rounded-xl px-4 py-2">Relatórios contabilísticos</button>
  </div>
+
+ <section class="card p-5 mb-5" aria-labelledby="accounting-integrations-title">
+  <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+   <div><h3 id="accounting-integrations-title" class="font-black text-lg">Integrações dos módulos com a Contabilidade</h3><p class="text-sm text-slate-500 mt-1">Mapa funcional proposto para a contabilidade central do CIADI, com análise por centro de custo/polo.</p></div>
+   <span class="inline-flex items-center rounded-full bg-amber-50 text-amber-800 px-3 py-1 text-xs font-bold">Desenho em validação</span>
+  </div>
+  <div class="overflow-auto"><table class="w-full text-sm min-w-[760px]">
+   <thead><tr class="border-b text-left text-slate-500"><th class="p-3">Módulo de origem</th><th class="p-3">Evento de origem</th><th class="p-3">Tratamento contabilístico previsto</th></tr></thead>
+   <tbody>
+    <tr class="border-b"><td class="p-3 font-semibold">Facturação</td><td class="p-3">Factura/documento validado</td><td class="p-3">Reconhecer o valor a receber e a receita, segundo regra PGC validada.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Caixa / Recepção</td><td class="p-3">Recebimento confirmado</td><td class="p-3">Liquidar o valor a receber; não reconhecer novamente a receita da factura.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Bancos</td><td class="p-3">Movimento bancário reconciliado</td><td class="p-3">Registar depósito, transferência, comissão ou movimento identificado.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Compras</td><td class="p-3">Factura de fornecedor validada</td><td class="p-3">Reconhecer aquisição, obrigação e impostos aplicáveis conforme parametrização validada.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Aprovisionamento</td><td class="p-3">Recepção de mercadoria validada</td><td class="p-3">Actualizar quantidades e valorização de stock sem duplicar a compra.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Stocks</td><td class="p-3">Consumo, perda, transferência ou ajuste autorizado</td><td class="p-3">Registar apenas o efeito contabilístico correspondente.</td></tr>
+    <tr><td class="p-3 font-semibold">RH</td><td class="p-3">Folha salarial aprovada</td><td class="p-3">Reconhecer remunerações, subsídios, retenções e encargos da entidade.</td></tr>
+   </tbody>
+  </table></div>
+  <div class="grid md:grid-cols-2 gap-4 mt-5">
+   <div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Fluxo de contabilização proposto</h4><ol class="list-decimal pl-5 space-y-1 text-sm text-slate-600"><li>Evento registado no módulo de origem.</li><li>Validação do documento, valor, empresa, polo e centro de custo.</li><li>Aplicação de regra contabilística e contas PGC validadas.</li><li>Preparação de lançamento em rascunho e verificação de equilíbrio.</li><li>Aprovação por utilizador autorizado e contabilização em período aberto.</li></ol></div>
+   <div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Controlos obrigatórios</h4><ul class="list-disc pl-5 space-y-1 text-sm text-slate-600"><li>Referência única de origem para evitar duplicações.</li><li>Débitos iguais a créditos antes da contabilização.</li><li>Histórico contabilizado preservado; correcções por estorno documentado.</li><li>Períodos fechados protegidos contra lançamentos não autorizados.</li><li>Rastreabilidade do documento, utilizador, data e centro de custo.</li><li>Consolidação institucional e consulta por polo.</li></ul></div>
+  </div>
+  <div class="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900"><b>Estado operacional:</b> esta área é informativa. Não cria lançamentos, não activa integrações nem altera regras ou dados. O modelo de geração automática de rascunhos com contabilização após aprovação, as contas PGC e os parâmetros fiscais carecem de validação formal antes da implementação.</div>
+ </section>
  <div class="grid lg:grid-cols-2 gap-5">
   <div class="card p-5"><h3 class="font-black text-lg">Plano de contas</h3><div class="overflow-auto mt-3"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-2">Código</th><th>Conta</th><th>Tipo</th><th>Natureza</th></tr></thead><tbody>${(c.data||[]).map(r=>`<tr class="border-b"><td class="p-2 font-bold">${esc(r.codigo)}</td><td>${esc(r.nome)}</td><td>${esc(r.tipo)}</td><td>${esc(r.natureza||'—')}</td></tr>`).join('')}</tbody></table></div></div>
   <div class="card p-5"><h3 class="font-black text-lg">Balancete</h3><div class="overflow-auto mt-3"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-2">Conta</th><th>Débito</th><th>Crédito</th><th>Saldo</th></tr></thead><tbody>${(b.data||[]).map(r=>`<tr class="border-b"><td class="p-2">${esc(r.codigo)} · ${esc(r.nome)}</td><td>${money(r.debitos)}</td><td>${money(r.creditos)}</td><td>${money(r.saldo)}</td></tr>`).join('')}</tbody></table></div></div>
