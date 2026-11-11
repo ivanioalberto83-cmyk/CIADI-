@@ -129,6 +129,17 @@ create table ciadi_ti.stock_movements (
   created_by uuid references public.perfis(id),
   created_at timestamptz not null default now()
 );
+
+create view ciadi_ti.stock_balances with (security_invoker = true) as
+select i.id as item_id,i.sku,i.name as item_name,i.unit_of_measure,i.minimum_stock,
+       w.id as warehouse_id,w.code as warehouse_code,w.name as warehouse_name,
+       coalesce(sum(m.quantity_delta),0)::numeric(14,3) as quantity_on_hand,
+       coalesce(sum(m.quantity_delta),0) <= i.minimum_stock as below_minimum
+from ciadi_ti.items i
+cross join ciadi_ti.warehouses w
+left join ciadi_ti.stock_movements m on m.item_id=i.id and m.warehouse_id=w.id
+where i.active=true and w.active=true
+group by i.id,i.sku,i.name,i.unit_of_measure,i.minimum_stock,w.id,w.code,w.name;
 create table ciadi_ti.inventory_counts (
   id uuid primary key default gen_random_uuid(),
   warehouse_id uuid not null references ciadi_ti.warehouses(id),
