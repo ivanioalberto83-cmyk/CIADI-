@@ -6,6 +6,7 @@ on:
       - feature/ciadi-helpdesk-lifecycle-20261108
       - feature/ciadi-suporte-recepcao-20261111
     paths:
+      - 'supabase/proposals/ciadi-reception-access-base-proposal.sql'
       - 'supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'
       - 'ciadi-windows/tests/sql/**'
       - '.github/workflows/ciadi-inventory-sql-homologation.yml'
@@ -48,6 +49,8 @@ jobs:
           sudo apt-get install -y postgresql-client
       - name: Prepare isolated CI schema
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-inventory-lifecycle.sql
+      - name: Apply shared Reception access prerequisite to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-access-base-proposal.sql
       - name: Apply proposal to isolated PostgreSQL only
         run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql
       - name: Run receipt, stock and inventory reconciliation tests
