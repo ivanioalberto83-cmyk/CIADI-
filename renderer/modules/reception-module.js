@@ -979,11 +979,12 @@
     return String.fromCharCode(...Array.from(bytes.slice(0, 5)));
   }
 
-  function createReceptionRepository({ supabase } = {}) {
+  function createReceptionRepository({ supabase, poloCode } = {}) {
     if (!supabase || typeof supabase.schema !== 'function') {
       throw new Error('A ligação ao serviço de Recepção não está disponível.');
     }
     const db = supabase.schema('ciadi_reception');
+    const activePolo = POLOS.includes(poloCode) ? poloCode : null;
     if (!db || typeof db.rpc !== 'function') {
       throw new Error('O serviço de Recepção CIADI não está exposto nesta ligação.');
     }
@@ -996,6 +997,7 @@
 
     return Object.freeze({
       async searchAppointments({ term, dateFrom, dateTo } = {}) {
+        if (!activePolo) throw new Error('O polo autorizado da Recepção tem de estar identificado.');
         const needle = clean(term, 80).replace(/[%,_(),\\]/g, ' ').replace(/\s+/g, ' ').trim();
         if (needle.length < 2) throw new Error('Introduza pelo menos dois caracteres para pesquisar o utente.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom || '') || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo || '')) {
@@ -1005,7 +1007,8 @@
         const { data, error } = await db.rpc('reception_search_appointments', {
           p_search_term: needle,
           p_date_from: dateFrom,
-          p_date_to: dateTo
+          p_date_to: dateTo,
+          p_polo_code: activePolo
         });
         if (error) throw error;
         return Object.freeze(Array.isArray(data) ? data : []);
@@ -1551,7 +1554,7 @@
     }
 
     async function refresh() {
-      if (!repository) repository = createReceptionRepository({ supabase });
+      if (!repository) repository = createReceptionRepository({ supabase, poloCode: activePolo });
       const [nextDashboard, nextDestinations] = await Promise.all([
         repository.getDashboard(activePolo),
         repository.getDestinations()
