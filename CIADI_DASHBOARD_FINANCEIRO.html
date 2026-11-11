@@ -952,6 +952,29 @@ async function boot(){
     message.textContent='A sessão anterior não pôde ser limpa localmente. Feche e volte a abrir a aplicação. Detalhe: '+(e.message||e);
   }
 }
+async function validateStationAccess(){
+  if(!stationMode) return {ok:false,message:'Seleccione uma estação CIADI válida.'};
+  if(stationProfile==='adm'){
+    return {ok:['admin','gestor','profissional'].includes(profile?.tipo),message:'A conta não possui perfil autorizado para a estação administrativa.'};
+  }
+  if(stationProfile==='suporte_informatica'){
+    if(!['admin','gestor','suporte_informatica'].includes(profile?.tipo)){
+      return {ok:false,message:'Esta conta não tem perfil de Suporte Informático.'};
+    }
+    const {data,error}=await sb.schema('ciadi_ti').rpc('has_support_access');
+    if(error) throw new Error('Não foi possível validar o acesso do Suporte no servidor: '+error.message);
+    return {ok:data===true,message:'A conta não possui permissões activas de Suporte Informático.'};
+  }
+  if(stationProfile==='recepcao'){
+    if(!['admin','gestor','suporte_informatica','operador'].includes(profile?.tipo)){
+      return {ok:false,message:'Esta conta não tem perfil administrativo autorizado para a Recepção.'};
+    }
+    const {data,error}=await sb.schema('ciadi_ti').rpc('has_reception_operation_access',{p_polo_code:stationPolo});
+    if(error) throw new Error('As permissões da Recepção por polo ainda não estão instaladas ou acessíveis: '+error.message);
+    return {ok:data===true,message:'Esta conta não tem acesso autorizado ao polo seleccionado.'};
+  }
+  return {ok:false,message:'Esta estação ainda não tem uma regra de autorização de servidor configurada.'};
+}
 async function enter(u){
   try{
     initSupabase();
@@ -968,7 +991,8 @@ async function enter(u){
     if(stationMode && !Object.prototype.hasOwnProperty.call(stationProfileLabels,stationProfile)) throw new Error('Perfil desta estação não identificado. Reinstale o CIADI e seleccione um perfil válido.');
     if(stationRequiresPolo && !Object.prototype.hasOwnProperty.call(stationPoloLabels,stationPolo)) throw new Error('Polo desta estação não identificado. Reinstale o CIADI e seleccione um polo válido.');
     if(profile.ativo!==true){ await authService.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
-    if(!['admin','gestor','profissional'].includes(profile.tipo)){ await authService.signOut(); throw new Error('Este utilizador não possui acesso administrativo.'); }
+    const stationAccess=await validateStationAccess();
+    if(!stationAccess.ok){ await authService.signOut(); throw new Error(stationAccess.message); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
@@ -978,6 +1002,7 @@ async function enter(u){
     nav();
     await go(initialRoute);
   }catch(e){
+    try{await authService?.signOut();}catch(signOutError){console.warn('CIADI sign-out após falha de autorização',signOutError);}
     console.error('CIADI perfil',e);
     document.getElementById('login').classList.remove('hiddenx');
     document.getElementById('app').classList.add('hiddenx');
