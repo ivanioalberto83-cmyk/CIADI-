@@ -149,8 +149,17 @@ select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000004'
 do $function$
 declare v_count integer;
 begin
+  if auth.uid() <> '24000000-0000-4000-8000-000000000004'::uuid then
+    raise exception 'A sessão do operador de Talatona não foi aplicada correctamente: %',auth.uid();
+  end if;
+  if not ciadi_ti.has_reception_operation_access('talatona') then
+    raise exception 'O operador de Talatona não passou a autorização server-side para o seu polo.';
+  end if;
+  if ciadi_ti.has_reception_operation_access('jardim_de_rosas') then
+    raise exception 'O operador de Talatona recebeu indevidamente acesso a Jardim de Rosas.';
+  end if;
   select count(*) into v_count from ciadi_reception.front_desk_visits;
-  if v_count <> 2 then raise exception 'O operador de Talatona deve ver apenas os dois atendimentos desse polo.'; end if;
+  if v_count <> 2 then raise exception 'O operador de Talatona deve ver apenas dois atendimentos; resultado: %.',v_count; end if;
   begin
     perform ciadi_reception.reception_search_appointments('CIADI-TEST-001',current_date,current_date+1,'jardim_de_rosas');
     raise exception 'O operador de Talatona não pode pesquisar marcações de Jardim de Rosas.';
