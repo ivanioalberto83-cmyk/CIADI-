@@ -1569,7 +1569,7 @@
       try {
         if (!supabase) throw new Error('A sessão do Supabase não foi fornecida ao módulo.');
         if (!actorId) throw new Error('Não foi possível identificar a sessão autenticada.');
-        repository = createReceptionRepository({ supabase });
+        repository = createReceptionRepository({ supabase, poloCode: activePolo });
         await refresh();
       } catch (error) {
         renderUnavailable(error);
