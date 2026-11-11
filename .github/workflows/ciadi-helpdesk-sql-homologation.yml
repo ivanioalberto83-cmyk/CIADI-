@@ -1,4 +1,4 @@
-name: CIADI Helpdesk SQL Homologation
+name: CIADI Helpdesk SQL Homologation # include joint Suporte/Recepção branch
 
 on:
   push:
