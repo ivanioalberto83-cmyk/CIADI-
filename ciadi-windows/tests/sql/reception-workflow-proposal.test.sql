@@ -184,6 +184,15 @@ begin
   if not has_schema_privilege('authenticated','ciadi_reception','USAGE') then
     raise exception 'O schema de Recepção deve estar acessível a utilizadores autenticados.';
   end if;
+  if has_schema_privilege('anon','ciadi_reception','USAGE') then
+    raise exception 'O schema de Recepção não pode ficar acessível a utilizadores anónimos.';
+  end if;
+  if not exists (
+    select 1 from pg_roles r, unnest(r.rolconfig) cfg
+    where r.rolname='authenticator' and cfg like 'pgrst.db_schemas=%ciadi_reception%'
+  ) then
+    raise exception 'O schema de Recepção não foi adicionado à lista exposta do PostgREST.';
+  end if;
   if not has_function_privilege('authenticated',
     'ciadi_reception.reception_register_arrival(text,uuid,uuid,text,text,text,uuid)','EXECUTE') then
     raise exception 'A função de chegada deve ser executável por utilizadores autenticados e validar o polo.';
