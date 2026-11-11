@@ -498,7 +498,7 @@ begin
   if found then
     if v_existing.item_id=p_item_id and v_existing.warehouse_id=p_warehouse_id
        and v_existing.movement_type=p_return_type
-       and v_existing.quantity_delta=case when p_return_type='devolucao_entrada' then p_quantity else -p_quantity end then return v_existing.id; end if;
+       and v_existing.quantity_delta=(case when p_return_type='devolucao_entrada' then p_quantity else -p_quantity end) then return v_existing.id; end if;
     raise exception 'Chave idempotente já utilizada noutra devolução.' using errcode = '23505';
   end if;
   perform pg_advisory_xact_lock(hashtextextended(p_item_id::text || ':' || p_warehouse_id::text,0));
