@@ -23,7 +23,7 @@
   const PROFILE_ROUTES = Object.freeze({
     adm: Object.freeze(['cash_reports', 'contabilidade', 'auditoria']),
     suporte_informatica: Object.freeze(['support']),
-    recepcao: Object.freeze(['reception', 'overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias', 'triagens']),
+    recepcao: Object.freeze(['reception']),
     // A estação RH mantém o seu espaço próprio, independente das três estações em validação.
     rh: Object.freeze(['rh'])
   });
