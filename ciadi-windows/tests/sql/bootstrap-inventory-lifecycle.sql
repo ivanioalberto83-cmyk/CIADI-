@@ -72,6 +72,7 @@ create table public.finance_centros_custo (
 insert into public.finance_centros_custo(id,codigo,nome,ativo) values
  ('31000000-0000-4000-8000-000000000001','CC-001','CIADI POLO TALATONA',true),
  ('31000000-0000-4000-8000-000000000002','CC-002','CIADI POLO JARDIM DE ROSAS',true);
+alter table public.finance_centros_custo enable row level security;
 
 create schema if not exists ciadi_ti;
 grant usage on schema ciadi_ti to authenticated;
