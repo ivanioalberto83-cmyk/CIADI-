@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/ciadi-ti-document-engine-postgres-tests-20261108
+      - feature/ciadi-suporte-recepcao-20261111
     paths:
       - 'supabase/proposals/ciadi-ti-document-engine-proposal.sql'
       - 'supabase/tests/**'
@@ -13,6 +14,7 @@ on:
   pull_request:
     branches:
       - feature/ciadi-support-document-storage-fixes-20261108
+      - feature/ciadi-suporte-recepcao-20261111
     paths:
       - 'supabase/proposals/ciadi-ti-document-engine-proposal.sql'
       - 'supabase/tests/**'
