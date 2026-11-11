@@ -8,7 +8,7 @@ alter table ciadi_ti.stock_requisition_lines enable row level security;
 
 grant select on ciadi_ti.stock_requisitions, ciadi_ti.stock_requisition_lines to authenticated;
 
-grant select on ciadi_ti.items, ciadi_ti.warehouses,
+grant select on ciadi_ti.items,
   ciadi_ti.stock_movements, ciadi_ti.inventory_counts,
   ciadi_ti.inventory_count_lines, ciadi_ti.stock_balances
   to authenticated;
