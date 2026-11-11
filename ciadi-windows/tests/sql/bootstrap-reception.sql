@@ -67,6 +67,8 @@ create table public.especialidades (
   ordem integer not null default 0
 );
 
+grant select on public.especialidades to authenticated;
+
 create table public.pacientes (
   id uuid primary key default gen_random_uuid(),
   nome_completo text not null,
