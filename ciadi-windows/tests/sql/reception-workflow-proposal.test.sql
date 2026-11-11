@@ -9,8 +9,19 @@ insert into public.especialidades(id,nome,ativo,ordem) values
 insert into public.pacientes(id,nome_completo,codigo_paciente,nome_responsavel) values
  ('22000000-0000-4000-8000-000000000001','Utente de Homologação','CIADI-TEST-001','Responsável de Homologação');
 
-insert into public.agendamentos(id,paciente_id,data_hora,duracao_minutos,tipo,estado,modalidade) values
- ('23000000-0000-4000-8000-000000000001','22000000-0000-4000-8000-000000000001',now()+interval '1 hour',60,'consulta','confirmada','presencial');
+insert into public.perfis(id,tipo,ativo) values
+ ('24000000-0000-4000-8000-000000000001','operador',true),
+ ('24000000-0000-4000-8000-000000000002','operador',true),
+ ('24000000-0000-4000-8000-000000000003','suporte_informatica',true),
+ ('24000000-0000-4000-8000-000000000004','operador',true);
+insert into ciadi_ti.reception_user_polos(user_id,polo_code,active) values
+ ('24000000-0000-4000-8000-000000000001','talatona',true),
+ ('24000000-0000-4000-8000-000000000001','jardim_de_rosas',true),
+ ('24000000-0000-4000-8000-000000000002','talatona',true),
+ ('24000000-0000-4000-8000-000000000004','talatona',true);
+
+insert into public.agendamentos(id,paciente_id,data_hora,duracao_minutos,tipo,estado,modalidade,polo_code) values
+ ('23000000-0000-4000-8000-000000000001','22000000-0000-4000-8000-000000000001',now()+interval '1 hour',60,'consulta','confirmada','presencial','jardim_de_rosas');
 
 select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000001',false);
 
@@ -92,7 +103,7 @@ begin
   end if;
 
   v_search := ciadi_reception.reception_search_appointments(
-    'CIADI-TEST-001',current_date,current_date+1
+    'CIADI-TEST-001',current_date,current_date+1,'jardim_de_rosas'
   );
   if jsonb_array_length(v_search) <> 1 then
     raise exception 'A pesquisa não encontrou a marcação de teste.';
@@ -131,16 +142,40 @@ begin
 end;
 $$;
 
-do $$
+-- Conta de um único polo: não pode pesquisar nem ler dados do outro polo.
+select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000004',false);
+do $
+declare v_count integer;
+begin
+  select count(*) into v_count from ciadi_reception.front_desk_visits;
+  if v_count <> 2 then raise exception 'O operador de Talatona deve ver apenas os dois atendimentos desse polo.'; end if;
+  begin
+    perform ciadi_reception.reception_search_appointments('CIADI-TEST-001',current_date,current_date+1,'jardim_de_rosas');
+    raise exception 'O operador de Talatona não pode pesquisar marcações de Jardim de Rosas.';
+  exception when sqlstate '42501' then null;
+  end;
+end;
+$;
+
+-- Suporte Informático mantém acesso transversal aos dois polos, sem acesso clínico geral.
+select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000003',false);
+do $
+declare v_count integer;
+begin
+  select count(*) into v_count from ciadi_reception.front_desk_visits;
+  if v_count <> 3 then raise exception 'O Suporte deve ver os três atendimentos dos dois polos.'; end if;
+end;
+$;
+
+-- A homologação confirma grants e policies apenas para a operação da Recepção.
+do $
 begin
   if not has_schema_privilege('authenticated','ciadi_reception','USAGE') then
-    null; -- O schema permanece fechado nesta fase de permissões.
-  else
-    raise exception 'O schema não deve estar exposto antes da fase de permissões.';
+    raise exception 'O schema de Recepção deve estar acessível a utilizadores autenticados.';
   end if;
-  if has_function_privilege('authenticated',
+  if not has_function_privilege('authenticated',
     'ciadi_reception.reception_register_arrival(text,uuid,uuid,text,text,text,uuid)','EXECUTE') then
-    raise exception 'A função de chegada não deve ser executável antes da fase de permissões.';
+    raise exception 'A função de chegada deve ser executável por utilizadores autenticados e validar o polo.';
   end if;
   if (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
       where n.nspname='ciadi_reception'
@@ -150,10 +185,10 @@ begin
   end if;
   if (select count(*) from pg_policies
       where schemaname='ciadi_reception'
-        and tablename in ('front_desk_visits','front_desk_visit_events','visitor_entries')) <> 0 then
-    raise exception 'Não devem existir policies antes da fase de permissões.';
+        and tablename in ('front_desk_visits','front_desk_visit_events','visitor_entries')) <> 7 then
+    raise exception 'As sete policies de acesso por polo não foram criadas.';
   end if;
 end;
-$$;
+$;
 
 select 'CIADI reception SQL homologation: PASS' as result;
