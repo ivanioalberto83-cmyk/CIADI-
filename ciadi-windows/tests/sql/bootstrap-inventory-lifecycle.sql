@@ -158,6 +158,9 @@ create table ciadi_ti.reception_user_polos (
   user_id uuid not null references public.perfis(id),
   polo_code text not null check (polo_code in ('talatona','jardim_de_rosas')),
   active boolean not null default true,
+  assigned_by uuid references public.perfis(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   primary key (user_id,polo_code)
 );
 
