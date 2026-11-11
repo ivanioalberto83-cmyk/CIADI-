@@ -20,10 +20,10 @@ insert into ciadi_ti.reception_user_polos(user_id,polo_code,active) values
  ('24000000-0000-4000-8000-000000000002','talatona',true),
  ('24000000-0000-4000-8000-000000000004','talatona',true);
 
-set role authenticated;
-
 insert into public.agendamentos(id,paciente_id,data_hora,duracao_minutos,tipo,estado,modalidade,polo_code) values
  ('23000000-0000-4000-8000-000000000001','22000000-0000-4000-8000-000000000001',now()+interval '1 hour',60,'consulta','confirmada','presencial','jardim_de_rosas');
+
+set role authenticated;
 
 select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000001',false);
 
