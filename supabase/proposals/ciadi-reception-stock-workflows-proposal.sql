@@ -395,8 +395,8 @@ begin
   if found then
     if v_existing.item_id=p_item_id and v_existing.warehouse_id=p_warehouse_id
        and v_existing.movement_type='saida' and v_existing.quantity_delta=-p_quantity
-       and v_existing.stock_requisition_id is not distinct from case when p_exit_mode='approved_request' then p_request_id else null end
-       and v_existing.stock_requisition_line_id is not distinct from case when p_exit_mode='approved_request' then p_request_line_id else null end then
+       and v_existing.stock_requisition_id is not distinct from (case when p_exit_mode='approved_request' then p_request_id else null end)
+       and v_existing.stock_requisition_line_id is not distinct from (case when p_exit_mode='approved_request' then p_request_line_id else null end) then
       return v_existing.id;
     end if;
     raise exception 'A chave idempotente já foi utilizada noutra saída.' using errcode = '23505';
