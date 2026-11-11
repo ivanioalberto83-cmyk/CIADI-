@@ -53,7 +53,7 @@ begin
   if auth.uid() is null or not ciadi_ti.has_reception_operation_access(p_polo_code) then
     raise exception 'Sem autorização para pesquisar marcações neste polo.' using errcode = '42501';
   end if;
-  v_term := trim(regexp_replace(coalesce(p_search_term, ''), '[%_(),\\\\]', ' ', 'g'));
+  v_term := trim(regexp_replace(coalesce(p_search_term, ''), '[%_(),]', ' ', 'g'));
   if length(v_term) < 2
      or p_date_from is null
      or p_date_to is null
