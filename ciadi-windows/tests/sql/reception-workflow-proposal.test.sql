@@ -144,7 +144,7 @@ $$;
 
 -- Conta de um único polo: não pode pesquisar nem ler dados do outro polo.
 select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000004',false);
-do $
+do $function$
 declare v_count integer;
 begin
   select count(*) into v_count from ciadi_reception.front_desk_visits;
@@ -155,7 +155,7 @@ begin
   exception when sqlstate '42501' then null;
   end;
 end;
-$;
+$function$;
 
 -- Suporte Informático mantém acesso transversal aos dois polos, sem acesso clínico geral.
 select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000003',false);
@@ -165,10 +165,10 @@ begin
   select count(*) into v_count from ciadi_reception.front_desk_visits;
   if v_count <> 3 then raise exception 'O Suporte deve ver os três atendimentos dos dois polos.'; end if;
 end;
-$;
+$function$;
 
 -- A homologação confirma grants e policies apenas para a operação da Recepção.
-do $
+do $function$
 begin
   if not has_schema_privilege('authenticated','ciadi_reception','USAGE') then
     raise exception 'O schema de Recepção deve estar acessível a utilizadores autenticados.';
@@ -189,6 +189,6 @@ begin
     raise exception 'As sete policies de acesso por polo não foram criadas.';
   end if;
 end;
-$;
+$function$;
 
 select 'CIADI reception SQL homologation: PASS' as result;
