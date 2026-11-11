@@ -290,3 +290,21 @@ $$;
 
 grant execute on function ciadi_ti.has_support_access() to authenticated;
 grant execute on function ciadi_ti.post_stock_movement(uuid,uuid,text,numeric,text,text,numeric,text) to authenticated;
+
+-- Reproduzir as políticas base do módulo de inventário já existentes em produção.
+alter table ciadi_ti.items enable row level security;
+alter table ciadi_ti.warehouses enable row level security;
+alter table ciadi_ti.stock_movements enable row level security;
+alter table ciadi_ti.inventory_counts enable row level security;
+alter table ciadi_ti.inventory_count_lines enable row level security;
+
+create policy ti_staff_read_items on ciadi_ti.items
+  for select to authenticated using (ciadi_ti.has_support_access());
+create policy ti_staff_read_warehouses on ciadi_ti.warehouses
+  for select to authenticated using (ciadi_ti.has_support_access());
+create policy ti_staff_read_stock_movements on ciadi_ti.stock_movements
+  for select to authenticated using (ciadi_ti.has_support_access());
+create policy ti_staff_read_inventory_counts on ciadi_ti.inventory_counts
+  for select to authenticated using (ciadi_ti.has_support_access());
+create policy ti_staff_read_inventory_count_lines on ciadi_ti.inventory_count_lines
+  for select to authenticated using (ciadi_ti.has_support_access());
