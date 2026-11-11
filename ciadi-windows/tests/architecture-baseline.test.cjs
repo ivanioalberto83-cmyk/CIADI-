@@ -43,10 +43,13 @@ test('preload exposes only the non-privileged application identity', () => {
   assert.doesNotMatch(preload, /require\(['"](?:fs|child_process|electron-store|node:fs|node:child_process)['"]\)/);
 });
 
-test('dashboard requires an active Supabase profile from the allowed account types', () => {
+test('dashboard requires an active Supabase profile and validates module access on the server', () => {
   assert.match(dashboard, /profileService\.getCurrentProfile\(u\.id\)/);
   assert.match(dashboard, /if\(!profile\)[\s\S]{0,180}signOut/);
   assert.match(dashboard, /if\(profile\.ativo!==true\)[\s\S]{0,180}signOut/);
-  assert.match(dashboard, /!\['admin','gestor','profissional'\]\.includes\(profile\.tipo\)/);
+  assert.match(dashboard, /validateStationAccess\(\)/);
+  assert.match(dashboard, /rpc\('has_support_access'\)/);
+  assert.match(dashboard, /rpc\('has_reception_operation_access'/);
+  assert.doesNotMatch(dashboard, /!\['admin','gestor','profissional'\]\.includes\(profile\.tipo\)/);
   assert.ok(dashboard.indexOf("if(profile.ativo!==true)") < dashboard.indexOf("document.getElementById('app').classList.remove('hiddenx')"));
 });
