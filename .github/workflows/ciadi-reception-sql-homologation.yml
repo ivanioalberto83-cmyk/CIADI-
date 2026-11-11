@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - feature/ciadi-reception-completion-20261109
+      - feature/ciadi-suporte-recepcao-20261111
     paths:
       - 'supabase/proposals/ciadi-reception-workflow-proposal.sql'
+      - 'supabase/proposals/ciadi-reception-access-hardening-proposal.sql'
       - 'ciadi-windows/tests/sql/bootstrap-reception.sql'
       - 'ciadi-windows/tests/sql/reception-workflow-proposal.test.sql'
       - '.github/workflows/ciadi-reception-sql-homologation.yml'
@@ -53,5 +55,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-reception.sql
       - name: Apply proposal to isolated PostgreSQL only
         run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-workflow-proposal.sql
+      - name: Apply polo-scoped access hardening to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-access-hardening-proposal.sql
       - name: Verify arrival, queue, visitors, referrals, appointment check-in and grants
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-workflow-proposal.test.sql
