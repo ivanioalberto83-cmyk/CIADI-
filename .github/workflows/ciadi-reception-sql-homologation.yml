@@ -1,4 +1,5 @@
 name: CIADI Reception SQL Homologation
+# Revalidar a homologação integrada após o endurecimento das leituras de armazém.
 
 on:
   push:
