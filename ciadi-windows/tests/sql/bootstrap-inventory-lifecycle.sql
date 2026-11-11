@@ -29,6 +29,7 @@ create table public.perfis (
   ativo boolean not null default true,
   tipo text not null
 );
+grant select on public.perfis to authenticated;
 
 create table public.especialidades (
   id uuid primary key default gen_random_uuid(),
