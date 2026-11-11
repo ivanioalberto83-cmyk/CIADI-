@@ -1161,3 +1161,10 @@ test('painel da Recepção apresenta formulário de recepção apenas para compr
   assert.match(html, /max="7"/);
   assert.doesNotMatch(html, /Serviço sem stock/);
 });
+
+test('renderHome inicializa a pesquisa de marcações com o polo autorizado da estação', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../../renderer/modules/reception-module.js'), 'utf8');
+  assert.match(source, /repository = createReceptionRepository\(\{\s*supabase,\s*poloCode: activePolo\s*\}\)/);
+});
