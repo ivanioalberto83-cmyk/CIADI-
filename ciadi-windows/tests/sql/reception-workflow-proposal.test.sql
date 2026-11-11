@@ -159,7 +159,7 @@ $function$;
 
 -- Suporte Informático mantém acesso transversal aos dois polos, sem acesso clínico geral.
 select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000003',false);
-do $
+do $function$
 declare v_count integer;
 begin
   select count(*) into v_count from ciadi_reception.front_desk_visits;
