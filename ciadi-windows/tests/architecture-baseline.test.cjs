@@ -30,6 +30,21 @@ test('all inline dashboard JavaScript blocks parse', () => {
   });
 });
 
+test('login calls enter once and failed validation signs out only once', () => {
+  const listenerStart = dashboard.indexOf('authService.onAuthStateChange');
+  const listenerEnd = dashboard.indexOf('boot();', listenerStart);
+  const listener = dashboard.slice(listenerStart, listenerEnd);
+  const enterStart = dashboard.indexOf('async function enter(u)');
+  const enterEnd = dashboard.indexOf('async function logout()', enterStart);
+  const enter = dashboard.slice(enterStart, enterEnd);
+  assert.doesNotMatch(listener, /SIGNED_IN/);
+  assert.match(dashboard, /await enter\(data\.user\)/);
+  assert.match(enter, /if\(isEntering\) return/);
+  assert.match(enter, /finally\{\s*isEntering=false;/);
+  assert.doesNotMatch(enter, /await authService\.signOut\(\)/);
+  assert.match(enter, /authService\?\.signOut\(\)/);
+});
+
 test('Electron renderer keeps context isolation, sandbox and Node integration disabled', () => {
   assert.match(main, /contextIsolation:\s*true/);
   assert.match(main, /nodeIntegration:\s*false/);
