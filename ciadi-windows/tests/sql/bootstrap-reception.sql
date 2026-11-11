@@ -28,17 +28,17 @@ create table ciadi_ti.reception_user_polos (
 create or replace function ciadi_ti.has_support_access()
 returns boolean language sql stable security definer
 set search_path=pg_catalog,public,auth
-as $
+as $function$
   select auth.uid() is not null and exists (
     select 1 from public.perfis p
     where p.id=auth.uid() and p.ativo=true
       and p.tipo in ('admin','gestor','suporte_informatica')
   );
-$;
+$function$;
 create or replace function ciadi_ti.has_reception_operation_access(p_polo_code text)
 returns boolean language sql stable security definer
 set search_path=pg_catalog,public,ciadi_ti,auth
-as $
+as $function$
   select auth.uid() is not null
     and p_polo_code in ('talatona','jardim_de_rosas')
     and (
@@ -55,7 +55,7 @@ as $
           )
       )
     );
-$;
+$function$;
 grant usage on schema ciadi_ti to authenticated;
 grant execute on function ciadi_ti.has_support_access() to authenticated;
 grant execute on function ciadi_ti.has_reception_operation_access(text) to authenticated;
