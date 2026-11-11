@@ -64,9 +64,12 @@ test('Dashboard valida o perfil da estação sem referência indefinida a statio
   assert.match(dashboard, /getVisibleEntries/);
 });
 
-test('Perfil e polo da estação apenas identificam a estação e não atribuem permissões', () => {
+test('Perfil e polo da estação não atribuem permissões; Suporte e Recepção validam no servidor', () => {
   assert.match(main, /CIADI Dashboard — Estação:/);
   assert.match(main, /getStationLabel/);
   assert.match(dashboard, /profileService\.getCurrentProfile\(u\.id\)/);
-  assert.match(dashboard, /!\['admin','gestor','profissional'\]\.includes\(profile\.tipo\)/);
+  assert.match(dashboard, /validateStationAccess\(\)/);
+  assert.match(dashboard, /rpc\('has_support_access'\)/);
+  assert.match(dashboard, /rpc\('has_reception_operation_access'/);
+  assert.doesNotMatch(dashboard, /!\['admin','gestor','profissional'\]\.includes\(profile\.tipo\)/);
 });
