@@ -126,6 +126,9 @@ begin
      or length(trim(coalesce(p_purpose, ''))) not between 2 and 160 then
     raise exception 'Dados de chegada inválidos.' using errcode = '22023';
   end if;
+  if p_visit_type = 'walk_in' and (p_appointment_id is not null or p_patient_id is not null) then
+    raise exception 'Uma chegada sem marcação não pode transportar referências de marcação ou utente.' using errcode = '22023';
+  end if;
   if p_visit_type = 'appointment' then
     if p_appointment_id is null or p_patient_id is null then
       raise exception 'A chegada com marcação exige referências existentes de marcação e utente.' using errcode = '22023';
