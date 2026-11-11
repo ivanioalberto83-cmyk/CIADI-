@@ -6,9 +6,12 @@ on:
       - feature/ciadi-reception-completion-20261109
       - feature/ciadi-suporte-recepcao-20261111
     paths:
+      - 'supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'
+      - 'supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'
       - 'supabase/proposals/ciadi-reception-workflow-proposal.sql'
       - 'supabase/proposals/ciadi-reception-access-hardening-proposal.sql'
-      - 'ciadi-windows/tests/sql/bootstrap-reception.sql'
+      - 'ciadi-windows/tests/sql/bootstrap-inventory-lifecycle.sql'
+      - 'ciadi-windows/tests/sql/inventory-lifecycle-proposal.test.sql'
       - 'ciadi-windows/tests/sql/reception-workflow-proposal.test.sql'
       - '.github/workflows/ciadi-reception-sql-homologation.yml'
   pull_request:
@@ -51,11 +54,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-      - name: Prepare isolated Reception fixture
-        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-reception.sql
-      - name: Apply proposal to isolated PostgreSQL only
+      - name: Prepare isolated inventory and Reception fixture
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-inventory-lifecycle.sql
+      - name: Apply inventory lifecycle prerequisite to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql
+      - name: Apply Reception stock and polo assignment workflows to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-workflows-proposal.sql
+      - name: Apply Reception operational schema to isolated PostgreSQL only
         run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-workflow-proposal.sql
       - name: Apply polo-scoped access hardening to isolated PostgreSQL only
         run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-access-hardening-proposal.sql
-      - name: Verify arrival, queue, visitors, referrals, appointment check-in and grants
+      - name: Verify inventory lifecycle prerequisites
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/inventory-lifecycle-proposal.test.sql
+      - name: Verify arrival, queue, visitors, referrals, appointment check-in and polo isolation
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-workflow-proposal.test.sql
