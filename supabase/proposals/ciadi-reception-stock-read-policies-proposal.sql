@@ -3,6 +3,11 @@
 
 begin;
 
+alter table ciadi_ti.items enable row level security;
+alter table ciadi_ti.warehouses enable row level security;
+alter table ciadi_ti.stock_movements enable row level security;
+alter table ciadi_ti.inventory_counts enable row level security;
+alter table ciadi_ti.inventory_count_lines enable row level security;
 alter table ciadi_ti.stock_requisitions enable row level security;
 alter table ciadi_ti.stock_requisition_lines enable row level security;
 
