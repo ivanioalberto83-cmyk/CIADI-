@@ -231,6 +231,20 @@ begin
         and tablename in ('front_desk_visits','front_desk_visit_events','visitor_entries')) <> 7 then
     raise exception 'As sete policies de acesso por polo não foram criadas.';
   end if;
+  if not has_table_privilege('authenticated','ciadi_ti.stock_requisitions','SELECT')
+     or not has_table_privilege('authenticated','ciadi_ti.stock_requisition_lines','SELECT') then
+    raise exception 'A Recepção precisa de leitura autenticada das requisições e linhas de stock.';
+  end if;
+  if has_table_privilege('authenticated','ciadi_ti.stock_requisitions','INSERT')
+     or has_table_privilege('authenticated','ciadi_ti.stock_requisitions','UPDATE') then
+    raise exception 'As escritas de stock devem continuar limitadas às RPCs transaccionais.';
+  end if;
+  if (select count(*) from pg_policies
+      where schemaname='ciadi_ti'
+        and tablename in ('stock_requisitions','stock_requisition_lines')
+        and policyname in ('ciadi_stock_requisitions_select_by_polo','ciadi_stock_requisition_lines_select_by_polo')) <> 2 then
+    raise exception 'As duas policies de leitura de stock por polo não foram criadas.';
+  end if;
 end;
 $function$;
 
