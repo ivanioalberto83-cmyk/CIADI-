@@ -42,6 +42,7 @@ const GROUPS=[
 ];
 const LEGACY_TEMPLATES=Object.freeze({
  'Requisição interna de compra':'SUP-REQ',
+ 'Contrato de fornecimento':'SUP-CON',
  'Ordem de trabalho':'SUP-OT',
  'Ficha de equipamento':'SUP-EQP',
  'Guia de entrega de equipamento':'SUP-GUI',
