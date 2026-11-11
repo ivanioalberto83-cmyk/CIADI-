@@ -2,9 +2,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const engine=require('../../renderer/modules/support-document-engine.js');
 
-test('disponibiliza dez modelos documentais técnicos CIADI com códigos únicos',()=>{
+test('disponibiliza onze modelos documentais técnicos CIADI com códigos únicos',()=>{
   assert.equal(engine.TEMPLATES.length,11);
-  assert.equal(new Set(engine.TEMPLATES.map(x=>x.code)).size,10);
+  assert.equal(new Set(engine.TEMPLATES.map(x=>x.code)).size,11);
   for(const t of engine.TEMPLATES) assert.equal(engine.validateTemplate(t).valid,true);
 });
 
