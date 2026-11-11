@@ -18,7 +18,7 @@
   });
 
   // Cada estação abre apenas o seu módulo de trabalho.
-  // Receção concentra atendimento, faturação, caixa e aprovisionamento.
+  // Receção concentra atendimento, faturação, caixa e aprovisionamento; não expõe rotas clínicas autónomas.
   // ADM consulta fechos e trabalha a respetiva integração contabilística.
   const PROFILE_ROUTES = Object.freeze({
     adm: Object.freeze(['cash_reports', 'contabilidade', 'auditoria']),
