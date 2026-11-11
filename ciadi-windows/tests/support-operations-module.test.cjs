@@ -7,6 +7,7 @@ test('normaliza estados sem transformar ausência de evidência em operacional',
   assert.equal(support.normalizeStatus({ verified: true, ok: true }), 'Operacional');
   assert.equal(support.normalizeStatus({ verified: true, ok: false }), 'Indisponível');
   assert.equal(support.normalizeStatus({ verified: true, warning: true }), 'Atenção');
+  assert.equal(support.normalizeStatus({ verified: true, installed: false }), 'Não instalado');
 });
 
 test('agrega eventos de auditoria por acção e por dia sem alterar os registos', () => {
