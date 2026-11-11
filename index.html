@@ -952,7 +952,7 @@ async function boot(){
     message.textContent='A sessão anterior não pôde ser limpa localmente. Feche e volte a abrir a aplicação. Detalhe: '+(e.message||e);
   }
 }
-async function validateStationAccess(){
+async async function validateStationAccess(){
   if(!stationMode) return {ok:false,message:'Seleccione uma estação CIADI válida.'};
   if(stationProfile==='adm'){
     return {ok:['admin','gestor','profissional'].includes(profile?.tipo),message:'A conta não possui perfil autorizado para a estação administrativa.'};
