@@ -240,6 +240,9 @@ create policy ciadi_reception_visitors_update
 
 revoke all on schema ciadi_reception from public, anon;
 grant usage on schema ciadi_reception to authenticated;
+-- Expor o esquema dedicado à API REST autenticada do Supabase.
+alter role authenticator set "pgrst.db_schemas" = 'public, graphql_public, ciadi_ti, ciadi_reception';
+notify pgrst, 'reload config';
 grant usage on schema ciadi_ti to authenticated;
 grant execute on function ciadi_ti.has_reception_operation_access(text) to authenticated;
 
