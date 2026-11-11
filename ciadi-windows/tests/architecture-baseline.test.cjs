@@ -60,8 +60,8 @@ test('preload exposes only the non-privileged application identity', () => {
 
 test('dashboard requires an active Supabase profile and validates module access on the server', () => {
   assert.match(dashboard, /profileService\.getCurrentProfile\(u\.id\)/);
-  assert.match(dashboard, /if\(!profile\)[\s\S]{0,180}signOut/);
-  assert.match(dashboard, /if\(profile\.ativo!==true\)[\s\S]{0,180}signOut/);
+  assert.match(dashboard, /if\(!profile\) throw new Error\('O utilizador autenticado não possui perfil/);
+  assert.match(dashboard, /if\(profile\.ativo!==true\) throw new Error\('O perfil administrativo está inactivo\.'/);
   assert.match(dashboard, /validateStationAccess\(\)/);
   assert.match(dashboard, /rpc\('has_support_access'\)/);
   assert.match(dashboard, /rpc\('has_reception_operation_access'/);
