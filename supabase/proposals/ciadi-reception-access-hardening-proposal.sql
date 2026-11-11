@@ -14,6 +14,18 @@ begin
 end;
 $$;
 
+-- A tabela de atribuições só revela ao operador as próprias ligações.
+alter table ciadi_ti.reception_user_polos enable row level security;
+drop policy if exists ciadi_reception_user_polos_self_select on ciadi_ti.reception_user_polos;
+create policy ciadi_reception_user_polos_self_select
+  on ciadi_ti.reception_user_polos for select to authenticated
+  using (user_id = (select auth.uid()));
+grant select on ciadi_ti.reception_user_polos to authenticated;
+
+-- A função de autorização usa SECURITY INVOKER e só consulta o perfil e os polos do próprio utilizador.
+revoke all on function ciadi_ti.has_reception_operation_access(text) from public, anon;
+grant execute on function ciadi_ti.has_reception_operation_access(text) to authenticated;
+
 -- As marcações antigas ficam sem polo até classificação explícita.
 alter table public.agendamentos add column if not exists polo_code text;
 do $$
