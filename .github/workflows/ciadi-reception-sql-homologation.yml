@@ -7,6 +7,7 @@ on:
       - feature/ciadi-suporte-recepcao-20261111
     paths:
       - 'supabase/proposals/ciadi-reception-access-base-proposal.sql'
+      - 'supabase/proposals/ciadi-reception-stock-read-policies-proposal.sql'
       - 'supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'
       - 'supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'
       - 'supabase/proposals/ciadi-reception-workflow-proposal.sql'
@@ -67,6 +68,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-workflow-proposal.sql
       - name: Apply polo-scoped access hardening to isolated PostgreSQL only
         run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-access-hardening-proposal.sql
+      - name: Apply stock request read policies to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-read-policies-proposal.sql
       - name: Verify inventory lifecycle prerequisites
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/inventory-lifecycle-proposal.test.sql
       - name: Verify arrival, queue, visitors, referrals, appointment check-in and polo isolation
