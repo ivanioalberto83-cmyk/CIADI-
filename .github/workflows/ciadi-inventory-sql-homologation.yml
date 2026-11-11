@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/ciadi-helpdesk-lifecycle-20261108
+      - feature/ciadi-suporte-recepcao-20261111
     paths:
       - 'supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'
       - 'ciadi-windows/tests/sql/**'
