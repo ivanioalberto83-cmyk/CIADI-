@@ -6,6 +6,7 @@ on:
       - feature/ciadi-reception-completion-20261109
       - feature/ciadi-suporte-recepcao-20261111
     paths:
+      - 'supabase/proposals/ciadi-reception-access-base-proposal.sql'
       - 'supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'
       - 'supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'
       - 'supabase/proposals/ciadi-reception-workflow-proposal.sql'
@@ -56,6 +57,8 @@ jobs:
           sudo apt-get install -y postgresql-client
       - name: Prepare isolated inventory and Reception fixture
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-inventory-lifecycle.sql
+      - name: Apply shared Reception access prerequisite to isolated PostgreSQL only
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-access-base-proposal.sql
       - name: Apply inventory lifecycle prerequisite to isolated PostgreSQL only
         run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql
       - name: Apply Reception stock and polo assignment workflows to isolated PostgreSQL only
