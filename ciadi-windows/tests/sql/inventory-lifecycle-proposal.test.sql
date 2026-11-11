@@ -259,8 +259,18 @@ begin
      or not has_function_privilege('authenticated', 'ciadi_ti.has_reception_goods_receipt_access(uuid)', 'EXECUTE') then
     raise exception 'O perfil authenticated deve executar os helpers RLS de recepção.';
   end if;
-  if has_table_privilege('authenticated', 'ciadi_ti.warehouses', 'SELECT') then
-    raise exception 'A leitura de recepções não deve exigir nem conceder SELECT global sobre armazéns.';
+  if not has_table_privilege('authenticated', 'ciadi_ti.warehouses', 'SELECT') then
+    raise exception 'O painel de Recepção precisa de SELECT em armazéns, protegido por RLS.';
+  end if;
+  if not (select c.relrowsecurity from pg_class c
+      join pg_namespace n on n.oid=c.relnamespace
+      where n.nspname='ciadi_ti' and c.relname='warehouses') then
+    raise exception 'A tabela de armazéns deve ter RLS activa.';
+  end if;
+  if not exists (select 1 from pg_policies
+      where schemaname='ciadi_ti' and tablename='warehouses'
+        and policyname='ciadi_warehouses_select_by_polo') then
+    raise exception 'A leitura de armazéns deve estar limitada pelo polo autorizado.';
   end if;
   if (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
       where n.nspname='ciadi_ti' and c.relname in ('goods_receipts','goods_receipt_lines') and c.relrowsecurity) <> 2 then
