@@ -55,6 +55,7 @@ create table public.agendamentos (
   updated_at timestamptz not null default now(),
   atualizado_por uuid
 );
+grant select on public.agendamentos to authenticated;
 grant select on public.especialidades to authenticated;
 
 create table public.finance_centros_custo (
