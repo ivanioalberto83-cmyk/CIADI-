@@ -1166,5 +1166,8 @@ test('renderHome inicializa a pesquisa de marcações com o polo autorizado da e
   const fs = require('node:fs');
   const path = require('node:path');
   const source = fs.readFileSync(path.join(__dirname, '../../renderer/modules/reception-module.js'), 'utf8');
-  assert.match(source, /repository = createReceptionRepository\(\{\s*supabase,\s*poloCode: activePolo\s*\}\)/);
+  const start = source.indexOf('async function renderHome()');
+  const end = source.indexOf('if (!container.__ciadiReceptionBound)', start);
+  const renderHome = source.slice(start, end);
+  assert.match(renderHome, /repository = createReceptionRepository\(\{\s*supabase,\s*poloCode: activePolo\s*\}\)/);
 });
