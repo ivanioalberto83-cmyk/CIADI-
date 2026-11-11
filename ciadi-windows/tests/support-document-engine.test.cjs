@@ -3,9 +3,20 @@ const assert=require('node:assert/strict');
 const engine=require('../../renderer/modules/support-document-engine.js');
 
 test('disponibiliza dez modelos documentais técnicos CIADI com códigos únicos',()=>{
-  assert.equal(engine.TEMPLATES.length,10);
+  assert.equal(engine.TEMPLATES.length,11);
   assert.equal(new Set(engine.TEMPLATES.map(x=>x.code)).size,10);
   for(const t of engine.TEMPLATES) assert.equal(engine.validateTemplate(t).valid,true);
+});
+
+test('inclui modelo de contrato de fornecimento com campos de fornecedor, condições e validação jurídica',()=>{
+  const template=engine.TEMPLATES.find(x=>x.code==='SUP-CON');
+  assert.ok(template);
+  assert.equal(engine.validateTemplate(template).valid,true);
+  const required={};
+  for(const field of template.fields) if(field.required) required[field.key]=field.type==='select'?field.options[0]:field.type==='number'?'1':'Valor de teste';
+  assert.equal(engine.validateValues(template,required).valid,true);
+  assert.ok(template.fields.some(field=>field.key==='supplier_nif'));
+  assert.ok(template.fields.some(field=>field.key==='legal_review'));
 });
 test('valida campos obrigatórios, números e opções dos modelos',()=>{
   const t=engine.TEMPLATES.find(x=>x.code==='SUP-REQ');
