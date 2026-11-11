@@ -10,6 +10,7 @@
 <script src="renderer/modules/hr-module.js"></script>
 <script src="renderer/modules/reception-module.js"></script>
 <script src="renderer/core/institutional-identity-service.js"></script>
+<script src="renderer/modules/cash-reports-module.js"></script>
 <script src="renderer/modules/support-helpdesk-module.js"></script>
 <script src="renderer/modules/support-operations-module.js"></script>
 <script src="renderer/modules/support-inventory-lifecycle-module.js"></script>
@@ -21,7 +22,7 @@
 </style>
 </head>
 <body>
-<div id="login" class="min-h-screen flex items-center justify-center p-5"><div class="card w-full max-w-md p-8"><div class="flex items-center gap-3 mb-7"><div id="logoBox" class="w-14 h-14 rounded-2xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><h1 class="text-2xl font-black">CIADI</h1><p class="text-sm text-slate-500">Dashboard Administrativo</p></div></div><form id="loginForm" class="space-y-4"><input id="email" type="email" required class="w-full border rounded-xl p-3" placeholder="E-mail"><input id="password" type="password" required class="w-full border rounded-xl p-3" placeholder="Palavra-passe"><button class="w-full bg-orange text-white rounded-xl p-3 font-bold">Entrar</button><p id="loginMsg" class="text-sm"></p></form></div></div>
+<div id="login" class="min-h-screen flex items-center justify-center p-5"><div class="card w-full max-w-md p-8"><div class="flex items-center gap-3 mb-7"><div id="logoBox" class="w-14 h-14 rounded-2xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><h1 class="text-2xl font-black">CIADI</h1><p class="text-sm text-slate-500">Dashboard Administrativo</p></div></div><div id="stationChooser" class="hiddenx space-y-4"><p class="text-sm text-slate-600">Escolha a estação de trabalho para continuar. Esta selecção identifica o posto, mas não substitui as permissões da sua conta.</p><label class="block text-sm font-semibold">Estação<select id="stationChoice" class="w-full border rounded-xl p-3 mt-1"><option value="">Seleccione uma estação</option><option value="adm">ADM — Administração</option><option value="suporte_informatica">Suporte Informático</option><option value="rh">Recursos Humanos</option><option value="recepcao">Receção</option></select></label><label id="stationPoloChoiceWrap" class="hiddenx block text-sm font-semibold">Polo<select id="stationPoloChoice" class="w-full border rounded-xl p-3 mt-1"><option value="">Seleccione um polo</option><option value="talatona">Talatona — Polo 001</option><option value="jardim_de_rosas">Jardim de Rosas — Polo 002</option></select></label><button type="button" onclick="selectStation()" class="w-full bg-orange text-white rounded-xl p-3 font-bold">Continuar para a estação</button><p id="stationChoiceMsg" class="text-sm text-red-600"></p></div><form id="loginForm" class="space-y-4 hiddenx"><input id="email" type="email" required class="w-full border rounded-xl p-3" placeholder="E-mail"><input id="password" type="password" required class="w-full border rounded-xl p-3" placeholder="Palavra-passe"><button class="w-full bg-orange text-white rounded-xl p-3 font-bold">Entrar</button><p id="loginMsg" class="text-sm"></p><button type="button" onclick="changeStation()" class="text-sm underline text-slate-500">Mudar de estação</button></form></div></div>
 <div id="app" class="hiddenx min-h-screen"><header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b"><div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between"><div class="flex items-center gap-3"><div id="appLogo" class="w-10 h-10 rounded-xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><b>CIADI</b><div id="stationLabel" class="text-xs text-slate-500">A identificar estação…</div></div></div><div class="flex items-center gap-3"><span id="who" class="text-sm text-slate-600"></span><button onclick="logout()" class="border rounded-xl px-4 py-2">Sair</button></div></div></header>
 <main class="max-w-7xl mx-auto p-4 md:p-6"><div class="grid lg:grid-cols-[230px_1fr] gap-5"><aside class="card p-3 h-fit sticky top-20"><nav id="nav" class="space-y-1"></nav></aside><section id="content"></section></div></main></div>
 <div id="toast" class="fixed bottom-5 right-5 hidden max-w-sm rounded-xl bg-slate-900 text-white px-5 py-3 shadow-xl"></div>
@@ -48,6 +49,12 @@ const stationParams = new URLSearchParams(window.location.search);
 const stationMode = stationParams.has('ciadi_profile');
 const stationProfile = (stationParams.get('ciadi_profile') || '').toLowerCase();
 const stationPolo = (stationParams.get('ciadi_polo') || '').toLowerCase();
+function validateStationAccount(_userOrEmail){
+  if(!stationMode || !Object.prototype.hasOwnProperty.call(stationProfileLabels, stationProfile)){
+    return { ok:false, message:'Seleccione uma estação CIADI antes de iniciar sessão.' };
+  }
+  return { ok:true };
+}
 const stationProfileLabels = Object.freeze({
   adm: 'Administração',
   suporte_informatica: 'Suporte Informático',
@@ -59,6 +66,50 @@ const stationPoloLabels = Object.freeze({
   jardim_de_rosas: 'Jardim de Rosas — Polo 002'
 });
 const stationRequiresPolo = stationMode && !['adm', 'suporte_informatica'].includes(stationProfile);
+function selectStation(){
+  const selectedProfile = document.getElementById('stationChoice').value;
+  const selectedPolo = document.getElementById('stationPoloChoice').value;
+  const message = document.getElementById('stationChoiceMsg');
+  message.textContent = '';
+  if(!Object.prototype.hasOwnProperty.call(stationProfileLabels, selectedProfile)){
+    message.textContent = 'Seleccione uma estação válida.';
+    return;
+  }
+  const requiresPolo = !['adm','suporte_informatica'].includes(selectedProfile);
+  if(requiresPolo && !Object.prototype.hasOwnProperty.call(stationPoloLabels, selectedPolo)){
+    message.textContent = 'Seleccione o polo desta estação.';
+    return;
+  }
+  const params = new URLSearchParams();
+  params.set('ciadi_profile', selectedProfile);
+  if(requiresPolo) params.set('ciadi_polo', selectedPolo);
+  window.location.assign(window.location.pathname + '?' + params.toString());
+}
+function changeStation(){
+  window.location.assign(window.location.pathname);
+}
+function initialiseStationChooser(){
+  const chooser = document.getElementById('stationChooser');
+  const loginForm = document.getElementById('loginForm');
+  const validStation = stationMode && Object.prototype.hasOwnProperty.call(stationProfileLabels, stationProfile);
+  if(validStation){
+    chooser.classList.add('hiddenx');
+    loginForm.classList.remove('hiddenx');
+    document.getElementById('stationChoice').value = stationProfile;
+    if(stationPolo) document.getElementById('stationPoloChoice').value = stationPolo;
+  }else{
+    chooser.classList.remove('hiddenx');
+    loginForm.classList.add('hiddenx');
+  }
+  const stationSelect = document.getElementById('stationChoice');
+  const poloWrap = document.getElementById('stationPoloChoiceWrap');
+  const updatePoloVisibility = () => {
+    const needsPolo = ['rh','recepcao'].includes(stationSelect.value);
+    poloWrap.classList.toggle('hiddenx', !needsPolo);
+  };
+  stationSelect.addEventListener('change', updatePoloVisibility);
+  updatePoloVisibility();
+}
 function visibleMenu(){
   return window.CIADI_STATION_PROFILE_SERVICE.getVisibleEntries(
     stationMode ? stationProfile : 'adm',
@@ -67,8 +118,19 @@ function visibleMenu(){
   ).filter(entry => entry.id !== 'acompanhantes_at' || canAccessAT());
 }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(entry=>`<button onclick="go('${entry.id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===entry.id?'bg-orange/10 text-orange':''}">${entry.label}</button>`).join('')}
+function stationDefaultRoute(){
+  return ({adm:'cash_reports',recepcao:'reception',suporte_informatica:'support'})[stationProfile] || null;
+}
+function canOpenStationRoute(id){
+  return visibleMenu().some(entry=>entry.id===id);
+}
 async function audit(acao,tabela,registro_id=null,detalhes={}){try{await sb.from('auditoria').insert({usuario_id:me.id,acao,tabela,registro_id,detalhes,user_agent:navigator.userAgent})}catch(e){console.warn(e)}}
-async function go(id){current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='support')return supportDashboard(); if(id==='rh')return window.CIADI_HR_MODULE.create({supabase:sb,profile,root:c,notify:toast,audit}).renderHome(); if(id==='reception')return window.CIADI_RECEPTION_MODULE.create({root:c,navigate:go,notify:toast,supabase:sb,actorId:me?.id,poloCode:stationPolo||null}).renderHome(); if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
+async function go(id){
+  if(stationMode && !canOpenStationRoute(id)){
+    toast('Esta funcionalidade não pertence à estação seleccionada.');
+    return;
+  }
+  current=id;nav();const c=document.getElementById('content');c.innerHTML='<div class="card p-8">A carregar...</div>'; if(id==='support')return supportDashboard(); if(id==='rh')return window.CIADI_HR_MODULE.create({supabase:sb,profile,root:c,notify:toast,audit}).renderHome(); if(id==='reception')return window.CIADI_RECEPTION_MODULE.create({root:c,navigate:go,notify:toast,supabase:sb,actorId:me?.id,poloCode:stationPolo||null}).renderHome(); if(id==='overview')return overview(); if(id==='sos')return sosAlerts(); if(id==='pedidos_site')return siteTriageRequests(); if(id==='agendamentos')return appointments(); if(id==='financeiro')return financeDashboard(); if(id==='faturacao')return financeInvoices(); if(id==='caixa')return financeCash(); if(id==='cash_reports')return window.CIADI_CASH_REPORTS_MODULE.create({root:c,supabase:sb,notify:toast}).renderHome(); if(id==='contabilidade')return financeAccounting(); if(id==='saft')return financeSaft(); if(id==='especialidades')return specialties(); if(id==='triagens')return triagens(); if(id==='pacientes')return patients(); if(id==='profissionais')return professionals(); if(id==='documentos')return clinicalDocumentsHub(); if(id==='familias')return familias(); if(id==='conteudos')return contents(); if(id==='multimedia')return multimedia(); if(id==='marketing')return marketing(); if(id==='janeth')return janeth(); if(id==='utilizadores')return users(); if(id==='instituicao')return institution(); if(id==='empresas')return financeCompanies(); if(id==='clinica')return clinic(); if(id==='auditoria')return auditPage(); if(id==='acompanhantes_at')return acompanhantesAT();}
 async function acompanhantesAT(){
   if(!canAccessAT()){ document.getElementById('content').innerHTML='<div class="card p-6"><b>Acesso não autorizado.</b></div>'; return; }
   const isManager=['admin','gestor'].includes(profile?.tipo);
@@ -219,11 +281,17 @@ async function supportDashboard(){
 
 async function overview(){
   const [a,p,pr,t,d,m,c,mk]=await Promise.all(['agendamentos','pacientes','profissionais','ficha_pre_atendimento','documentos_clinicos','ciadi_materiais_apoio','conteudos_site','ciadi_campanhas_marketing'].map(count));
+  const activeStation = stationMode ? stationProfile : 'adm';
   document.getElementById('content').innerHTML=`<div class="flex flex-wrap justify-between items-center mb-5"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Centro de Gestão</span><h2 class="text-3xl font-black mt-1">Dashboard Clínico & Administrativo</h2><p class="text-slate-500">Visão operacional baseada nos dados reais do Supabase.</p></div><div class="flex gap-2"><button onclick="go('pacientes')" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Paciente</button><button onclick="go('profissionais')" class="border rounded-xl px-4 py-2 font-bold">+ Especialista</button><button onclick="go('documentos')" class="border rounded-xl px-4 py-2 font-bold">+ Documento</button></div></div>
   <div class="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">${[['Consultas',a,'agendamentos','📅'],['Pacientes',p,'pacientes','👨‍👩‍👧'],['Profissionais',pr,'profissionais','🩺'],['Triagens',t,'triagens','📝'],['Documentos',d,'documentos','📄'],['Materiais',m,'familias','🧩'],['Conteúdos',c,'conteudos','📢'],['Marketing',mk,'marketing','📣']].map(x=>`<button onclick="go('${x[2]}')" class="card p-5 text-left hover:-translate-y-1 transition"><div class="flex items-center justify-between"><span class="text-2xl">${x[3]}</span><span class="text-xs font-bold text-slate-400">ABRIR</span></div><div class="text-sm text-slate-500 mt-4">${x[0]}</div><div class="text-3xl font-black mt-1">${x[1]}</div></button>`).join('')}</div>
   <div id="financeOverviewStrip" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5"></div>
-  <div class="grid lg:grid-cols-[1.4fr_.6fr] gap-5 mt-5"><div class="card p-6"><div class="flex justify-between items-center"><div><h3 class="font-black text-lg">Centro de Documentos</h3><p class="text-sm text-slate-500">Formulários inteligentes, emissão, assinatura, PDF e validação.</p></div><button onclick="go('documentos')" class="text-orange font-bold">Abrir →</button></div><div class="grid sm:grid-cols-4 gap-3 mt-5">${[['🧾','Receitas'],['📋','Guias'],['📑','Relatórios'],['🔐','Validação QR']].map(x=>`<div class="rounded-2xl bg-orange-50 p-4"><div class="text-xl">${x[0]}</div><div class="font-bold mt-2">${x[1]}</div></div>`).join('')}</div></div><div class="card p-6"><h3 class="font-black text-lg">Janeth</h3><div class="flex items-center gap-4 mt-4"><div class="w-16 h-16">${JANETH_AVATAR_SVG}</div><div><b>Assistente Virtual CIADI</b><p class="text-sm text-slate-500">Base oficial: ${378} conhecimentos.</p></div></div></div></div>`
-  try{const {data}=await sb.from('v_ciadi_financeiro_resumo').select('*').maybeSingle();const x=data||{};document.getElementById('financeOverviewStrip').innerHTML=[['💰','Facturação do mês',money(x.faturacao_mes),'financeiro'],['💳','Recebido no mês',money(x.recebido_mes),'faturacao'],['📅','Consultas hoje',x.consultas_realizadas_dia||0,'agendamentos'],['🧾','Consultas facturadas',x.consultas_faturadas_dia||0,'faturacao']].map(k=>`<button onclick="go('${k[3]}')" class="card p-5 text-left"><div class="text-2xl">${k[0]}</div><div class="text-sm text-slate-500 mt-2">${k[1]}</div><div class="text-xl font-black mt-1">${k[2]}</div></button>`).join('')}catch(e){console.warn('Finance overview',e)}
+  <div class="grid lg:grid-cols-[1.4fr_.6fr] gap-5 mt-5"><div class="card p-6"><div class="flex justify-between items-center"><div><h3 class="font-black text-lg">Centro de Documentos</h3><p class="text-sm text-slate-500">Formulários inteligentes, emissão, assinatura, PDF e validação.</p></div><button onclick="go('documentos')" class="text-orange font-bold">Abrir →</button></div><div class="grid sm:grid-cols-4 gap-3 mt-5">${[['🧾','Receitas'],['📋','Guias'],['📑','Relatórios'],['🔐','Validação QR']].map(x=>`<div class="rounded-2xl bg-orange-50 p-4"><div class="text-xl">${x[0]}</div><div class="font-bold mt-2">${x[1]}</div></div>`).join('')}</div></div><div class="card p-6"><h3 class="font-black text-lg">Janeth</h3><div class="flex items-center gap-4 mt-4"><div class="w-16 h-16">${JANETH_AVATAR_SVG}</div><div><b>Assistente Virtual CIADI</b><p class="text-sm text-slate-500">Base oficial: ${378} conhecimentos.</p></div></div></div></div>`;
+  const cards = activeStation === 'adm'
+    ? [['📑','Relatórios de abertura/fecho','Consultar','cash_reports'],['📊','Contabilidade','Abrir','contabilidade']]
+    : activeStation === 'recepcao'
+      ? [['🏢','Recepção, facturação, caixa e aprovisionamento','Abrir','reception'],['📅','Agendamentos','Abrir','agendamentos']]
+      : [];
+  document.getElementById('financeOverviewStrip').innerHTML=cards.map(k=>`<button onclick="go('${k[3]}')" class="card p-5 text-left"><div class="text-2xl">${k[0]}</div><div class="text-sm text-slate-500 mt-2">${k[1]}</div><div class="text-xl font-black mt-1">${k[2]}</div></button>`).join('');
 }
 function tablePage(title,desc,html){document.getElementById('content').innerHTML=`<div class="mb-5"><h2 class="text-3xl font-black">${title}</h2><p class="text-slate-500">${desc}</p></div>${html}`}
 /* ===== CIADI — Marketing Digital ===== */
@@ -453,6 +521,30 @@ async function financeAccounting(){try{
   <button onclick="financeExpenses()" class="border rounded-xl px-4 py-2">Despesas</button>
   <button onclick="financeAccountingReports()" class="border rounded-xl px-4 py-2">Relatórios contabilísticos</button>
  </div>
+
+ <section class="card p-5 mb-5" aria-labelledby="accounting-integrations-title">
+  <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+   <div><h3 id="accounting-integrations-title" class="font-black text-lg">Integrações dos módulos com a Contabilidade</h3><p class="text-sm text-slate-500 mt-1">Mapa funcional proposto para a contabilidade central do CIADI, com análise por centro de custo/polo.</p></div>
+   <span class="inline-flex items-center rounded-full bg-amber-50 text-amber-800 px-3 py-1 text-xs font-bold">Desenho em validação</span>
+  </div>
+  <div class="overflow-auto"><table class="w-full text-sm min-w-[760px]">
+   <thead><tr class="border-b text-left text-slate-500"><th class="p-3">Módulo de origem</th><th class="p-3">Evento de origem</th><th class="p-3">Tratamento contabilístico previsto</th></tr></thead>
+   <tbody>
+    <tr class="border-b"><td class="p-3 font-semibold">Facturação</td><td class="p-3">Factura/documento validado</td><td class="p-3">Reconhecer o valor a receber e a receita, segundo regra PGC validada.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Caixa / Recepção</td><td class="p-3">Recebimento confirmado</td><td class="p-3">Liquidar o valor a receber; não reconhecer novamente a receita da factura.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Bancos</td><td class="p-3">Movimento bancário reconciliado</td><td class="p-3">Registar depósito, transferência, comissão ou movimento identificado.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Compras</td><td class="p-3">Factura de fornecedor validada</td><td class="p-3">Reconhecer aquisição, obrigação e impostos aplicáveis conforme parametrização validada.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Aprovisionamento</td><td class="p-3">Recepção de mercadoria validada</td><td class="p-3">Actualizar quantidades e valorização de stock sem duplicar a compra.</td></tr>
+    <tr class="border-b"><td class="p-3 font-semibold">Stocks</td><td class="p-3">Consumo, perda, transferência ou ajuste autorizado</td><td class="p-3">Registar apenas o efeito contabilístico correspondente.</td></tr>
+    <tr><td class="p-3 font-semibold">RH</td><td class="p-3">Folha salarial aprovada</td><td class="p-3">Reconhecer remunerações, subsídios, retenções e encargos da entidade.</td></tr>
+   </tbody>
+  </table></div>
+  <div class="grid md:grid-cols-2 gap-4 mt-5">
+   <div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Fluxo de contabilização proposto</h4><ol class="list-decimal pl-5 space-y-1 text-sm text-slate-600"><li>Evento registado no módulo de origem.</li><li>Validação do documento, valor, empresa, polo e centro de custo.</li><li>Aplicação de regra contabilística e contas PGC validadas.</li><li>Preparação de lançamento em rascunho e verificação de equilíbrio.</li><li>Aprovação por utilizador autorizado e contabilização em período aberto.</li></ol></div>
+   <div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Controlos obrigatórios</h4><ul class="list-disc pl-5 space-y-1 text-sm text-slate-600"><li>Referência única de origem para evitar duplicações.</li><li>Débitos iguais a créditos antes da contabilização.</li><li>Histórico contabilizado preservado; correcções por estorno documentado.</li><li>Períodos fechados protegidos contra lançamentos não autorizados.</li><li>Rastreabilidade do documento, utilizador, data e centro de custo.</li><li>Consolidação institucional e consulta por polo.</li></ul></div>
+  </div>
+  <div class="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900"><b>Estado operacional:</b> esta área é informativa. Não cria lançamentos, não activa integrações nem altera regras ou dados. O modelo de geração automática de rascunhos com contabilização após aprovação, as contas PGC e os parâmetros fiscais carecem de validação formal antes da implementação.</div>
+ </section>
  <div class="grid lg:grid-cols-2 gap-5">
   <div class="card p-5"><h3 class="font-black text-lg">Plano de contas</h3><div class="overflow-auto mt-3"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-2">Código</th><th>Conta</th><th>Tipo</th><th>Natureza</th></tr></thead><tbody>${(c.data||[]).map(r=>`<tr class="border-b"><td class="p-2 font-bold">${esc(r.codigo)}</td><td>${esc(r.nome)}</td><td>${esc(r.tipo)}</td><td>${esc(r.natureza||'—')}</td></tr>`).join('')}</tbody></table></div></div>
   <div class="card p-5"><h3 class="font-black text-lg">Balancete</h3><div class="overflow-auto mt-3"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-2">Conta</th><th>Débito</th><th>Crédito</th><th>Saldo</th></tr></thead><tbody>${(b.data||[]).map(r=>`<tr class="border-b"><td class="p-2">${esc(r.codigo)} · ${esc(r.nome)}</td><td>${money(r.debitos)}</td><td>${money(r.creditos)}</td><td>${money(r.saldo)}</td></tr>`).join('')}</tbody></table></div></div>
@@ -863,6 +955,11 @@ async function boot(){
 async function enter(u){
   try{
     initSupabase();
+    const stationAccess = validateStationAccount(u);
+    if(!stationAccess.ok){
+      await authService.signOut();
+      throw new Error(stationAccess.message);
+    }
     me=u;
     const q=await profileService.getCurrentProfile(u.id);
     if(q.error) throw new Error('Não foi possível validar o perfil administrativo: '+q.error.message);
@@ -876,7 +973,10 @@ async function enter(u){
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
     document.getElementById('stationLabel').textContent = stationMode ? (stationRequiresPolo ? (stationProfileLabels[stationProfile] + ' · ' + stationPoloLabels[stationPolo]) : stationProfileLabels[stationProfile]) : 'Administração';
-    nav(); await go(stationMode && stationProfile==='suporte_informatica' ? 'support' : 'overview');
+    const initialRoute=stationDefaultRoute();
+    if(!initialRoute) throw new Error('Esta estação não está configurada para utilização. Contacte o Suporte Informático.');
+    nav();
+    await go(initialRoute);
   }catch(e){
     console.error('CIADI perfil',e);
     document.getElementById('login').classList.remove('hiddenx');
@@ -895,9 +995,11 @@ document.getElementById('loginForm').addEventListener('submit',async e=>{
   if(button){button.disabled=true;button.textContent='A entrar…';}
   try{
     initSupabase();
-    const email=emailEl.value.trim();
+    const email=emailEl.value.trim().toLowerCase();
     const password=passwordEl.value;
     if(!email||!password) throw new Error('Introduza o e-mail e a palavra-passe.');
+    const stationAccess = validateStationAccount(email);
+    if(!stationAccess.ok) throw new Error(stationAccess.message);
     const {data,error}=await authService.signInWithPassword({email,password});
     if(error) throw error;
     if(!data?.user) throw new Error('O Supabase não devolveu um utilizador autenticado.');
@@ -909,6 +1011,7 @@ document.getElementById('loginForm').addEventListener('submit',async e=>{
     if(button){button.disabled=false;button.textContent='Entrar';}
   }
 });
+initialiseStationChooser();
 initSupabase();
 authService.onAuthStateChange((event,session)=>{
   if(event==='SIGNED_IN' && session?.user && document.getElementById('app').classList.contains('hiddenx')) enter(session.user);

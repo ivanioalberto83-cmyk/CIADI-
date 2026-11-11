@@ -637,12 +637,15 @@ test('painel financeiro da Recepção apresenta formulários centrais e sinaliza
     series: [{ id: 'series-1', codigo: '2026', nome: 'Série 2026', tipo_documento: 'FT' }],
     services: [{ id: 'service-1', codigo: 'ABA', nome: 'Terapia ABA', preco_base: 15000 }],
     cashboxes: [{ id: 'cash-1', codigo: 'CX01', nome: 'Caixa Recepção', estado: 'aberto' }],
-    documents: [{ id: 'doc-1', document_no: 'FT 1', document_status: 'emitido', fiscal_status: 'emitido', total: 15000 }],
+    documents: [{ id: 'doc-1', document_no: 'FT 1', document_status: 'N', fiscal_status: 'emitido', total: 15000 }],
     shifts: []
   });
   assert.match(html, /data-reception-invoice-form/);
   assert.match(html, /data-reception-cashbox-open/);
   assert.match(html, /data-reception-payment-form/);
+  assert.match(html, /Registar pagamento/);
+  assert.doesNotMatch(html, /Registar pagamento — bloqueado/);
+  assert.doesNotMatch(html, /<fieldset disabled/);
   assert.match(html, /data-reception-cashbox-close/);
   assert.match(html, /&lt;Família CIADI&gt;/);
   assert.doesNotMatch(html, /<Família CIADI>/);
@@ -654,7 +657,7 @@ test('motor documental da faturação compõe pré-visualização A4 com identid
   const calls = [];
   const document = {
     id: 'invoice-1', document_no: 'FT A/2026/0001', tipo_documento: 'FT',
-    document_status: 'emitido', fiscal_status: 'emitido', data_emissao: '2026-11-09',
+    document_status: 'N', fiscal_status: 'emitido', data_emissao: '2026-11-09',
     data_vencimento: '2026-11-30', subtotal: 10000, imposto: 1400, total: 11400,
     observacoes: 'Consulta', finance_clientes: { nome: 'Família Teste', nif: '5000000000', email: 'familia@example.ao' },
     finance_series: { codigo: 'A', nome: 'Série A' }
@@ -873,13 +876,13 @@ test('cria e submete requisição interna usando RPCs próprios sem confundir co
     } }; } },
     actorId: 'actor-1', poloCode: 'talatona', idempotencyKeyFactory: () => 'stock-key-0001'
   });
-  const created = await service.createStockRequisition({
+  const created = await service.createAndSubmitStockRequisition({
     warehouseId: 'warehouse-1', costCenterId: 'cc-001',
     purpose: 'Materiais para atendimento diário', priority: 'normal',
     lines: [{ itemId: 'item-1', quantity: 5, unitOfMeasure: 'unidade' }]
   });
   assert.equal(created.id, 'stock-req-1');
-  await service.submitStockRequisition('stock-req-1');
+  assert.equal(created.status, 'submitted');
   assert.deepEqual(calls.map(call => call.method), [
     'reception_create_stock_requisition', 'reception_submit_stock_requisition'
   ]);
@@ -889,6 +892,29 @@ test('cria e submete requisição interna usando RPCs próprios sem confundir co
   assert.equal(calls[1].args.p_requisition_id, 'stock-req-1');
 });
 
+
+test('todas as funções SQL da proposta de stock usam delimitadores dollar-quote válidos', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
+  assert.doesNotMatch(sql, /^\s*as \$(?!\$)\s*$/m);
+  assert.doesNotMatch(sql, /^\s*\$;\s*$/m);
+});
+
+test('recepção, conferência e finalização de mercadorias validam acesso pelo polo atribuído', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql'), 'utf8');
+  const create = sql.slice(sql.indexOf('create or replace function ciadi_ti.create_goods_receipt'), sql.indexOf('create or replace function ciadi_ti.check_goods_receipt'));
+  const check = sql.slice(sql.indexOf('create or replace function ciadi_ti.check_goods_receipt'), sql.indexOf('create or replace function ciadi_ti.finalize_goods_receipt'));
+  const finalize = sql.slice(sql.indexOf('create or replace function ciadi_ti.finalize_goods_receipt'), sql.indexOf('create or replace function ciadi_ti.reconcile_inventory_count'));
+  assert.match(create, /has_reception_operation_access\(w\.polo\)/i);
+  assert.match(check, /has_reception_operation_access\(w\.polo\)/i);
+  assert.match(finalize, /has_reception_operation_access\(w\.polo\)/i);
+  assert.doesNotMatch(create, /has_support_access\(\)/i);
+  assert.doesNotMatch(check, /has_support_access\(\)/i);
+  assert.doesNotMatch(finalize, /has_support_access\(\)/i);
+});
 
 test('proposta SQL do stock da Recepção separa requisição interna de compra a fornecedor e protege saídas', () => {
   const fs = require('node:fs');
@@ -905,9 +931,22 @@ test('proposta SQL do stock da Recepção separa requisição interna de compra 
   assert.match(sql, /length\(btrim\(coalesce\(p_justification/);
   assert.match(sql, /sum\(quantity_delta\)/i);
   assert.match(sql, /idempotency_key/i);
-  assert.match(sql, /has_support_access\(\)/i);
+  assert.match(sql, /has_reception_operation_access\(/i);
+  assert.match(sql, /reception_user_polos/i);
+  assert.match(sql, /reception_set_user_polo/i);
+  assert.match(sql, /has_finance_approval\(\)/i);
+  assert.match(sql, /reception_set_user_polo[\s\S]*?has_support_access\(\)/i);
+  assert.match(sql, /tipo = 'operador'/i);
+  assert.match(sql, /reception_set_user_polo\(uuid,text,boolean\)[\s\S]*?to authenticated/i);
   assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit/i);
-  assert.doesNotMatch(sql, /grant execute on function ciadi_ti\.reception_/i);
+  const transferFunction = sql.slice(sql.indexOf('create or replace function ciadi_ti.reception_transfer_stock'), sql.indexOf('revoke all on function ciadi_ti.reception_create_goods_receipt'));
+  assert.ok(transferFunction.includes('as $'));
+  assert.ok(transferFunction.trimEnd().endsWith('$;'));
+  assert.match(sql, /grant execute on function ciadi_ti\.reception_create_stock_requisition[\s\S]*?to authenticated/i);
+  const requisitionGrantAt = sql.indexOf('grant execute on function ciadi_ti.reception_create_stock_requisition');
+  assert.ok(requisitionGrantAt >= 0);
+  assert.equal(sql.indexOf('revoke all on function ciadi_ti.reception_create_stock_requisition', requisitionGrantAt), -1);
+  assert.match(sql, /revoke all on function ciadi_ti\.reception_register_stock_exit[\s\S]*?from public,anon/i);
   assert.match(sql, /PROPOSTA APENAS/i);
 });
 
@@ -1018,4 +1057,96 @@ test('renderiza estado vazio da fila sem inventar atendimentos ou visitantes', a
   assert.match(root.innerHTML, /Não existem chegadas registadas para o filtro seleccionado/);
   assert.match(root.innerHTML, /Não existem visitantes dentro do centro neste momento/);
   assert.match(root.innerHTML, /0 registo\(s\)/);
+});
+
+test('proposta de facturação respeita os códigos N/C/A e separa estado documental do estado fiscal', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-finance-invoice-payment-state-fix.sql'), 'utf8');
+  assert.match(sql, /document_status[\s\S]{0,100}'N'/i);
+  assert.match(sql, /fiscal_status[\s\S]{0,100}'em_edicao'/i);
+  assert.match(sql, /fiscal_status[\s\S]{0,100}'emitido'/i);
+  assert.doesNotMatch(sql, /document_status\s*=\s*'emitido'/i);
+  assert.match(sql, /ciadi_faturacao_criar_documento/i);
+  assert.match(sql, /ciadi_faturacao_emitir_documento/i);
+});
+
+test('formulário de recebimento envia pagamento ao RPC central e apresenta o recibo devolvido', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../../renderer/modules/reception-module.js'), 'utf8');
+  assert.match(source, /form\.matches\('\[data-reception-payment-form\]'\)/);
+  assert.match(source, /financeRepository\.registerPayment/);
+  assert.match(source, /receipt\?\.recibo_no/);
+});
+
+
+test('permissões da Recepção limitam o operador ao polo atribuído e reservam aprovação a admin/gestor', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
+  assert.match(sql, /create table if not exists ciadi_ti\.reception_user_polos/i);
+  assert.match(sql, /enable row level security/i);
+  assert.match(sql, /as \$\$[\s\S]*?end;\s*\$\$;/i);
+  assert.match(sql, /create or replace function ciadi_ti\.has_reception_operation_access/i);
+  assert.match(sql, /p\.tipo\s*=\s*'operador'/i);
+  assert.match(sql, /polo_code\s*=\s*p_polo_code/i);
+  assert.match(sql, /has_finance_approval\(\)/i);
+  assert.match(sql, /grant execute on function ciadi_ti\.reception_/i);
+  assert.match(sql, /revoke all on function ciadi_ti\.reception_/i);
+});
+
+
+test('painel operacional da Recepção apresenta formulários de requisição, saída, devolução e transferência sem acções de aprovação', () => {
+  assert.equal(typeof reception.renderReceptionProcurementPanel, 'function');
+  const html = reception.renderReceptionProcurementPanel({
+    warehouses: [{ id: 'w1', code: 'TAL-01', name: 'Armazém Talatona', polo: 'talatona' }, { id: 'w2', code: 'JDR-01', name: 'Armazém Secundário', polo: 'jardim_de_rosas' }],
+    items: [{ id: 'i1', sku: 'MAT-01', name: 'Material', unit_of_measure: 'unidade' }],
+    costCenters: [{ id: 'cc1', codigo: 'CC-001', nome: 'Talatona' }]
+  }, 'talatona');
+  for (const marker of ['data-procurement-requisition','data-procurement-exit','data-procurement-return','data-procurement-transfer']) {
+    assert.match(html, new RegExp(marker));
+  }
+  assert.match(html, /data-requisition-submit/);
+  assert.doesNotMatch(html, /data-requisition-approve|data-purchase-approve/);
+  assert.match(html, /Armazém Talatona/);
+  assert.doesNotMatch(html, /Armazém Secundário/);
+});
+
+test('acesso global do Suporte Informático é reconhecido pelo helper de operações da Recepção sem remover o âmbito por polo dos operadores', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-workflows-proposal.sql'), 'utf8');
+  const helper = sql.slice(sql.indexOf('create or replace function ciadi_ti.has_reception_operation_access'), sql.indexOf('revoke all on function ciadi_ti.has_reception_operation_access'));
+  assert.match(helper, /has_support_access\(\)/i);
+  assert.match(helper, /p\.tipo\s*=\s*'operador'[\s\S]*?reception_user_polos/i);
+});
+
+
+test('painel da Recepção apresenta formulário de recepção apenas para compras aprovadas e classifica as quantidades', () => {
+  const html = reception.renderReceptionProcurementPanel({
+    warehouses: { rows: [{ id: 'warehouse-1', code: 'TAL-01', name: 'Armazém Talatona', polo: 'talatona' }] },
+    items: { rows: [{ id: 'item-1', sku: 'MAT-01', name: 'Material clínico' }] },
+    requests: { rows: [
+      { id: 'approved-1', request_number: 101, status: 'approved' },
+      { id: 'pending-1', request_number: 102, status: 'submitted' }
+    ] },
+    purchaseRequestLines: { rows: [
+      { id: 'line-1', request_id: 'approved-1', item_id: 'item-1', description: 'Material clínico', quantity: 10, unit_of_measure: 'unidade', estimated_unit_cost: 2500 },
+      { id: 'line-service', request_id: 'approved-1', item_id: null, description: 'Serviço sem stock', quantity: 2, unit_of_measure: 'serviço', estimated_unit_cost: 0 }
+    ] },
+    goodsReceipts: { rows: [] },
+    goodsReceiptLines: { rows: [{ purchase_request_line_id: 'line-1', received_quantity: 3, receipt: { status: 'posted' } }] }
+  }, 'talatona');
+  assert.match(html, /data-procurement-goods-receipt/);
+  assert.match(html, /name="purchaseRequestId"/);
+  assert.match(html, /101/);
+  assert.doesNotMatch(html, /pending-1/);
+  assert.match(html, /acceptedQuantity/);
+  assert.match(html, /damagedQuantity/);
+  assert.match(html, /returnedQuantity/);
+  assert.match(html, /data-goods-receipt-lines/);
+  assert.match(html, /data-already-received-quantity="3"/);
+  assert.match(html, /max="7"/);
+  assert.doesNotMatch(html, /Serviço sem stock/);
 });

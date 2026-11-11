@@ -58,6 +58,7 @@ jobs:
             "ciadi-windows/renderer/modules/support-helpdesk-module.js",
             "ciadi-windows/renderer/modules/support-inventory-lifecycle-module.js",
             "ciadi-windows/renderer/modules/reception-module.js",
+            "ciadi-windows/renderer/modules/cash-reports-module.js",
             "ciadi-windows/renderer/core/institutional-identity-service.js",
             "ciadi-windows/renderer/core/station-profile-service.js"
           )

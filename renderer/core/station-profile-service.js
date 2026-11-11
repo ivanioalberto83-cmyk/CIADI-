@@ -10,12 +10,22 @@
     recepcao: 'Receção'
   });
 
+  const SUPPORT_ENTRY = Object.freeze({
+    id: 'support',
+    label: 'Suporte Informático',
+    route: 'support',
+    moduleId: 'support'
+  });
+
+  // Cada estação abre apenas o seu módulo de trabalho.
+  // Receção concentra atendimento, faturação, caixa e aprovisionamento.
+  // ADM consulta fechos e trabalha a respetiva integração contabilística.
   const PROFILE_ROUTES = Object.freeze({
-    adm: null,
-    suporte_informatica: null,
-    // Until the dedicated HR workspace is implemented, retain only real legacy routes.
-    rh: Object.freeze(['rh']),
-    recepcao: Object.freeze(['reception', 'overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias', 'triagens'])
+    adm: Object.freeze(['cash_reports', 'contabilidade', 'auditoria']),
+    suporte_informatica: Object.freeze(['support']),
+    recepcao: Object.freeze(['reception', 'overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias', 'triagens']),
+    // A estação RH mantém o seu espaço próprio, independente das três estações em validação.
+    rh: Object.freeze(['rh'])
   });
 
   function isKnownProfile(profileId) {
@@ -37,14 +47,9 @@
       unique.push({ ...entry });
     }
 
-    if (profileId === 'adm' || profileId === 'suporte_informatica') {
-      if (profileId === 'suporte_informatica') {
-        return [{ id: 'support', label: 'Suporte Informático', route: 'support', moduleId: 'support' }, ...unique];
-      }
-      return unique;
-    }
-
-    return PROFILE_ROUTES[profileId].map(id => unique.find(entry => entry.id === id)).filter(Boolean);
+    return PROFILE_ROUTES[profileId]
+      .map(id => unique.find(entry => entry.id === id) || (id === 'support' ? { ...SUPPORT_ENTRY } : null))
+      .filter(Boolean);
   }
 
   return Object.freeze({ getVisibleEntries, getProfileLabel, isKnownProfile });

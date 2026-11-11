@@ -1,7 +1,7 @@
 -- PROPOSTA APENAS — NÃO EXECUTAR NO SUPABASE REMOTO NESTA FASE.
 -- CIADI Recepção: requisição interna de stock, saídas controladas e devoluções.
 -- Dependências:
---   1) ciadi_ti.has_support_access() e ciadi_ti.has_finance_approval()
+--   1) ciadi_ti.has_reception_operation_access(text) e ciadi_ti.has_finance_approval()
 --   2) ciadi_ti.stock_movements / items / warehouses / audit_events
 --   3) ciadi-ti-inventory-lifecycle-proposal.sql (goods_receipts / goods_receipt_lines)
 --   4) ciadi-ti-purchase-receipt-extension-proposal.sql (idempotency_key em stock_movements)
@@ -10,6 +10,84 @@
 -- da Recepção não for aprovada. Nenhum EXECUTE é concedido nesta proposta.
 
 begin;
+
+-- Atribuição explícita do operador ao(s) polo(s) da Recepção.
+create table if not exists ciadi_ti.reception_user_polos (
+  user_id uuid not null references public.perfis(id) on delete cascade,
+  polo_code text not null check (polo_code in ('talatona','jardim_de_rosas')),
+  active boolean not null default true,
+  assigned_by uuid references public.perfis(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id,polo_code)
+);
+alter table ciadi_ti.reception_user_polos enable row level security;
+revoke all on table ciadi_ti.reception_user_polos from public,anon,authenticated;
+
+create or replace function ciadi_ti.has_reception_operation_access(p_polo_code text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, ciadi_ti, auth
+as $$
+  select auth.uid() is not null
+    and p_polo_code in ('talatona','jardim_de_rosas')
+    and (
+      ciadi_ti.has_support_access()
+      or exists (
+        select 1 from public.perfis p
+        where p.id = auth.uid() and p.ativo = true
+          and (
+            p.tipo in ('admin','gestor')
+            or (p.tipo = 'operador' and exists (
+              select 1 from ciadi_ti.reception_user_polos rup
+              where rup.user_id = p.id
+                and rup.polo_code = p_polo_code
+                and rup.active = true
+            ))
+          )
+      )
+    );
+$$;
+revoke all on function ciadi_ti.has_reception_operation_access(text) from public,anon,authenticated;
+
+-- Atribuição/desactivação de polo é uma tarefa de Suporte Informático.
+-- O operador não pode atribuir a si próprio nem a terceiros um polo.
+create or replace function ciadi_ti.reception_set_user_polo(
+  p_user_id uuid,
+  p_polo_code text,
+  p_active boolean default true
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public, ciadi_ti, auth
+as $$
+begin
+  if auth.uid() is null or not ciadi_ti.has_support_access() then
+    raise exception 'A gestão de acessos aos polos exige Suporte Informático ou Administração.' using errcode = '42501';
+  end if;
+  if p_polo_code is null or p_polo_code not in ('talatona','jardim_de_rosas') then
+    raise exception 'Polo CIADI inválido.' using errcode = '22023';
+  end if;
+  if not exists (
+    select 1 from public.perfis
+    where id = p_user_id and tipo = 'operador' and ativo = true
+  ) then
+    raise exception 'Só é possível atribuir polos a contas activas do perfil operador.' using errcode = '22023';
+  end if;
+  insert into ciadi_ti.reception_user_polos(user_id,polo_code,active,assigned_by,updated_at)
+  values (p_user_id,p_polo_code,coalesce(p_active,true),auth.uid(),now())
+  on conflict (user_id,polo_code) do update
+    set active=excluded.active,assigned_by=excluded.assigned_by,updated_at=now();
+  return jsonb_build_object('user_id',p_user_id,'polo_code',p_polo_code,'active',coalesce(p_active,true));
+end;
+$$;
+revoke all on function ciadi_ti.reception_set_user_polo(uuid,text,boolean) from public,anon;
+grant execute on function ciadi_ti.reception_set_user_polo(uuid,text,boolean) to authenticated;
+
+
+
 
 create table if not exists ciadi_ti.stock_requisitions (
   id uuid primary key default gen_random_uuid(),
@@ -89,7 +167,11 @@ declare
   v_result jsonb;
   v_receipt_id uuid;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not exists (
+    select 1 from ciadi_ti.warehouses w
+    where w.id = p_warehouse_id and w.active = true
+      and ciadi_ti.has_reception_operation_access(w.polo)
+  ) then
     raise exception 'A recepção de mercadorias ainda não está autorizada para este perfil.' using errcode = '42501';
   end if;
   if length(v_key) not between 8 and 128 then
@@ -138,7 +220,7 @@ declare
   v_unit text;
   v_count integer := 0;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not ciadi_ti.has_reception_operation_access(p_polo_code) then
     raise exception 'A criação de requisições de stock ainda não está autorizada para este perfil.' using errcode = '42501';
   end if;
   if p_polo_code is null or p_polo_code not in ('talatona','jardim_de_rosas') then
@@ -205,7 +287,11 @@ as $$
 declare
   v_request ciadi_ti.stock_requisitions%rowtype;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not exists (
+    select 1 from ciadi_ti.stock_requisitions r
+    where r.id = p_requisition_id and r.requested_by = auth.uid()
+      and ciadi_ti.has_reception_operation_access(r.polo_code)
+  ) then
     raise exception 'A submissão de requisições de stock ainda não está autorizada para este perfil.' using errcode = '42501';
   end if;
   select * into v_request from ciadi_ti.stock_requisitions
@@ -286,7 +372,7 @@ declare
   v_movement_id uuid;
   v_notes text;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not ciadi_ti.has_reception_operation_access(p_polo_code) then
     raise exception 'As saídas de stock ainda não estão autorizadas para este perfil.' using errcode = '42501';
   end if;
   if p_exit_mode is null or p_exit_mode not in ('approved_request','direct_justified') then
@@ -395,7 +481,7 @@ declare
   v_existing ciadi_ti.stock_movements%rowtype;
   v_id uuid;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not ciadi_ti.has_reception_operation_access(p_polo_code) then
     raise exception 'As devoluções de stock ainda não estão autorizadas para este perfil.' using errcode = '42501';
   end if;
   if p_return_type is null or p_return_type not in ('devolucao_entrada','devolucao_saida') then
@@ -452,14 +538,14 @@ create or replace function ciadi_ti.reception_transfer_stock(
 language plpgsql
 security definer
 set search_path = pg_catalog, public, ciadi_ti, auth
-as $
+as $$
 declare
   v_key text := btrim(coalesce(p_idempotency_key,''));
   v_from ciadi_ti.stock_movements%rowtype;
   v_to ciadi_ti.stock_movements%rowtype;
   v_result record;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not ciadi_ti.has_reception_operation_access(p_polo_code) then
     raise exception 'As transferências de stock ainda não estão autorizadas para este perfil.' using errcode = '42501';
   end if;
   if p_polo_code is null or p_polo_code not in ('talatona','jardim_de_rosas') then
@@ -501,16 +587,24 @@ begin
     'idempotent_replay',false
   );
 end;
-$;
+$$;
 
--- A criação e escrita permanecem fechadas até revisão do modelo de permissões da Recepção.
-revoke all on function ciadi_ti.reception_create_goods_receipt(uuid,uuid,text,date,text,jsonb,text) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_create_stock_requisition(text,uuid,uuid,text,text,text,jsonb) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_submit_stock_requisition(uuid) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_decide_stock_requisition(uuid,text,text) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_register_stock_exit(text,uuid,uuid,numeric,uuid,uuid,text,text,text,text) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_register_stock_return(uuid,uuid,numeric,text,text,text,text,text) from public,anon,authenticated;
-revoke all on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) from public,anon,authenticated;
+revoke all on function ciadi_ti.reception_create_goods_receipt(uuid,uuid,text,date,text,jsonb,text) from public,anon;
+revoke all on function ciadi_ti.reception_create_stock_requisition(text,uuid,uuid,text,text,text,jsonb) from public,anon;
+revoke all on function ciadi_ti.reception_submit_stock_requisition(uuid) from public,anon;
+revoke all on function ciadi_ti.reception_decide_stock_requisition(uuid,text,text) from public,anon;
+revoke all on function ciadi_ti.reception_register_stock_exit(text,uuid,uuid,numeric,uuid,uuid,text,text,text,text) from public,anon;
+revoke all on function ciadi_ti.reception_register_stock_return(uuid,uuid,numeric,text,text,text,text,text) from public,anon;
+revoke all on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) from public,anon;
+
+-- As operações são executáveis apenas por authenticated; cada função valida perfil, polo e estado.
+grant execute on function ciadi_ti.reception_create_goods_receipt(uuid,uuid,text,date,text,jsonb,text) to authenticated;
+grant execute on function ciadi_ti.reception_create_stock_requisition(text,uuid,uuid,text,text,text,jsonb) to authenticated;
+grant execute on function ciadi_ti.reception_submit_stock_requisition(uuid) to authenticated;
+grant execute on function ciadi_ti.reception_decide_stock_requisition(uuid,text,text) to authenticated;
+grant execute on function ciadi_ti.reception_register_stock_exit(text,uuid,uuid,numeric,uuid,uuid,text,text,text,text) to authenticated;
+grant execute on function ciadi_ti.reception_register_stock_return(uuid,uuid,numeric,text,text,text,text,text) to authenticated;
+grant execute on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) to authenticated;
 
 comment on table ciadi_ti.stock_requisitions is 'Requisição interna de artigos de stock por polo, armazém e centro de custo; distinta da compra a fornecedor.';
 comment on table ciadi_ti.stock_requisition_lines is 'Linhas aprovadas e expedidas de uma requisição interna de stock.';

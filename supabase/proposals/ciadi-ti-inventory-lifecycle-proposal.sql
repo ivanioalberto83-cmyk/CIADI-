@@ -61,25 +61,61 @@ create index if not exists goods_receipt_lines_receipt_idx
 create index if not exists goods_receipt_lines_item_idx
   on ciadi_ti.goods_receipt_lines(item_id);
 
+-- As policies RLS não devem obrigar o cliente a ter SELECT directo
+-- sobre warehouses. A validação do polo ocorre em funções SECURITY DEFINER
+-- pequenas, sem expor a tabela de armazéns ao perfil authenticated.
+create or replace function ciadi_ti.has_reception_warehouse_access(p_warehouse_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, ciadi_ti
+as $$
+  select auth.uid() is not null
+    and exists (
+      select 1 from ciadi_ti.warehouses w
+      where w.id = p_warehouse_id
+        and w.active = true
+        and ciadi_ti.has_reception_operation_access(w.polo)
+    );
+$$;
+
+create or replace function ciadi_ti.has_reception_goods_receipt_access(p_receipt_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, ciadi_ti
+as $$
+  select auth.uid() is not null
+    and exists (
+      select 1 from ciadi_ti.goods_receipts r
+      where r.id = p_receipt_id
+        and ciadi_ti.has_reception_warehouse_access(r.warehouse_id)
+    );
+$$;
+
+revoke all on function ciadi_ti.has_reception_warehouse_access(uuid) from public, anon;
+revoke all on function ciadi_ti.has_reception_goods_receipt_access(uuid) from public, anon;
+grant execute on function ciadi_ti.has_reception_warehouse_access(uuid) to authenticated;
+grant execute on function ciadi_ti.has_reception_goods_receipt_access(uuid) to authenticated;
+
 alter table ciadi_ti.goods_receipts enable row level security;
 alter table ciadi_ti.goods_receipt_lines enable row level security;
 
 drop policy if exists goods_receipts_select_support on ciadi_ti.goods_receipts;
-create policy goods_receipts_select_support
+drop policy if exists goods_receipts_select_reception on ciadi_ti.goods_receipts;
+create policy goods_receipts_select_reception
   on ciadi_ti.goods_receipts
   for select to authenticated
-  using (ciadi_ti.has_support_access());
+  using (ciadi_ti.has_reception_warehouse_access(warehouse_id));
 
 drop policy if exists goods_receipt_lines_select_support on ciadi_ti.goods_receipt_lines;
-create policy goods_receipt_lines_select_support
+drop policy if exists goods_receipt_lines_select_reception on ciadi_ti.goods_receipt_lines;
+create policy goods_receipt_lines_select_reception
   on ciadi_ti.goods_receipt_lines
   for select to authenticated
-  using (
-    exists (
-      select 1 from ciadi_ti.goods_receipts r
-      where r.id = receipt_id and ciadi_ti.has_support_access()
-    )
-  );
+  using (ciadi_ti.has_reception_goods_receipt_access(receipt_id));
 
 -- A escrita das recepções ocorre apenas pelas RPCs transaccionais abaixo.
 grant select on ciadi_ti.goods_receipts, ciadi_ti.goods_receipt_lines to authenticated;
@@ -145,7 +181,11 @@ declare
   v_cost numeric(14,2);
   v_line_id uuid;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not exists (
+    select 1 from ciadi_ti.warehouses w
+    where w.id = p_warehouse_id and w.active = true
+      and ciadi_ti.has_reception_operation_access(w.polo)
+  ) then
     raise exception 'Acesso não autorizado à recepção de mercadorias.' using errcode = '42501';
   end if;
   if nullif(btrim(p_delivery_reference), '') is null then
@@ -253,7 +293,12 @@ declare
   v_count integer;
   v_unclassified integer;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not exists (
+    select 1 from ciadi_ti.goods_receipts r
+    join ciadi_ti.warehouses w on w.id = r.warehouse_id
+    where r.id = p_receipt_id and w.active = true
+      and ciadi_ti.has_reception_operation_access(w.polo)
+  ) then
     raise exception 'Acesso não autorizado à conferência de mercadorias.' using errcode = '42501';
   end if;
   select * into v_receipt
@@ -297,7 +342,12 @@ declare
   v_count integer := 0;
   v_reference text;
 begin
-  if auth.uid() is null or not ciadi_ti.has_support_access() then
+  if auth.uid() is null or not exists (
+    select 1 from ciadi_ti.goods_receipts r
+    join ciadi_ti.warehouses w on w.id = r.warehouse_id
+    where r.id = p_receipt_id and w.active = true
+      and ciadi_ti.has_reception_operation_access(w.polo)
+  ) then
     raise exception 'Acesso não autorizado à finalização da recepção.' using errcode = '42501';
   end if;
   select * into v_receipt

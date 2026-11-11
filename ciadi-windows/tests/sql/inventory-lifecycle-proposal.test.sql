@@ -24,7 +24,7 @@ begin
     (v_user, true, 'suporte_informatica'),
     (v_other_user, true, 'profissional');
   insert into ciadi_ti.suppliers(id, name) values (v_supplier, 'Fornecedor de teste');
-  insert into ciadi_ti.warehouses(id, code, name) values (v_warehouse, 'WH-TEST', 'Armazém de homologação');
+  insert into ciadi_ti.warehouses(id, code, name, polo) values (v_warehouse, 'WH-TEST', 'Armazém de homologação', 'talatona');
   insert into ciadi_ti.items(id, sku, name) values
     (v_item_a, 'IT-TEST-A', 'Artigo A'),
     (v_item_b, 'IT-TEST-B', 'Artigo B');
@@ -250,6 +250,17 @@ begin
   end if;
   if has_function_privilege('authenticated', 'ciadi_ti.record_goods_receipt_audit()', 'EXECUTE') then
     raise exception 'A função de auditoria interna não deve ser executável directamente pelo cliente.';
+  end if;
+  if has_function_privilege('anon', 'ciadi_ti.has_reception_warehouse_access(uuid)', 'EXECUTE')
+     or has_function_privilege('anon', 'ciadi_ti.has_reception_goods_receipt_access(uuid)', 'EXECUTE') then
+    raise exception 'O perfil anon não deve executar helpers RLS de recepção.';
+  end if;
+  if not has_function_privilege('authenticated', 'ciadi_ti.has_reception_warehouse_access(uuid)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'ciadi_ti.has_reception_goods_receipt_access(uuid)', 'EXECUTE') then
+    raise exception 'O perfil authenticated deve executar os helpers RLS de recepção.';
+  end if;
+  if has_table_privilege('authenticated', 'ciadi_ti.warehouses', 'SELECT') then
+    raise exception 'A leitura de recepções não deve exigir nem conceder SELECT global sobre armazéns.';
   end if;
   if (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
       where n.nspname='ciadi_ti' and c.relname in ('goods_receipts','goods_receipt_lines') and c.relrowsecurity) <> 2 then

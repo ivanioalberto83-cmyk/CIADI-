@@ -40,9 +40,23 @@ test('a proposta SQL activa RLS e mantém a publicação do stock em RPC transac
   assert.doesNotMatch(sql, /insert into ciadi_ti\.stock_movements/i);
 });
 
-test('as RPCs da proposta exigem utilizador autenticado e acesso reconhecido no servidor', () => {
+test('as RPCs da proposta exigem autenticação e validam o acesso de cada operação no servidor', () => {
   const sql = read('supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql');
-  const checks = sql.match(/if auth\.uid\(\) is null or not ciadi_ti\.has_support_access\(\) then/gi) || [];
-  assert.equal(checks.length, 4);
+  const receptionGuards = sql.match(/has_reception_operation_access\(w\.polo\)/gi) || [];
+  const supportGuards = sql.match(/if auth\.uid\(\) is null or not ciadi_ti\.has_support_access\(\) then/gi) || [];
+  assert.equal(receptionGuards.length, 4);
+  assert.match(sql, /create or replace function ciadi_ti\.has_reception_warehouse_access\(p_warehouse_id uuid\)/i);
+  assert.match(sql, /create or replace function ciadi_ti\.has_reception_goods_receipt_access\(p_receipt_id uuid\)/i);
+  assert.match(sql, /using \(ciadi_ti\.has_reception_warehouse_access\(warehouse_id\)\)/i);
+  assert.match(sql, /using \(ciadi_ti\.has_reception_goods_receipt_access\(receipt_id\)\)/i);
+  assert.equal(supportGuards.length, 1);
+  assert.equal((sql.match(/if auth\.uid\(\) is null or/gi) || []).length, 4);
   assert.match(sql, /set search_path = pg_catalog, public, ciadi_ti/gi);
+});
+
+
+test('a proposta SQL do ciclo de inventário usa dollar-quote válido nas funções auxiliares RLS', () => {
+  const sql = read('supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql');
+  assert.doesNotMatch(sql, /^\s*as \$(?!\$)\s*$/m);
+  assert.doesNotMatch(sql, /^\s*\$;\s*$/m);
 });
