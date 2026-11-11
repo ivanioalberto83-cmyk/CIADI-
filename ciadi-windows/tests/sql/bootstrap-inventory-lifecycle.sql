@@ -53,6 +53,16 @@ create table public.agendamentos (
 );
 grant select on public.especialidades to authenticated;
 
+create table public.finance_centros_custo (
+  id uuid primary key default gen_random_uuid(),
+  codigo text not null unique,
+  nome text not null,
+  ativo boolean not null default true
+);
+insert into public.finance_centros_custo(id,codigo,nome,ativo) values
+ ('31000000-0000-4000-8000-000000000001','CC-001','CIADI POLO TALATONA',true),
+ ('31000000-0000-4000-8000-000000000002','CC-002','CIADI POLO JARDIM DE ROSAS',true);
+
 create schema if not exists ciadi_ti;
 grant usage on schema ciadi_ti to authenticated;
 
