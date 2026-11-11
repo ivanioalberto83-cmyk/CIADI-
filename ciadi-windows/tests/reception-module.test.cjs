@@ -233,6 +233,17 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
   assert.equal(calls.some(call => call.rpcName === 'insert' || call.rpcName === 'update'), false);
 });
 
+test('a pesquisa de marcações falha fechada quando não existe polo autorizado na sessão', async () => {
+  let calls = 0;
+  const supabase = { schema(name) { assert.equal(name, 'ciadi_reception'); return { async rpc() { calls++; return { data: [], error: null }; } }; } };
+  const repository = reception.createReceptionRepository({ supabase });
+  await assert.rejects(
+    () => repository.searchAppointments({ term: 'Maria', dateFrom: '2026-11-09', dateTo: '2026-11-09' }),
+    /polo autorizado/
+  );
+  assert.equal(calls, 0);
+});
+
 test('check-in de marcação exige selecção de resultado existente, sem introdução manual de UUID', () => {
   const fs = require('node:fs');
   const path = require('node:path');
