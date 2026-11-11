@@ -93,6 +93,8 @@ create table ciadi_ti.items (
   id uuid primary key default gen_random_uuid(),
   sku text not null,
   name text not null,
+  unit_of_measure text not null default 'unidade',
+  minimum_stock numeric(14,3) not null default 0,
   active boolean not null default true
 );
 create table ciadi_ti.purchase_requests (
