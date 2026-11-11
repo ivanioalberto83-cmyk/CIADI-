@@ -1,0 +1,44 @@
+name: Validate CIADI video room
+
+on:
+  pull_request:
+    paths:
+      - "sala.html"
+      - ".github/workflows/validate-ciadi-video-room.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check inline module JavaScript syntax
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const html = fs.readFileSync('sala.html', 'utf8');
+          const matches = [...html.matchAll(/<script\s+type=["']module["']\s*>([\s\S]*?)<\/script>/gi)];
+          if (matches.length !== 1) {
+            console.error('Expected exactly one inline module script in sala.html.');
+            process.exit(1);
+          }
+          fs.writeFileSync('/tmp/ciadi-sala-check.mjs', matches[0][1], 'utf8');
+          console.log('Extracted the Sala de Vídeo module script.');
+          NODE
+          node --check /tmp/ciadi-sala-check.mjs
+      - name: Check required integration markers
+        shell: bash
+        run: |
+          grep -q 'ciadi-video-token' sala.html
+          grep -q 'agendamento_id' sala.html
+          grep -q 'livekit-client' sala.html
+          echo "Required integration markers found."
