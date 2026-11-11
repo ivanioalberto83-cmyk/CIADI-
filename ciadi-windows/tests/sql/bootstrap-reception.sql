@@ -13,6 +13,53 @@ as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$
 grant usage on schema auth to authenticated;
 grant execute on function auth.uid() to authenticated;
 
+create schema ciadi_ti;
+create table public.perfis (
+  id uuid primary key,
+  tipo text not null,
+  ativo boolean not null default true
+);
+create table ciadi_ti.reception_user_polos (
+  user_id uuid not null references public.perfis(id) on delete cascade,
+  polo_code text not null check (polo_code in ('talatona','jardim_de_rosas')),
+  active boolean not null default true,
+  primary key(user_id,polo_code)
+);
+create or replace function ciadi_ti.has_support_access()
+returns boolean language sql stable security definer
+set search_path=pg_catalog,public,auth
+as $
+  select auth.uid() is not null and exists (
+    select 1 from public.perfis p
+    where p.id=auth.uid() and p.ativo=true
+      and p.tipo in ('admin','gestor','suporte_informatica')
+  );
+$;
+create or replace function ciadi_ti.has_reception_operation_access(p_polo_code text)
+returns boolean language sql stable security definer
+set search_path=pg_catalog,public,ciadi_ti,auth
+as $
+  select auth.uid() is not null
+    and p_polo_code in ('talatona','jardim_de_rosas')
+    and (
+      ciadi_ti.has_support_access()
+      or exists (
+        select 1 from public.perfis p
+        where p.id=auth.uid() and p.ativo=true
+          and (
+            p.tipo in ('admin','gestor')
+            or (p.tipo='operador' and exists (
+              select 1 from ciadi_ti.reception_user_polos rup
+              where rup.user_id=p.id and rup.polo_code=p_polo_code and rup.active=true
+            ))
+          )
+      )
+    );
+$;
+grant usage on schema ciadi_ti to authenticated;
+grant execute on function ciadi_ti.has_support_access() to authenticated;
+grant execute on function ciadi_ti.has_reception_operation_access(text) to authenticated;
+
 create table public.especialidades (
   id uuid primary key default gen_random_uuid(),
   nome text not null,
