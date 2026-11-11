@@ -73,3 +73,9 @@ test('Perfil e polo da estação não atribuem permissões; Suporte e Recepção
   assert.match(dashboard, /rpc\('has_reception_operation_access'/);
   assert.doesNotMatch(dashboard, /!\['admin','gestor','profissional'\]\.includes\(profile\.tipo\)/);
 });
+
+test('a validação de permissões do servidor é assíncrona e não quebra o script', () => {
+  assert.match(dashboard, /async function validateStationAccess\(\)/);
+  assert.match(dashboard, /await sb\.schema\('ciadi_ti'\)\.rpc\('has_support_access'\)/);
+  assert.match(dashboard, /await sb\.schema\('ciadi_ti'\)\.rpc\('has_reception_operation_access'/);
+});
