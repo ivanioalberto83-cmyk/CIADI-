@@ -33,7 +33,8 @@ test('Reception retains its dedicated workspace and RH remains restricted to its
   const service = require('../../renderer/core/station-profile-service.js');
   const entries = registry.listNavigationEntries();
   assert.deepEqual(service.getVisibleEntries('rh', entries).map(entry => entry.id), ['rh']);
-  assert.deepEqual(service.getVisibleEntries('recepcao', entries).map(entry => entry.id), ['reception', 'overview', 'pedidos_site', 'agendamentos', 'pacientes', 'familias', 'triagens']);
+  assert.deepEqual(service.getVisibleEntries('recepcao', entries).map(entry => entry.id), ['reception']);
+  assert.equal(service.getVisibleEntries('recepcao', entries).some(entry => ['pacientes', 'familias', 'triagens', 'agendamentos'].includes(entry.id)), false);
 });
 
 test('unknown profiles fail closed and duplicate entries are removed without mutation', () => {
