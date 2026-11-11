@@ -179,6 +179,14 @@ begin
   if v_count <> 1 then raise exception 'O operador de Talatona deve ver apenas uma requisição de stock; resultado: %.',v_count; end if;
   select count(*) into v_count from ciadi_ti.stock_requisition_lines;
   if v_count <> 1 then raise exception 'O operador de Talatona deve ver apenas uma linha de stock; resultado: %.',v_count; end if;
+  select count(*) into v_count from ciadi_ti.warehouses;
+  if v_count <> 1 then raise exception 'O operador de Talatona deve ver apenas o armazém do seu polo; resultado: %.',v_count; end if;
+  select count(*) into v_count from ciadi_ti.items;
+  if v_count <> 2 then raise exception 'O operador deve consultar o catálogo global de artigos; resultado: %.',v_count; end if;
+  select count(*) into v_count from public.finance_centros_custo;
+  if v_count <> 1 then raise exception 'O operador de Talatona deve ver apenas o centro de custo CC-001; resultado: %.',v_count; end if;
+  select count(*) into v_count from ciadi_ti.stock_balances;
+  if v_count <> 2 then raise exception 'O operador deve ver os saldos dos artigos apenas no seu armazém; resultado: %.',v_count; end if;
   begin
     perform ciadi_reception.reception_search_appointments('CIADI-TEST-001',current_date,current_date+1,'jardim_de_rosas');
     raise exception 'O operador de Talatona não pode pesquisar marcações de Jardim de Rosas.';
@@ -198,6 +206,14 @@ begin
   if v_count <> 2 then raise exception 'O Suporte deve ver as duas requisições de stock dos dois polos.'; end if;
   select count(*) into v_count from ciadi_ti.stock_requisition_lines;
   if v_count <> 2 then raise exception 'O Suporte deve ver as duas linhas de stock dos dois polos.'; end if;
+  select count(*) into v_count from ciadi_ti.warehouses;
+  if v_count <> 2 then raise exception 'O Suporte deve ver os armazéns dos dois polos.'; end if;
+  select count(*) into v_count from ciadi_ti.items;
+  if v_count <> 2 then raise exception 'O Suporte deve ver o catálogo global de artigos.'; end if;
+  select count(*) into v_count from public.finance_centros_custo;
+  if v_count <> 2 then raise exception 'O Suporte deve ver os centros de custo dos dois polos.'; end if;
+  select count(*) into v_count from ciadi_ti.stock_balances;
+  if v_count <> 4 then raise exception 'O Suporte deve ver os saldos de artigos nos dois armazéns.'; end if;
 end;
 $function$;
 
