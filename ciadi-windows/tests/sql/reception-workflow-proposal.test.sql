@@ -23,6 +23,21 @@ insert into ciadi_ti.reception_user_polos(user_id,polo_code,active) values
 insert into public.agendamentos(id,paciente_id,data_hora,duracao_minutos,tipo,estado,modalidade,polo_code) values
  ('23000000-0000-4000-8000-000000000001','22000000-0000-4000-8000-000000000001',now()+interval '1 hour',60,'consulta','confirmada','presencial','jardim_de_rosas');
 
+insert into ciadi_ti.warehouses(id,code,name,polo,active) values
+ ('32000000-0000-4000-8000-000000000001','WH-TAL','Armazém Talatona','talatona',true),
+ ('32000000-0000-4000-8000-000000000002','WH-JR','Armazém Jardim de Rosas','jardim_de_rosas',true);
+insert into ciadi_ti.items(id,sku,name,active) values
+ ('33000000-0000-4000-8000-000000000001','ITEM-TAL','Material de homologação Talatona',true),
+ ('33000000-0000-4000-8000-000000000002','ITEM-JR','Material de homologação Jardim de Rosas',true);
+insert into ciadi_ti.stock_requisitions(
+ id,polo_code,warehouse_id,cost_center_id,purpose,priority,status,requested_by,idempotency_key
+) values
+ ('34000000-0000-4000-8000-000000000001','talatona','32000000-0000-4000-8000-000000000001','31000000-0000-4000-8000-000000000001','Reposição de consumíveis de recepção','normal','submitted','24000000-0000-4000-8000-000000000001','TEST-REQ-TAL'),
+ ('34000000-0000-4000-8000-000000000002','jardim_de_rosas','32000000-0000-4000-8000-000000000002','31000000-0000-4000-8000-000000000002','Reposição de consumíveis de recepção','normal','submitted','24000000-0000-4000-8000-000000000001','TEST-REQ-JR');
+insert into ciadi_ti.stock_requisition_lines(id,requisition_id,item_id,quantity_requested,quantity_approved,quantity_issued,unit_of_measure) values
+ ('35000000-0000-4000-8000-000000000001','34000000-0000-4000-8000-000000000001','33000000-0000-4000-8000-000000000001',2,0,0,'unidade'),
+ ('35000000-0000-4000-8000-000000000002','34000000-0000-4000-8000-000000000002','33000000-0000-4000-8000-000000000002',2,0,0,'unidade');
+
 set role authenticated;
 
 select set_config('request.jwt.claim.sub','24000000-0000-4000-8000-000000000001',false);
@@ -160,6 +175,10 @@ begin
   end if;
   select count(*) into v_count from ciadi_reception.front_desk_visits;
   if v_count <> 2 then raise exception 'O operador de Talatona deve ver apenas dois atendimentos; resultado: %.',v_count; end if;
+  select count(*) into v_count from ciadi_ti.stock_requisitions;
+  if v_count <> 1 then raise exception 'O operador de Talatona deve ver apenas uma requisição de stock; resultado: %.',v_count; end if;
+  select count(*) into v_count from ciadi_ti.stock_requisition_lines;
+  if v_count <> 1 then raise exception 'O operador de Talatona deve ver apenas uma linha de stock; resultado: %.',v_count; end if;
   begin
     perform ciadi_reception.reception_search_appointments('CIADI-TEST-001',current_date,current_date+1,'jardim_de_rosas');
     raise exception 'O operador de Talatona não pode pesquisar marcações de Jardim de Rosas.';
@@ -175,6 +194,10 @@ declare v_count integer;
 begin
   select count(*) into v_count from ciadi_reception.front_desk_visits;
   if v_count <> 3 then raise exception 'O Suporte deve ver os três atendimentos dos dois polos.'; end if;
+  select count(*) into v_count from ciadi_ti.stock_requisitions;
+  if v_count <> 2 then raise exception 'O Suporte deve ver as duas requisições de stock dos dois polos.'; end if;
+  select count(*) into v_count from ciadi_ti.stock_requisition_lines;
+  if v_count <> 2 then raise exception 'O Suporte deve ver as duas linhas de stock dos dois polos.'; end if;
 end;
 $function$;
 
