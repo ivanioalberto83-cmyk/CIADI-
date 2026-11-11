@@ -27,6 +27,32 @@ create table public.perfis (
   tipo text not null
 );
 
+create table public.especialidades (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null,
+  ativo boolean not null default true,
+  ordem integer not null default 0
+);
+create table public.pacientes (
+  id uuid primary key default gen_random_uuid(),
+  nome_completo text not null,
+  codigo_paciente text,
+  nome_responsavel text
+);
+create table public.agendamentos (
+  id uuid primary key default gen_random_uuid(),
+  paciente_id uuid not null references public.pacientes(id),
+  data_hora timestamptz not null,
+  duracao_minutos integer not null default 60,
+  tipo text not null default 'consulta',
+  estado text not null default 'agendada',
+  modalidade text not null default 'presencial',
+  checkin_em timestamptz,
+  updated_at timestamptz not null default now(),
+  atualizado_por uuid
+);
+grant select on public.especialidades to authenticated;
+
 create schema if not exists ciadi_ti;
 grant usage on schema ciadi_ti to authenticated;
 
