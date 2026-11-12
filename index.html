@@ -435,8 +435,13 @@ async function receiveFinanceDocument(documentId){
       if(error)throw error;
       const row=Array.isArray(r)?r[0]:r;
       if(!row?.pagamento_id)throw new Error('Pagamento registado sem identificador.');
-      const integ=await sb.rpc('ciadi_finance_integrar_pagamento',{p_pagamento_id:row.pagamento_id,p_caixa_id:caixaId});
-      if(integ.error)throw integ.error;
+      const integ=await sb.rpc('ciadi_finance_integrar_pagamento',{p_pagamento_id:row.pagamento_id,p_caixa_id:null});
+      if(integ.error||integ.data?.ok===false){
+        const motivo=integ.error?.message||integ.data?.mensagem||'Integração contabilística pendente.';
+        await audit('PAGAMENTO_INTEGRACAO_PENDENTE','finance_pagamentos',row.pagamento_id,{documento_id:documentId,valor,metodo,recibo_id:row.recibo_id,recibo_no:row.recibo_no,motivo});
+        toast(`Pagamento registado · Recibo ${row.recibo_no||''}. Integração contabilística pendente: ${motivo}`);
+        closeModal();financeInvoices();if(row.recibo_id)setTimeout(()=>previewFinanceInvoice(row.recibo_id),150);return;
+      }
       await audit('RECEBER_PAGAMENTO','finance_pagamentos',row.pagamento_id,{documento_id:documentId,valor,metodo,recibo_id:row.recibo_id,recibo_no:row.recibo_no,integracao:integ.data});
       toast(`Pagamento registado · Recibo ${row.recibo_no||''}`);closeModal();financeInvoices();
       if(row.recibo_id)setTimeout(()=>previewFinanceInvoice(row.recibo_id),150);
