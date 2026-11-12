@@ -97,8 +97,8 @@ RETURNS void LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
 
 CREATE OR REPLACE FUNCTION ciadi_ti.has_reception_operation_access(p_polo_code text)
 RETURNS boolean LANGUAGE sql STABLE AS $$
-  SELECT p_polo_code = current_setting('ciadi.test_allowed_polo', true)
-$$;
+  SELECT p_polo_code = ANY(string_to_array(current_setting('ciadi.test_allowed_polo', true), ','))
+$;
 CREATE OR REPLACE FUNCTION ciadi_ti.has_finance_approval()
 RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
 
