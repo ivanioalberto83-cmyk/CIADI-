@@ -42,3 +42,13 @@ test('proposta cria pagamento, recibo RC, movimento de caixa e auditoria na mesm
   assert.match(sql, /grant execute on function[\s\S]*to authenticated/i);
   assert.match(sql, /PROPOSTA APENAS/i);
 });
+
+test('interface e repositório não permitem pagamento sem caixa seleccionado', () => {
+  const moduleSource = fs.readFileSync(
+    path.join(__dirname, '../../renderer/modules/reception-module.js'),
+    'utf8'
+  );
+  assert.match(moduleSource, /p_caixa_id: requiredId\(input\.cashboxId, 'Caixa'\)/);
+  assert.match(moduleSource, /<select name="cashboxId" required class="border rounded-lg p-2">/);
+  assert.match(moduleSource, /Seleccione o caixa obrigatório/);
+});
