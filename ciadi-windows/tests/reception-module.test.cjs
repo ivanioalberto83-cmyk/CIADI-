@@ -1171,3 +1171,45 @@ test('renderHome inicializa a pesquisa de marcações com o polo autorizado da e
   const renderHome = source.slice(start, end);
   assert.match(renderHome, /repository = createReceptionRepository\(\{\s*supabase,\s*poloCode: activePolo\s*\}\)/);
 });
+
+
+test('painéis de negócio da Recepção expõem detalhe de serviços e preços com dados reais', () => {
+  const model = reception.buildReceptionBusinessDetailModel({
+    services: { rows: [
+      { codigo: 'ABA-01', nome: 'Terapia ABA', categoria: 'Terapia', preco_base: 15000, taxa_imposto: 0, codigo_imposto: 'ISE' },
+      { codigo: 'TO-01', nome: 'Terapia Ocupacional', categoria: 'Terapia', preco_base: 18000, taxa_imposto: 0, codigo_imposto: 'ISE' }
+    ], error: null }
+  }, 'services');
+  assert.equal(model.title, 'Serviços e preços');
+  assert.equal(model.rows.length, 2);
+  assert.equal(model.rows[0][0], 'ABA-01');
+  assert.match(model.rows[0][3], /15/);
+  assert.equal(model.error, false);
+});
+
+test('detalhes de negócio distinguem acesso negado de ausência de registos', () => {
+  const denied = reception.buildReceptionBusinessDetailModel({
+    stock: { rows: [], error: { code: '42501', message: 'permission denied' } }
+  }, 'stock');
+  assert.equal(denied.denied, true);
+  assert.match(denied.status, /não tem autorização/i);
+
+  const empty = reception.buildReceptionBusinessDetailModel({
+    stock: { rows: [], error: null }
+  }, 'stock');
+  assert.equal(empty.denied, false);
+  assert.match(empty.status, /Sem registos reais disponíveis/i);
+});
+
+test('detalhe do razão de movimentos apresenta os campos operacionais e controlos funcionais', () => {
+  const html = reception.renderReceptionBusinessDetailPanel({
+    movements: { rows: [
+      { movement_type: 'entrada', reference: 'GR-2026-001', quantity_delta: 12, created_at: '2026-11-12T08:00:00.000Z' }
+    ], error: null }
+  }, 'movements');
+  assert.match(html, /Razão de movimentos de stock/);
+  assert.match(html, /GR-2026-001/);
+  assert.match(html, /data-business-refresh/);
+  assert.match(html, /data-business-close/);
+  assert.match(html, /role="dialog"/);
+});
