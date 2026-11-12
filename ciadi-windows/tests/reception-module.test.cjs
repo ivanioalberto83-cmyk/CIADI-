@@ -1031,7 +1031,8 @@ test('pedidos de alteração/anulação de factura passam pelo RPC central e a d
   });
   await finance.requestInvoiceChange({
     documentId: 'invoice-1', requestType: 'anulacao',
-    reason: 'Factura emitida com dados incorrectos'
+    reason: 'Factura emitida com dados incorrectos',
+    requestedChanges: { description: 'Corrigir o nome do adquirente na factura' }
   });
   await finance.decideInvoiceChange({
     requestId: 'request-1', decision: 'aprovado', note: 'Aprovado pelo ADM'
@@ -1042,6 +1043,7 @@ test('pedidos de alteração/anulação de factura passam pelo RPC central e a d
   ]);
   assert.equal(calls[0].args.p_document_id, 'invoice-1');
   assert.equal(calls[0].args.p_request_type, 'anulacao');
+  assert.deepEqual(calls[0].args.p_requested_changes, { description: 'Corrigir o nome do adquirente na factura' });
   assert.equal(calls[1].args.p_request_id, 'request-1');
   assert.equal(calls[1].args.p_decision, 'aprovado');
 });
