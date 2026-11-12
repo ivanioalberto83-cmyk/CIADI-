@@ -16,6 +16,7 @@ DECLARE
   v_state text;
   v_company uuid := '33333333-3333-4333-8333-333333333333';
   v_cashbox uuid := '44444444-4444-4444-8444-444444444444';
+  v_cashbox_other uuid := 'aaaaaaaa-1111-4111-8111-aaaaaaaa1111';
   v_shift uuid := '55555555-5555-4555-8555-555555555555';
   v_operator uuid := '66666666-6666-4666-8666-666666666666';
   v_invoice uuid := '77777777-7777-4777-8777-777777777777';
@@ -150,6 +151,20 @@ BEGIN
   ) VALUES
     (v_invoice,'N','emitido','aberto',100,v_company,'FT-TST-001','AOA',v_actor,'FT'),
     (v_overpay_invoice,'N','emitido','aberto',50,v_company,'FT-TST-002','AOA',v_actor,'FT');
+
+  -- O mesmo operador pode estar autorizado em ambos os polos, mas não pode
+  -- utilizar a caixa do polo Jardim de Rosas numa operação Talatona.
+  PERFORM set_config('ciadi.test_allowed_polo','talatona,jardim_de_rosas',true);
+  INSERT INTO public.finance_caixas(id,empresa_id,estado,codigo,nome,polo_code)
+  VALUES (v_cashbox_other,v_company,'aberto','CX-ROS','Caixa Jardim de Rosas','jardim_de_rosas');
+  BEGIN
+    PERFORM * FROM public.finance_registar_pagamento(
+      v_invoice,10,'numerário','payment-cross-polo','talatona',null,v_cashbox_other,'caixa de outro polo'
+    );
+    RAISE EXCEPTION 'Esperava rejeição de caixa pertencente a outro polo';
+  EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+  END;
+  PERFORM set_config('ciadi.test_allowed_polo','talatona',true);
 
   SELECT * INTO v_payment FROM public.finance_registar_pagamento(
     v_invoice,40,'numerário','payment-key-001','talatona','PAY-REF-001',v_cashbox,'pagamento parcial'
