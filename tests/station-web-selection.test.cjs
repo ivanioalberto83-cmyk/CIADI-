@@ -33,3 +33,9 @@ test('installer-provided station profile remains authoritative in the desktop ap
   assert.match(html, /stationParams\.has\('ciadi_profile'\)/);
   assert.match(html, /stationSelection.*class="hiddenx/);
 });
+
+test('Reception operator accounts are admitted only in the Reception station', () => {
+  assert.match(html, /profile\.tipo==='operador' && stationProfile==='recepcao'/);
+  assert.match(html, /stationProfile==='recepcao' \? 'reception'/);
+  assert.match(html, /Este utilizador não possui acesso à estação seleccionada/);
+});
