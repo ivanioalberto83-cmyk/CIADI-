@@ -41,7 +41,7 @@ test('recepção não apresenta acções de alteração ou eliminação de factu
   assert.doesNotMatch(html, /data-invoice-calculate|data-invoice-edit|data-invoice-delete/);
   assert.match(html, /Cadastrar cliente\/entidade/);
   assert.doesNotMatch(html, /data-invoice-edit|data-invoice-delete|Apagar factura|Alterar factura/);
-  assert.match(html, /Não pode alterar, apagar, emitir ou anular facturas\/documentos/);
+  assert.match(html, /Não pode alterar, apagar, emitir ou anular documentos/);
 });
 
 test('proposta SQL limita Recepção a cadastro e rascunhos, sem mutação de documentos existentes', () => {
