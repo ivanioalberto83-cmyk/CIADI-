@@ -225,11 +225,11 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
     }
   };
   const repository = reception.createReceptionRepository({ supabase });
-  const result = await repository.searchAppointments({ term: 'Maria', dateFrom: '2026-11-09', dateTo: '2026-11-09' });
+  const result = await repository.searchAppointments({ term: 'Maria', dateFrom: '2026-11-09', dateTo: '2026-11-09', poloCode: 'talatona' });
   assert.equal(result.length, 1);
   assert.equal(result[0].id, 'appointment-1');
   assert.equal(calls[0].rpcName, 'reception_search_appointments');
-  assert.deepEqual(calls[0].args, { p_search_term: 'Maria', p_date_from: '2026-11-09', p_date_to: '2026-11-09' });
+  assert.deepEqual(calls[0].args, { p_search_term: 'Maria', p_date_from: '2026-11-09', p_date_to: '2026-11-09', p_polo_code: 'talatona' });
   assert.equal(calls.some(call => call.rpcName === 'insert' || call.rpcName === 'update'), false);
 });
 
@@ -1018,4 +1018,43 @@ test('renderiza estado vazio da fila sem inventar atendimentos ou visitantes', a
   assert.match(root.innerHTML, /Não existem chegadas registadas para o filtro seleccionado/);
   assert.match(root.innerHTML, /Não existem visitantes dentro do centro neste momento/);
   assert.match(root.innerHTML, /0 registo\(s\)/);
+});
+
+
+test('pedidos de alteração/anulação de factura passam pelo RPC central e a decisão é encaminhada ao ADM', async () => {
+  const calls = [];
+  const finance = reception.createReceptionFinanceRepository({
+    supabase: { async rpc(name, args) {
+      calls.push({ name, args });
+      return { data: name.endsWith('_request_invoice_change') ? 'request-1' : null, error: null };
+    } }
+  });
+  await finance.requestInvoiceChange({
+    documentId: 'invoice-1', requestType: 'anulacao',
+    reason: 'Factura emitida com dados incorrectos',
+    requestedChanges: { description: 'Corrigir o nome do adquirente na factura' }
+  });
+  await finance.decideInvoiceChange({
+    requestId: 'request-1', decision: 'aprovado', note: 'Aprovado pelo ADM'
+  });
+  assert.deepEqual(calls.map(call => call.name), [
+    'ciadi_reception_request_invoice_change',
+    'ciadi_reception_decide_invoice_change'
+  ]);
+  assert.equal(calls[0].args.p_document_id, 'invoice-1');
+  assert.equal(calls[0].args.p_request_type, 'anulacao');
+  assert.deepEqual(calls[0].args.p_requested_changes, { description: 'Corrigir o nome do adquirente na factura' });
+  assert.equal(calls[1].args.p_request_id, 'request-1');
+  assert.equal(calls[1].args.p_decision, 'aprovado');
+});
+
+test('pedido de alteração/anulação rejeita motivo curto antes de chamar o servidor', async () => {
+  let calls = 0;
+  const finance = reception.createReceptionFinanceRepository({
+    supabase: { async rpc() { calls += 1; return { data: 'request-1', error: null }; } }
+  });
+  await assert.rejects(() => finance.requestInvoiceChange({
+    documentId: 'invoice-1', requestType: 'alteracao', reason: 'Erro'
+  }), /10 caracteres/i);
+  assert.equal(calls, 0);
 });

@@ -620,6 +620,11 @@
           .order('data_emissao', { ascending: false })
           .limit(10));
       },
+      async getInvoiceChangeRequests() {
+        return rows(supabase.schema('ciadi_reception').from('invoice_change_requests')
+          .select('id,document_id,request_type,reason,requested_changes,status,requested_at,decision_note')
+          .order('requested_at', { ascending: false }).limit(50));
+      },
       async getOpenCashboxShifts() {
         return rows(supabase.from('finance_caixa_turnos')
           .select('id,caixa_id,operador_id,aberto_em,saldo_inicial,estado')
@@ -761,6 +766,31 @@
           p_caixa_id: clean(input.cashboxId, 128) || null,
           p_observacoes: clean(input.notes, 1000) || null
         });
+      },
+      async requestInvoiceChange(input = {}) {
+        const documentId = requiredId(input.documentId, 'Factura');
+        const requestType = requiredId(input.requestType, 'Tipo de pedido');
+        const reason = clean(input.reason, 2000);
+        if (!['alteracao', 'anulacao'].includes(requestType)) throw new Error('Tipo de pedido inválido.');
+        if (reason.length < 10) throw new Error('Indique um motivo com pelo menos 10 caracteres.');
+        const { data, error } = await supabase.rpc('ciadi_reception_request_invoice_change', {
+          p_document_id: documentId, p_request_type: requestType,
+          p_reason: reason, p_requested_changes: input.requestedChanges && typeof input.requestedChanges === 'object' ? input.requestedChanges : {}
+        });
+        if (error) throw error;
+        if (!data) throw new Error('O servidor não confirmou o pedido.');
+        return data;
+      },
+      async decideInvoiceChange(input = {}) {
+        const requestId = requiredId(input.requestId, 'Pedido');
+        const decision = requiredId(input.decision, 'Decisão');
+        if (!['aprovado', 'rejeitado'].includes(decision)) throw new Error('Decisão inválida.');
+        const { data, error } = await supabase.rpc('ciadi_reception_decide_invoice_change', {
+          p_request_id: requestId, p_decision: decision,
+          p_decision_note: clean(input.note, 1000) || null
+        });
+        if (error) throw error;
+        return data;
       },
       async openCashbox(input = {}) {
         return call('ciadi_abrir_caixa', {
@@ -1103,6 +1133,8 @@
     const cashboxes = list('cashboxes');
     const documents = list('documents');
     const shifts = list('shifts');
+    const invoiceChangeRequests = list('invoiceChangeRequests');
+    const canApproveInvoiceChanges = snapshot.canApproveInvoiceChanges === true;
     const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
     const issuedDocuments = documents.filter(row => row.fiscal_status === 'emitido' && row.document_status === 'emitido');
     const editableDocuments = documents.filter(row => ['em_edicao', 'rascunho', 'draft'].includes(row.document_status));
@@ -1110,7 +1142,7 @@
     const logo = brand?.logoDataUrl ? '<img src="' + esc(brand.logoDataUrl) + '" alt="Logótipo CIADI" class="h-10 w-auto object-contain">' : '<strong class="text-orange">CIADI</strong>';
     return '<section class="card p-5 space-y-4" data-reception-finance-operations>' +
       '<header class="flex items-center gap-3">' + logo + '<div><h3 class="font-black text-lg">Operações de facturação e caixa</h3><p class="text-xs text-slate-500">Formulários ligados aos motores financeiros centrais; todas as decisões são validadas pelo servidor.</p></div></header>' +
-      '<div class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>Controlo de acesso:</strong> a Recepção ainda não tem capacidade financeira homologada. As operações protegidas serão recusadas pelo servidor até à fase própria de permissões. Não existe qualquer autorização local ou contorno de RLS.</div>' +
+      '<div class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>Controlo de acesso:</strong> o operador só pode submeter pedidos de alteração/anulação. A decisão é exclusiva do ADM activo e validada no servidor. A factura original é preservada.</div>' +
       '<div class="grid xl:grid-cols-2 gap-4">' +
       '<form data-reception-invoice-form class="rounded-xl border p-4 space-y-3">' +
         '<h4 class="font-bold">Criar documento em edição</h4>' +
@@ -1128,12 +1160,13 @@
       '</div></div>' +
       '<form data-reception-payment-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registo de recebimento</h4><p class="text-xs text-amber-800">Temporariamente bloqueado: a função central de pagamentos exige document_status = N, enquanto a função de emissão actualmente grava document_status = emitido. Esta incompatibilidade deve ser corrigida e validada no motor central antes de activar recebimentos.</p><fieldset disabled class="grid md:grid-cols-4 gap-2 opacity-60"><select name="documentId" required class="border rounded-lg p-2">' + option('', 'Documento emitido') + issuedDocuments.map(row => option(row.id, row.document_no + ' · ' + row.total + ' Kz')).join('') + '</select><input name="amount" type="number" min="0.01" step="0.01" placeholder="Valor (Kz)" class="border rounded-lg p-2"><select name="method" class="border rounded-lg p-2">' + ['numerario','transferencia','tpa','deposito','multicaixa'].map(x => option(x, x)).join('') + '</select><select name="cashboxId" class="border rounded-lg p-2">' + option('', 'Caixa (opcional)') + cashboxes.map(row => option(row.id, row.nome || row.codigo || row.id)).join('') + '</select></fieldset><button type="submit" disabled class="rounded-lg border px-4 py-2 font-bold opacity-50">Registar pagamento — bloqueado</button></form>' +
       '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos em edição</h4>' + (editableDocuments.length ? editableDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar</button><button type="button" data-invoice-calculate="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Calcular</button><button type="button" disabled title="A emissão oficial depende do QR e do arquivo documental central." class="rounded-lg border px-3 py-1 opacity-50 cursor-not-allowed">Emitir — pendente de autenticação</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem documentos em edição visíveis.</p>') + '</div>' +
-      '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos emitidos — PDF</h4>' + (issuedDocuments.length ? issuedDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + ' · ' + esc(receptionMoney(row.total)) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar A4</button><button type="button" data-invoice-pdf-export="' + esc(row.id) + '" class="rounded-lg bg-orange text-white px-3 py-1">Guardar PDF</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem facturas emitidas e validadas visíveis.</p>') + '<p class="text-xs text-amber-800 mt-3">A pré-visualização é composta com os dados reais do motor financeiro. A exportação gera PDF A4 no CIADI Desktop e guarda-o no computador. O QR oficial e o arquivo digital central continuam dependentes da integração do servidor.</p></div>' +
+      '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos emitidos — PDF e pedidos ao ADM</h4>' + (issuedDocuments.length ? issuedDocuments.map(row => '<div class="border-b py-3 space-y-2 text-sm"><div class="flex flex-wrap items-center justify-between gap-2"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + ' · ' + esc(receptionMoney(row.total)) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar A4</button><button type="button" data-invoice-pdf-export="' + esc(row.id) + '" class="rounded-lg bg-orange text-white px-3 py-1">Guardar PDF</button></div></div><form data-invoice-change-request="' + esc(row.id) + '" class="grid md:grid-cols-2 gap-2"><select name="requestType" required class="border rounded-lg p-2"><option value="alteracao">Pedir alteração</option><option value="anulacao">Pedir anulação</option></select><input name="reason" minlength="10" maxlength="2000" required class="border rounded-lg p-2" placeholder="Motivo obrigatório (mín. 10 caracteres)"><textarea name="requestedChange" maxlength="2000" rows="2" class="border rounded-lg p-2 md:col-span-2" placeholder="Descreva a alteração pretendida (obrigatório para pedidos de alteração)"></textarea><button type="submit" class="border rounded-lg px-3 py-2 font-semibold md:col-span-2">Submeter ao ADM</button></form></div>').join('') : '<p class="text-xs text-slate-500">Não existem facturas emitidas e validadas visíveis.</p>') + '<p class="text-xs text-amber-800 mt-3">O pedido não altera o documento. A execução de qualquer alteração fiscal depende de procedimento próprio após aprovação.</p></div>' +
+      '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Pedidos de alteração/anulação</h4>' + (invoiceChangeRequests.length ? invoiceChangeRequests.map(row => '<div class="border-b py-3 text-sm"><div class="flex flex-wrap justify-between gap-2"><strong>' + esc(row.request_type === 'anulacao' ? 'Anulação' : 'Alteração') + ' · ' + esc(row.document_id) + '</strong><span>' + esc(row.status) + '</span></div><p class="text-slate-600 mt-1">' + esc(row.reason) + '</p><p class="text-slate-600 mt-1">' + esc(row.requested_changes?.description || '') + '</p>' + (row.status === 'pendente' && canApproveInvoiceChanges ? '<div class="flex gap-2 mt-2"><button type="button" data-invoice-change-decision="aprovado" data-invoice-change-id="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Aprovar</button><button type="button" data-invoice-change-decision="rejeitado" data-invoice-change-id="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Rejeitar</button></div>' : row.status === 'pendente' ? '<p class="text-xs text-amber-700 mt-1">A aguardar decisão exclusiva do ADM.</p>' : '<p class="text-xs text-slate-500 mt-1">' + esc(row.decision_note || row.status) + '</p>') + '</div>').join('') : '<p class="text-xs text-slate-500">Sem pedidos visíveis ou sem autorização de consulta.</p>') + '</div>' +
       '<section data-invoice-preview-host class="hidden"></section>' +
       '</section>';
   }
 
-  function create({ root: container, navigate, notify = () => {}, supabase, actorId, poloCode, companyId: configuredCompanyId } = {}) {
+  function create({ root: container, navigate, notify = () => {}, supabase, actorId, profile: currentProfile, poloCode, companyId: configuredCompanyId } = {}) {
     if (!container || typeof navigate !== 'function') {
       throw new Error('O módulo Recepção necessita do contentor e da navegação do Dashboard.');
     }
@@ -1204,7 +1237,9 @@
             services: businessSnapshot.services?.rows,
             cashboxes: businessSnapshot.cashboxes?.rows,
             documents: businessSnapshot.documents?.rows,
-            shifts: businessSnapshot.shifts?.rows
+            shifts: businessSnapshot.shifts?.rows,
+             invoiceChangeRequests: businessSnapshot.invoiceChangeRequests?.rows,
+             canApproveInvoiceChanges: currentProfile?.tipo === 'admin' && currentProfile?.ativo === true
           })}
           <section class="card p-5" data-reception-call-panel>
             <div class="flex items-center justify-between gap-3 mb-3">
@@ -1372,6 +1407,7 @@
         ['documentTypes', () => businessRepository.getActiveDocumentTypes()],
         ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
         ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
+        ['invoiceChangeRequests', () => businessRepository.getInvoiceChangeRequests()],
         ['shifts', () => businessRepository.getOpenCashboxShifts()],
         ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()],
@@ -1450,6 +1486,18 @@
               const result = await service.exportIssuedPdf(button.getAttribute('data-invoice-pdf-export'));
               notify(result?.saved ? 'PDF A4 guardado no computador: ' + (result.filePath || '') : 'Exportação PDF cancelada.');
             } finally { button.disabled = false; }
+            return;
+          }
+          if (button.hasAttribute('data-invoice-change-decision')) {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const decision = button.getAttribute('data-invoice-change-decision');
+            const requestId = button.getAttribute('data-invoice-change-id');
+            const note = globalThis.prompt ? globalThis.prompt(decision === 'aprovado' ? 'Nota da aprovação (opcional):' : 'Motivo da rejeição (opcional):') : '';
+            if (note === null) return;
+            button.disabled = true;
+            await financeRepository.decideInvoiceChange({ requestId, decision, note });
+            notify(decision === 'aprovado' ? 'Pedido aprovado pelo ADM. A execução fiscal exige o procedimento próprio.' : 'Pedido rejeitado pelo ADM.');
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
             return;
           }
           if (button.hasAttribute('data-invoice-calculate')) {
@@ -1588,6 +1636,32 @@
           } catch (error) {
             button.disabled = false;
             message.textContent = error.message || 'Não foi possível criar o rascunho.';
+          }
+          return;
+        }
+        if (form.matches('[data-invoice-change-request]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const documentId = form.getAttribute('data-invoice-change-request');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const requestedChange = String(values.requestedChange || '').trim();
+            if (values.requestType === 'alteracao' && requestedChange.length < 10) {
+              button.disabled = false;
+              notify('Descreva a alteração pretendida com pelo menos 10 caracteres.');
+              return;
+            }
+            await financeRepository.requestInvoiceChange({
+              documentId, requestType: values.requestType, reason: values.reason,
+              requestedChanges: requestedChange ? { description: requestedChange } : {}
+            });
+            notify('Pedido enviado ao ADM. A factura original não foi alterada.');
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+          } catch (error) {
+            button.disabled = false;
+            notify(error.message || 'Não foi possível submeter o pedido.');
           }
           return;
         }
