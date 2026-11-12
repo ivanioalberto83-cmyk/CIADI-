@@ -112,7 +112,7 @@ begin
     adquirente_email_snapshot,adquirente_endereco_snapshot,adquirente_pais_snapshot
   ) values (
     p_tipo_documento,p_serie_id,0,'RASCUNHO-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12)),
-    'em_edicao',p_cliente_id,now(),p_data_vencimento,
+    'N',p_cliente_id,now(),p_data_vencimento,
     coalesce((select moeda from public.finance_empresas where id=p_empresa_id),'AOA'),
     v_base,0,v_imposto,0,v_total,'pendente',nullif(trim(p_observacoes),''),auth.uid(),
     now(),now(),p_empresa_id,'MANUAL','rascunho','nao_submetido',
@@ -135,3 +135,82 @@ revoke all on function public.reception_create_finance_client(text,uuid,text,tex
 grant execute on function public.reception_create_finance_client(text,uuid,text,text,text,text,text,text,text,text) to authenticated;
 revoke all on function public.reception_create_finance_invoice_draft(text,uuid,text,uuid,uuid,uuid,numeric,date,text) from public, anon;
 grant execute on function public.reception_create_finance_invoice_draft(text,uuid,text,uuid,uuid,uuid,numeric,date,text) to authenticated;
+
+
+-- Leitura financeira estritamente read-only para utilizadores Recepção atribuídos ao polo.
+create or replace function public.reception_get_finance_workspace(p_polo_code text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, ciadi_ti, auth
+as $$
+declare v_company_id uuid; v_result jsonb;
+begin
+  if auth.uid() is null or p_polo_code not in ('talatona','jardim_de_rosas') then
+    raise exception 'Sessão ou polo inválido';
+  end if;
+  if not exists (
+    select 1 from public.perfis p
+    where p.id=auth.uid() and p.ativo=true
+      and (p.tipo in ('admin','gestor') or (
+        p.tipo='operador' and exists (
+          select 1 from ciadi_ti.reception_user_polos rup
+          where rup.user_id=p.id and rup.polo_code=p_polo_code and rup.active=true
+        )
+      ))
+  ) then raise exception 'Sem acesso financeiro para este polo'; end if;
+  select id into v_company_id from public.finance_empresas
+   where ativo=true and empresa_principal=true order by created_at limit 1;
+  if v_company_id is null then
+    return jsonb_build_object('companyId',null,'clients','[]'::jsonb,'services','[]'::jsonb,
+      'documentTypes','[]'::jsonb,'series','[]'::jsonb,'cashboxes','[]'::jsonb,
+      'documents','[]'::jsonb,'shifts','[]'::jsonb);
+  end if;
+  select jsonb_build_object(
+    'companyId',v_company_id,
+    'clients',coalesce((select jsonb_agg(jsonb_build_object(
+      'id',c.id,'nome',c.nome,'nome_comercial',c.nome_comercial,'nif',c.nif,
+      'email',c.email,'telefone',c.telefone,'tipo',c.tipo,'empresa_id',c.empresa_id
+    ) order by c.nome) from public.finance_clientes c
+      where c.ativo=true and (c.empresa_id is null or c.empresa_id=v_company_id)
+      limit 200),'[]'::jsonb),
+    'services',coalesce((select jsonb_agg(jsonb_build_object(
+      'id',s.id,'codigo',s.codigo,'nome',s.nome,'unidade',s.unidade,
+      'preco_base',s.preco_base,'taxa_imposto',s.taxa_imposto,'empresa_id',s.empresa_id
+    ) order by s.nome) from public.finance_servicos s
+      where s.ativo=true and (s.empresa_id is null or s.empresa_id=v_company_id)
+      limit 200),'[]'::jsonb),
+    'documentTypes',coalesce((select jsonb_agg(jsonb_build_object(
+      'id',t.id,'codigo',t.codigo,'nome',t.nome,'natureza',t.natureza,
+      'exige_cliente',t.exige_cliente,'exige_linhas',t.exige_linhas
+    ) order by t.nome) from public.finance_tipos_documento t where t.ativo=true),'[]'::jsonb),
+    'series',coalesce((select jsonb_agg(jsonb_build_object(
+      'id',s.id,'codigo',s.codigo,'nome',s.nome,'tipo_documento',s.tipo_documento,
+      'ano',s.ano,'ativa',s.ativa,'estado',s.estado,'empresa_id',s.empresa_id
+    ) order by s.ano desc) from public.finance_series s
+      where s.ativa=true and s.estado='ativa' and (s.empresa_id is null or s.empresa_id=v_company_id)
+    ),'[]'::jsonb),
+    'cashboxes',coalesce((select jsonb_agg(jsonb_build_object(
+      'id',c.id,'codigo',c.codigo,'nome',c.nome,'localizacao',c.localizacao,
+      'estado',c.estado,'moeda',c.moeda
+    ) order by c.nome) from public.finance_caixas c where c.empresa_id=v_company_id),'[]'::jsonb),
+    'documents',coalesce((select jsonb_agg(jsonb_build_object(
+      'id',d.id,'document_no',d.document_no,'tipo_documento',d.tipo_documento,
+      'document_status',d.document_status,'data_emissao',d.data_emissao,'total',d.total,
+      'estado_pagamento',d.estado_pagamento,'fiscal_status',d.fiscal_status,'empresa_id',d.empresa_id
+    ) order by d.data_emissao desc) from (
+      select * from public.finance_documentos where empresa_id=v_company_id
+      order by data_emissao desc limit 30
+    ) d),'[]'::jsonb),
+    'shifts',coalesce((select jsonb_agg(jsonb_build_object(
+      'id',t.id,'caixa_id',t.caixa_id,'operador_id',t.operador_id,
+      'aberto_em',t.aberto_em,'saldo_inicial',t.saldo_inicial,'estado',t.estado
+    ) order by t.aberto_em desc) from public.finance_caixa_turnos t
+      where t.estado='aberto' limit 20),'[]'::jsonb)
+  ) into v_result;
+  return v_result;
+end;
+$$;
+revoke all on function public.reception_get_finance_workspace(text) from public, anon;
+grant execute on function public.reception_get_finance_workspace(text) to authenticated;
