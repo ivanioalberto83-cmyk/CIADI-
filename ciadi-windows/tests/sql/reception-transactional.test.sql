@@ -14,6 +14,13 @@ DECLARE
   v_balance numeric;
   v_count integer;
   v_state text;
+  v_company uuid := '33333333-3333-4333-8333-333333333333';
+  v_cashbox uuid := '44444444-4444-4444-8444-444444444444';
+  v_shift uuid := '55555555-5555-4555-8555-555555555555';
+  v_operator uuid := '66666666-6666-4666-8666-666666666666';
+  v_invoice uuid := '77777777-7777-4777-8777-777777777777';
+  v_overpay_invoice uuid := '88888888-8888-4888-8888-888888888888';
+  v_payment record;
 BEGIN
   PERFORM set_config('request.jwt.claim.sub',v_actor::text,true);
   PERFORM set_config('ciadi.test_allowed_polo','talatona',true);
@@ -122,6 +129,73 @@ BEGIN
     GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
     IF v_state <> 'P0001' THEN RAISE; END IF;
   END;
+
+
+  -- Successful partial and final payments: RC, payment, cash movement and audit are atomic.
+  PERFORM set_config('ciadi.test_finance_caps','receber,recibo',true);
+  PERFORM set_config('ciadi.test_operator_id',v_operator::text,true);
+  INSERT INTO public.finance_caixas(id,empresa_id,estado,codigo,nome)
+  VALUES (v_cashbox,v_company,'aberto','CX-TST','Caixa de teste');
+  INSERT INTO public.finance_caixa_turnos(id,caixa_id,operador_id,estado)
+  VALUES (v_shift,v_cashbox,v_operator,'aberto');
+  INSERT INTO public.finance_series(
+    id,tipo_documento,proximo_numero,ultimo_numero,codigo,ano,activa,estado,empresa_id
+  ) VALUES ('99999999-9999-4999-8999-999999999999','RC',1,0,'RC-TST',2026,true,'ativa',v_company);
+  INSERT INTO public.finance_documentos(
+    id,document_status,fiscal_status,estado_pagamento,total,empresa_id,document_no,
+    moeda,criado_por,tipo_documento
+  ) VALUES
+    (v_invoice,'N','emitido','aberto',100,v_company,'FT-TST-001','AOA',v_actor,'FT'),
+    (v_overpay_invoice,'N','emitido','aberto',50,v_company,'FT-TST-002','AOA',v_actor,'FT');
+
+  SELECT * INTO v_payment FROM public.finance_registar_pagamento(
+    v_invoice,40,'numerário','PAY-REF-001',v_cashbox,'pagamento parcial'
+  );
+  IF v_payment.estado_pagamento <> 'parcial' OR v_payment.recibo_no <> 'RC-TST/1' THEN
+    RAISE EXCEPTION 'Primeiro pagamento/recibo inesperado: %',row_to_json(v_payment);
+  END IF;
+  SELECT * INTO v_payment FROM public.finance_registar_pagamento(
+    v_invoice,60,'transferência','PAY-REF-002',v_cashbox,'liquidação'
+  );
+  IF v_payment.estado_pagamento <> 'pago' OR v_payment.recibo_no <> 'RC-TST/2' THEN
+    RAISE EXCEPTION 'Liquidação/recibo inesperado: %',row_to_json(v_payment);
+  END IF;
+  IF (SELECT estado_pagamento FROM public.finance_documentos WHERE id=v_invoice) <> 'pago' THEN
+    RAISE EXCEPTION 'A factura não transitou para pago';
+  END IF;
+  IF (SELECT count(*) FROM public.finance_pagamentos WHERE documento_id=v_invoice) <> 2
+     OR (SELECT count(*) FROM public.finance_documentos WHERE documento_origem_id=v_invoice AND tipo_documento='RC') <> 2
+     OR (SELECT count(*) FROM public.finance_movimentos_caixa WHERE pagamento_id IN (
+       SELECT id FROM public.finance_pagamentos WHERE documento_id=v_invoice
+     )) <> 2 THEN
+    RAISE EXCEPTION 'Pagamento, recibos e movimentos de caixa não ficaram sincronizados';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.finance_movimentos_caixa
+    WHERE pagamento_id IN (SELECT id FROM public.finance_pagamentos WHERE documento_id=v_invoice)
+      AND operador_id <> v_operator
+  ) THEN
+    RAISE EXCEPTION 'Movimento de caixa não preservou o operador interno do turno';
+  END IF;
+  IF (SELECT count(*) FROM public.finance_auditoria_fiscal WHERE documento_id=v_invoice AND evento='PAGAMENTO') <> 2 THEN
+    RAISE EXCEPTION 'Faltam eventos de auditoria dos pagamentos';
+  END IF;
+
+  -- Overpayment is rejected and does not leave a payment, RC or cash movement.
+  BEGIN
+    PERFORM * FROM public.finance_registar_pagamento(
+      v_overpay_invoice,60,'numerário','PAY-OVER-001',v_cashbox,'excede saldo'
+    );
+    RAISE EXCEPTION 'Esperava rejeição de pagamento superior ao saldo';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    GET STACKED DIAGNOSTICS v_state = MESSAGE_TEXT;
+    IF v_state NOT LIKE 'Pagamento excede o saldo em aberto:%' THEN RAISE; END IF;
+  END;
+  IF EXISTS (SELECT 1 FROM public.finance_pagamentos WHERE documento_id=v_overpay_invoice)
+     OR EXISTS (SELECT 1 FROM public.finance_documentos WHERE documento_origem_id=v_overpay_invoice)
+     OR EXISTS (SELECT 1 FROM public.finance_movimentos_caixa WHERE descricao LIKE '%FT-TST-002%') THEN
+    RAISE EXCEPTION 'Pagamento rejeitado deixou registos parciais';
+  END IF;
 
   IF (SELECT count(*) FROM ciadi_ti.audit_events WHERE table_name='stock_movements') < 3 THEN
     RAISE EXCEPTION 'Faltam eventos de auditoria dos movimentos de stock';
