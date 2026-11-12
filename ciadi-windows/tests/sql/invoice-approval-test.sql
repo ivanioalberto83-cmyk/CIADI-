@@ -30,6 +30,13 @@ begin
         fiscal_status='emitido'
     where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   begin
+    delete from public.finance_documentos
+      where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    raise exception 'Falha: operador conseguiu eliminar factura emitida';
+  exception when others then
+    if sqlerrm = 'Falha: operador conseguiu eliminar factura emitida' then raise; end if;
+  end;
+  begin
     update public.finance_documentos set total=1
       where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     raise exception 'Falha: operador conseguiu alterar total da factura';
@@ -39,22 +46,20 @@ begin
 end $$;
 reset role;
 
--- Apenas ADM activo decide; após aprovação, alteração fiscal pelo ADM é permitida.
+-- Apenas ADM activo decide; a decisão fica registada sem alterar a factura original.
 set role authenticated;
 select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
 select public.ciadi_reception_decide_invoice_change(
  (select id from ciadi_reception.invoice_change_requests limit 1),
  'aprovado','Validado pelo ADM'
 );
-update public.finance_documentos set total=95
- where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 do $$
 begin
   if (select status from ciadi_reception.invoice_change_requests limit 1) <> 'aprovado' then
     raise exception 'A decisão do ADM não foi registada';
   end if;
-  if (select total from public.finance_documentos where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') <> 95 then
-    raise exception 'ADM não conseguiu executar alteração autorizada';
+  if (select total from public.finance_documentos where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') <> 100 then
+    raise exception 'A factura original foi alterada indevidamente após aprovação';
   end if;
 end $$;
 reset role;
