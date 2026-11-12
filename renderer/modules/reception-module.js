@@ -366,6 +366,16 @@
         if (!id) throw new Error('Identificador da requisição interna obrigatório.');
         return invoke('reception_submit_stock_requisition', { p_requisition_id: id });
       },
+      async decideStockRequisition(requisitionId, decision, note = '') {
+        const id = clean(requisitionId, 128);
+        if (!id) throw new Error('Identificador da requisição interna obrigatório.');
+        if (!['approved', 'rejected'].includes(decision)) throw new Error('Decisão de requisição inválida.');
+        return invoke('reception_decide_stock_requisition', {
+          p_requisition_id: id,
+          p_decision: decision,
+          p_note: clean(note, 1000) || null
+        });
+      },
       async registerStockExit(input = {}) {
         ensureActor();
         const validation = validateReceptionStockExitInput({ ...input, actorId: actor });
@@ -570,6 +580,14 @@
         const { data, error } = await supabase.rpc('reception_get_finance_workspace', { p_polo_code: clean(poloCode, 32) });
         if (error) throw error;
         if (!data || typeof data !== 'object') throw new Error('O servidor não devolveu o espaço financeiro da Recepção.');
+        return data;
+      },
+      async getStockWorkspace(poloCode) {
+        const { data, error } = await supabase.schema('ciadi_ti').rpc('reception_get_stock_workspace', {
+          p_polo_code: clean(poloCode, 32)
+        });
+        if (error) throw error;
+        if (!data || typeof data !== 'object') throw new Error('O servidor não devolveu o espaço de stock da Recepção.');
         return data;
       },
       async getActiveServices(companyId) {
@@ -1063,6 +1081,62 @@
       '</div></section>';
   }
 
+  function itemsUnitFromSelect(label = '') {
+    const match = String(label).match(/\(([^)]+)\)\s*$/);
+    return match ? clean(match[1], 40) : 'unidade';
+  }
+
+  function renderReceptionStockOperationsPanel(snapshot = {}) {
+    const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+    const warehouses = Array.isArray(snapshot.warehouses) ? snapshot.warehouses : [];
+    const costCenters = Array.isArray(snapshot.costCenters) ? snapshot.costCenters : [];
+    const requisitions = Array.isArray(snapshot.requisitions) ? snapshot.requisitions : [];
+    const actorId = clean(snapshot.actorId, 128);
+    const canApprove = snapshot.canApprove === true;
+    const available = !snapshot.error && items.length > 0 && warehouses.length > 0 && costCenters.length > 0;
+    const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
+    const itemOptions = option('', 'Seleccione o artigo') + items.map(item =>
+      option(item.id, (item.sku ? item.sku + ' · ' : '') + item.name + ' (' + (item.unit_of_measure || 'unidade') + ')')
+    ).join('');
+    const line = () => '<div data-stock-requisition-line class="grid md:grid-cols-12 gap-2 items-end">' +
+      '<label class="md:col-span-6 text-xs font-semibold">Artigo<select name="itemId" required class="mt-1 w-full border rounded-lg p-2">' + itemOptions + '</select></label>' +
+      '<label class="md:col-span-2 text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label>' +
+      '<label class="md:col-span-3 text-xs font-semibold">Observação<input name="notes" maxlength="500" class="mt-1 w-full border rounded-lg p-2"></label>' +
+      '<div class="md:col-span-1 flex justify-end"><button type="button" data-stock-remove-line class="border rounded-lg px-3 py-2" aria-label="Remover artigo">×</button></div>' +
+    '</div>';
+    const cards = requisitions.map(request => {
+      const lines = Array.isArray(request.lines) ? request.lines : [];
+      const actions = request.status === 'draft' && request.requested_by === actorId
+        ? '<button type="button" data-stock-submit="' + esc(request.id) + '" class="rounded-lg bg-orange text-white px-3 py-2 text-xs font-bold">Submeter para aprovação</button>'
+        : request.status === 'submitted' && canApprove
+          ? '<div class="flex flex-wrap gap-2"><input data-stock-decision-note maxlength="1000" placeholder="Nota da decisão (opcional)" class="border rounded-lg px-2 py-1 text-xs"><button type="button" data-stock-decide="approved" data-stock-request-id="' + esc(request.id) + '" class="rounded-lg bg-green-700 text-white px-3 py-2 text-xs font-bold">Aprovar</button><button type="button" data-stock-decide="rejected" data-stock-request-id="' + esc(request.id) + '" class="rounded-lg border px-3 py-2 text-xs font-bold">Rejeitar</button></div>'
+          : '';
+      return '<article data-stock-requisition-card class="rounded-xl border p-3 space-y-2">' +
+        '<div class="flex flex-wrap justify-between gap-2"><strong>REQ-' + esc(request.request_number) + ' · ' + esc(request.polo_code) + '</strong><span class="text-xs font-semibold">' + esc(request.status) + '</span></div>' +
+        '<p class="text-sm">' + esc(request.purpose) + '</p>' +
+        '<p class="text-xs text-slate-500">Prioridade: ' + esc(request.priority) + ' · ' + esc(request.created_at || '') + '</p>' +
+        '<ul class="text-xs list-disc pl-5">' + lines.map(item => '<li>' + esc(item.item_name || item.sku || item.item_id) + ' — ' + esc(item.quantity_requested) + ' ' + esc(item.unit_of_measure || '') + ' · aprovado: ' + esc(item.quantity_approved) + ' · entregue: ' + esc(item.quantity_issued) + '</li>').join('') + '</ul>' +
+        actions + '</article>';
+    }).join('');
+    return '<section class="card p-5 space-y-4" data-reception-stock-operations>' +
+      '<div><h3 class="font-black text-lg">Gestão de stock e requisições internas</h3><p class="text-xs text-slate-500">Consulta por polo, criação de requisições, submissão e decisão do ADM. A saída física só é registada depois da aprovação.</p></div>' +
+      (snapshot.error ? '<p class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Consulta segura do stock indisponível: ' + esc(snapshot.error.message || 'RPC de leitura ainda não homologada.') + '</p>' : '') +
+      '<form data-stock-requisition-form class="rounded-xl border p-4 space-y-3">' +
+        '<h4 class="font-bold">Nova requisição interna</h4>' +
+        '<div class="grid md:grid-cols-3 gap-2">' +
+          '<label class="text-xs font-semibold">Armazém<select name="warehouseId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o armazém') + warehouses.map(row => option(row.id, row.code + ' · ' + row.name)).join('') + '</select></label>' +
+          '<label class="text-xs font-semibold">Centro de custo<select name="costCenterId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o centro de custo') + costCenters.map(row => option(row.id, row.code + ' · ' + row.name)).join('') + '</select></label>' +
+          '<label class="text-xs font-semibold">Prioridade<select name="priority" required class="mt-1 w-full border rounded-lg p-2"><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label>' +
+        '</div>' +
+        '<label class="block text-xs font-semibold">Finalidade<textarea name="purpose" required minlength="10" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2" placeholder="Explique a necessidade dos materiais"></textarea></label>' +
+        '<div class="space-y-2"><div class="flex justify-between items-center"><strong class="text-sm">Artigos solicitados</strong><button type="button" data-stock-add-line class="border rounded-lg px-3 py-1 text-xs font-bold">Adicionar artigo</button></div><div data-stock-requisition-lines>' + line() + '</div></div>' +
+        '<p data-stock-message role="status" class="text-xs text-amber-800"></p>' +
+        '<button type="submit" class="rounded-lg bg-orange text-white px-4 py-2 font-bold"' + (available ? '' : ' disabled title="Aguarda a leitura autorizada de artigos, armazéns e centros de custo."') + '>Guardar requisição</button>' +
+      '</form>' +
+      '<div class="space-y-2"><h4 class="font-bold">Requisições do polo</h4>' + (cards || '<p class="text-sm text-slate-500">Não existem requisições para este polo.</p>') + '</div>' +
+    '</section>';
+  }
+
   function renderReceptionFinancePanel(snapshot = {}) {
     const list = key => Array.isArray(snapshot[key]) ? snapshot[key] : [];
     const clients = list('clients');
@@ -1175,6 +1249,16 @@
             ].map(([label, value]) => `<article class="card p-4"><p class="text-sm text-slate-500">${label}</p><p class="text-2xl font-black mt-1">${esc(value)}</p></article>`).join('')}
           </div>
           ${renderBusinessPanel(businessSnapshot)}
+          ${renderReceptionStockOperationsPanel({
+            items: businessSnapshot.stockItems?.rows,
+            warehouses: businessSnapshot.stockWarehouses?.rows,
+            costCenters: businessSnapshot.stockCostCenters?.rows,
+            requisitions: businessSnapshot.stockRequisitions?.rows,
+            canApprove: businessSnapshot.stockWorkspace?.canApprove,
+            error: businessSnapshot.stockWorkspace?.error,
+            actorId,
+            poloCode: activePolo || POLOS[0]
+          })}
           ${renderReceptionFinancePanel({
             clients: businessSnapshot.clients?.rows,
             documentTypes: businessSnapshot.documentTypes?.rows,
@@ -1336,19 +1420,30 @@
         const missingCompany = new Error('Empresa principal não identificada; operações financeiras indisponíveis.');
         for (const key of financeKeys) businessSnapshot[key] = { rows: [], error: missingCompany };
       }
+      let stockWorkspace = null;
+      let stockWorkspaceError = null;
+      try { stockWorkspace = await businessRepository.getStockWorkspace(polo); }
+      catch (error) { stockWorkspaceError = error; }
       const stockTasks = [
-        ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()],
-        ['stockRequisitions', () => businessRepository.getStockRequisitions()],
         ['goodsReceipts', () => businessRepository.getGoodsReceipts()],
-        ['inventoryCounts', () => businessRepository.getInventoryCounts()],
-        ['movements', () => businessRepository.getStockMovements()]
+        ['inventoryCounts', () => businessRepository.getInventoryCounts()]
       ];
       const stockResults = await Promise.all(stockTasks.map(async ([key, load]) => {
         try { return [key, { rows: await load(), error: null }]; }
         catch (error) { return [key, { rows: [], error }]; }
       }));
-      businessSnapshot = { ...businessSnapshot, ...Object.fromEntries(stockResults) };
+      businessSnapshot = {
+        ...businessSnapshot,
+        stock: { rows: stockWorkspace?.stockBalances || [], error: stockWorkspaceError },
+        stockItems: { rows: stockWorkspace?.items || [], error: stockWorkspaceError },
+        stockWarehouses: { rows: stockWorkspace?.warehouses || [], error: stockWorkspaceError },
+        stockCostCenters: { rows: stockWorkspace?.costCenters || [], error: stockWorkspaceError },
+        stockRequisitions: { rows: stockWorkspace?.requisitions || [], error: stockWorkspaceError },
+        movements: { rows: stockWorkspace?.movements || [], error: stockWorkspaceError },
+        stockWorkspace: stockWorkspace ? { ...stockWorkspace, error: null } : { canApprove: false, error: stockWorkspaceError },
+        ...Object.fromEntries(stockResults)
+      };
     }
 
     async function refresh() {
@@ -1380,6 +1475,53 @@
         const button = event.target.closest('button');
         if (!button) return;
         try {
+          if (button.hasAttribute('data-stock-add-line')) {
+            const list = container.querySelector('[data-stock-requisition-lines]');
+            const first = list?.querySelector('[data-stock-requisition-line]');
+            if (!list || !first) throw new Error('Lista de artigos indisponível.');
+            const clone = first.cloneNode(true);
+            clone.querySelectorAll('select,input').forEach(field => { field.value = ''; });
+            list.appendChild(clone);
+            return;
+          }
+          if (button.hasAttribute('data-stock-remove-line')) {
+            const list = button.closest('[data-stock-requisition-lines]');
+            const rows = list?.querySelectorAll('[data-stock-requisition-line]') || [];
+            if (rows.length > 1) button.closest('[data-stock-requisition-line]').remove();
+            return;
+          }
+          if (button.hasAttribute('data-stock-submit')) {
+            button.disabled = true;
+            try {
+              const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo || POLOS[0] });
+              await service.submitStockRequisition(button.getAttribute('data-stock-submit'));
+              notify('Requisição submetida para aprovação do ADM.');
+              await refresh();
+            } catch (error) {
+              button.disabled = false;
+              notify(error.message || 'Não foi possível submeter a requisição.');
+            }
+            return;
+          }
+          if (button.hasAttribute('data-stock-decide')) {
+            button.disabled = true;
+            try {
+              const card = button.closest('[data-stock-requisition-card]');
+              const note = card?.querySelector('[data-stock-decision-note]')?.value || '';
+              const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo || POLOS[0] });
+              await service.decideStockRequisition(
+                button.getAttribute('data-stock-request-id'),
+                button.getAttribute('data-stock-decide'),
+                note
+              );
+              notify(button.getAttribute('data-stock-decide') === 'approved' ? 'Requisição aprovada.' : 'Requisição rejeitada.');
+              await refresh();
+            } catch (error) {
+              button.disabled = false;
+              notify(error.message || 'Não foi possível decidir a requisição.');
+            }
+            return;
+          }
           if (button.hasAttribute('data-invoice-preview-close')) {
             const host = container.querySelector('[data-invoice-preview-host]');
             if (host) { host.innerHTML = ''; host.classList.add('hidden'); }
@@ -1502,6 +1644,40 @@
 
       container.addEventListener('submit', async event => {
         const form = event.target;
+        if (form.matches('[data-stock-requisition-form]')) {
+          event.preventDefault();
+          const message = form.querySelector('[data-stock-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!activePolo) throw new Error('Seleccione o polo antes de criar a requisição.');
+            const lines = Array.from(form.querySelectorAll('[data-stock-requisition-line]')).map(row => ({
+              itemId: row.querySelector('[name="itemId"]')?.value,
+              quantity: row.querySelector('[name="quantity"]')?.value,
+              unitOfMeasure: itemsUnitFromSelect(row.querySelector('[name="itemId"]')?.selectedOptions?.[0]?.textContent),
+              notes: row.querySelector('[name="notes"]')?.value || ''
+            }));
+            const values = Object.fromEntries(new FormData(form).entries());
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.createStockRequisition({
+              warehouseId: values.warehouseId,
+              costCenterId: values.costCenterId,
+              purpose: values.purpose,
+              priority: values.priority,
+              lines
+            });
+            if (!result?.id) throw new Error('O servidor não confirmou a criação da requisição.');
+            notify('Requisição interna criada. Submeta-a para aprovação do ADM.');
+            form.reset();
+            const lineRows = form.querySelectorAll('[data-stock-requisition-line]');
+            for (let index = lineRows.length - 1; index > 0; index--) lineRows[index].remove();
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+          } catch (error) {
+            button.disabled = false;
+            if (message) message.textContent = error.message || 'Não foi possível criar a requisição.';
+          }
+          return;
+        }
         if (form.matches('[data-reception-client-form]')) {
           event.preventDefault();
           const values = Object.fromEntries(new FormData(form).entries());
