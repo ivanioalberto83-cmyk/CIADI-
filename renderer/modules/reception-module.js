@@ -1166,7 +1166,7 @@
       '</section>';
   }
 
-  function create({ root: container, navigate, notify = () => {}, supabase, actorId, poloCode, companyId: configuredCompanyId } = {}) {
+  function create({ root: container, navigate, notify = () => {}, supabase, actorId, profile: currentProfile, poloCode, companyId: configuredCompanyId } = {}) {
     if (!container || typeof navigate !== 'function') {
       throw new Error('O módulo Recepção necessita do contentor e da navegação do Dashboard.');
     }
@@ -1239,7 +1239,7 @@
             documents: businessSnapshot.documents?.rows,
             shifts: businessSnapshot.shifts?.rows,
              invoiceChangeRequests: businessSnapshot.invoiceChangeRequests?.rows,
-             canApproveInvoiceChanges: businessSnapshot.currentProfile?.rows?.tipo === 'admin' && businessSnapshot.currentProfile?.rows?.ativo === true
+             canApproveInvoiceChanges: currentProfile?.tipo === 'admin' && currentProfile?.ativo === true
           })}
           <section class="card p-5" data-reception-call-panel>
             <div class="flex items-center justify-between gap-3 mb-3">
@@ -1408,13 +1408,6 @@
         ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
         ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
         ['invoiceChangeRequests', () => businessRepository.getInvoiceChangeRequests()],
-        ['currentProfile', async () => {
-          if (!actorId) return null;
-          const { data, error } = await supabase.from('perfis')
-            .select('tipo,ativo').eq('id', actorId).maybeSingle();
-          if (error) throw error;
-          return data;
-        }],
         ['shifts', () => businessRepository.getOpenCashboxShifts()],
         ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()],
