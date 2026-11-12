@@ -1,0 +1,116 @@
+name: CIADI Reception SQL Proposal Checks
+
+on:
+  push:
+    branches:
+      - fix/ciadi-reception-payment-cashbox-20261112
+    paths:
+      - 'supabase/proposals/ciadi-reception-*-proposal.sql'
+      - 'ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs'
+      - 'ciadi-windows/tests/sql/**'
+      - 'renderer/modules/reception-module.js'
+      - '.github/workflows/ciadi-reception-proposals-check.yml'
+  pull_request:
+    paths:
+      - 'supabase/proposals/ciadi-reception-*-proposal.sql'
+      - 'ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs'
+      - 'renderer/modules/reception-module.js'
+      - '.github/workflows/ciadi-reception-proposals-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  reception-proposal-checks:
+    name: Reception proposal pre-homologation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ciadi_reception_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ciadi_reception_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: ciadi_reception_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check Reception module syntax
+        run: node --check renderer/modules/reception-module.js
+
+      - name: Run payment and cashbox regression tests
+        run: node --test ciadi-windows/tests/reception-*.test.cjs
+
+      - name: Install PostgreSQL client and SQL parser
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python -m pip install --disable-pip-version-check pglast
+
+      - name: Bootstrap isolated PostgreSQL fixture
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-reception-proposals.sql
+
+      - name: Compile all four proposals in isolated PostgreSQL
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql
+
+      - name: Verify RPC registration and privilege boundaries in PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-proposals-compile.test.sql
+
+      - name: Run transactional stock, polo isolation and payment guard tests
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-transactional.test.sql
+
+      - name: Parse all four SQL proposals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from pglast import parse_sql
+
+          names = [
+              "ciadi-reception-payment-cashbox-hardening-proposal.sql",
+              "ciadi-reception-finance-workspace-permissions-proposal.sql",
+              "ciadi-reception-stock-read-workspace-proposal.sql",
+              "ciadi-reception-stock-operations-permissions-proposal.sql",
+          ]
+          for name in names:
+              file = Path("supabase/proposals") / name
+              if not file.is_file():
+                  raise SystemExit(f"Proposta em falta: {file}")
+              parse_sql(file.read_text(encoding="utf-8"))
+              print(f"SQL exterior válido: {file}")
+          PY
+
+      - name: Confirm proposals remain non-production artefacts
+        run: |
+          for file in \
+            supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql \
+            supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql \
+            supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql \
+            supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql; do
+            grep -qi 'PROPOSTA APENAS' "$file" || {
+              echo "Falta o marcador de protecção em $file"
+              exit 1
+            }
+          done
+          echo "As quatro propostas continuam identificadas como propostas não aplicadas."

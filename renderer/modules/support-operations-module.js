@@ -68,7 +68,7 @@ function createProcurementService({db,role,actorId,now=()=>new Date().toISOStrin
   }
   async function ownedRequest(requestId){
     ensureActor();
-    const result=await db.from('purchase_requests').select('id,request_number,status,requested_by').eq('id',requestId).eq('requested_by',actorId).maybeSingle();
+    const result=await db.from('purchase_requests').select('id,request_number,status,requested_by,polo_code').eq('id',requestId).eq('requested_by',actorId).maybeSingle();
     if(result?.error)throw result.error;
     if(!result?.data)throw new Error('Pedido não encontrado ou não pertence ao utilizador autenticado.');
     return result.data;
@@ -79,11 +79,13 @@ function createProcurementService({db,role,actorId,now=()=>new Date().toISOStrin
     async createWarehouse(input){ensureRole();const p=pick(input,['code','name','polo','location_description','active']);if(!String(p.code||'').trim()||!String(p.name||'').trim())throw new Error('Código e nome do armazém são obrigatórios.');p.code=String(p.code).trim();p.name=String(p.name).trim();p.created_by=actorId||undefined;return insertOne('warehouses',p);},
     async createPurchaseRequest(input){
       ensureRole();ensureActor();
+      const poloCode=String(input?.polo_code||input?.poloCode||'').trim().toLowerCase();
+      if(!['talatona','jardim_de_rosas'].includes(poloCode))throw new Error('Seleccione um polo válido para o pedido de compra.');
       const lines=normalizeLines(input?.lines);
       const estimatedTotal=lines.every(line=>line.estimated_unit_cost!==null)
         ? lines.reduce((sum,line)=>sum+line.quantity*line.estimated_unit_cost,0):null;
       const requestResult=await insertOne('purchase_requests',{
-        requested_by:actorId,supplier_id:input?.supplier_id||null,status:'draft',
+        requested_by:actorId,polo_code:poloCode,supplier_id:input?.supplier_id||null,status:'draft',
         justification:cleanText(input?.justification,4000),estimated_total:estimatedTotal
       });
       const request=requestResult.data;
