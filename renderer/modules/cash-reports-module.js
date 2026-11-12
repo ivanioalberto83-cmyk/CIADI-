@@ -24,7 +24,7 @@
       async getSnapshot({ limit = 100 } = {}) {
         const safeLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 250) : 100;
         const shiftResult = await supabase.from('finance_caixa_turnos')
-          .select('id,caixa_id,operador_id,aberto_em,saldo_inicial,fechado_em,saldo_esperado,saldo_contado,diferenca,justificacao_diferenca,aprovado_por,aprovado_em,estado,observacoes,created_at,finance_caixas(nome,codigo,localizacao,empresa_id),finance_operadores(funcao)')
+          .select('id,caixa_id,operador_id,aberto_em,saldo_inicial,fechado_em,saldo_esperado,saldo_contado,diferenca,justificacao_diferenca,aprovado_por,aprovado_em,estado,observacoes,created_at,finance_caixas(nome,codigo,localizacao,empresa_id),finance_operadores!finance_caixa_turnos_operador_id_fkey(funcao)')
           .order('aberto_em', { ascending: false })
           .limit(safeLimit);
         const shifts = rowsOrThrow(shiftResult);
