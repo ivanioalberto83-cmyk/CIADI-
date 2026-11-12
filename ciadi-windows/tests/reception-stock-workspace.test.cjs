@@ -53,3 +53,14 @@ test('saída de stock exige linha aprovada e não excede a quantidade por entreg
   assert.match(source, /selected\.dataset\.itemId/);
   assert.match(source, /selected\.dataset\.warehouseId/);
 });
+
+
+test('novos pedidos de compra são criados com polo explícito', () => {
+  const supportSource = fs.readFileSync(
+    path.join(__dirname, '../../renderer/modules/support-operations-module.js'),
+    'utf8'
+  );
+  assert.match(supportSource, /poloCode=String\(input\?\.polo_code\|\|input\?\.poloCode/);
+  assert.match(supportSource, /polo_code:poloCode/);
+  assert.match(supportSource, /Seleccione um polo válido para o pedido de compra/);
+});
