@@ -3,7 +3,7 @@ DO $$
 DECLARE
   v_helper regprocedure;
 BEGIN
-  IF to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)') IS NULL THEN
+  IF to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)') IS NULL THEN
     RAISE EXCEPTION 'RPC de pagamento não foi criada';
   END IF;
   IF to_regprocedure('ciadi_ti.reception_get_finance_workspace_impl(text)') IS NULL THEN
@@ -26,15 +26,25 @@ BEGIN
   IF has_function_privilege('authenticated', v_helper, 'EXECUTE') THEN
     RAISE EXCEPTION 'Helper interno de stock não pode ser executável por authenticated';
   END IF;
-  IF NOT has_function_privilege('authenticated', 'public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)', 'EXECUTE') THEN
+  IF NOT has_function_privilege('authenticated', 'public.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'authenticated deve poder executar a RPC de pagamento';
   END IF;
-  IF has_function_privilege('anon', 'public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)', 'EXECUTE') THEN
+  IF has_function_privilege('anon', 'public.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'anon não pode executar a RPC de pagamento';
+  END IF;
+  IF has_function_privilege('anon', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('service_role', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'A assinatura antiga da RPC de pagamento deve ficar desactivada';
+  END IF;
+  IF has_function_privilege('anon', 'public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('service_role', 'public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'A assinatura intermédia da RPC de pagamento deve ficar desactivada';
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM pg_proc p
-    WHERE p.oid = to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)')
+    WHERE p.oid = to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)')
       AND p.prosecdef = true
   ) THEN
     RAISE EXCEPTION 'A RPC financeira deve executar com privilégios controlados SECURITY DEFINER';
