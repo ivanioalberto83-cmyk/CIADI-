@@ -113,6 +113,8 @@ begin
     if v_pag.documento_id <> p_documento_id
        or v_pag.valor <> p_valor
        or v_pag.metodo <> btrim(p_metodo)
+       or v_pag.referencia is distinct from nullif(btrim(p_referencia), '')
+       or v_pag.observacoes is distinct from p_observacoes
        or (v_pag.recebido_por <> v_actor and not public.ciadi_finance_is_staff()) then
       raise exception 'A chave idempotente já foi utilizada com outros dados' using errcode = '23505';
     end if;
