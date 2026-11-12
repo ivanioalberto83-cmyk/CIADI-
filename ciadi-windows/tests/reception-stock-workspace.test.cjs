@@ -33,3 +33,13 @@ test('Recepção cria e submete requisições; só Administração/Gestão vê d
   assert.match(sql, /'requisitions'/i);
   assert.match(sql, /'movements'/i);
 });
+
+test('saída de stock exige linha aprovada e não excede a quantidade por entregar', () => {
+  const source = fs.readFileSync(modulePath, 'utf8');
+  assert.match(source, /form\.matches\('\[data-stock-exit-form\]'\)/);
+  assert.match(source, /mode: 'approved_request'/);
+  assert.match(source, /quantity > maximum/);
+  assert.match(source, /selected\.dataset\.requestId/);
+  assert.match(source, /selected\.dataset\.itemId/);
+  assert.match(source, /selected\.dataset\.warehouseId/);
+});
