@@ -1,5 +1,5 @@
 -- CIADI ERP — Aprovação obrigatória do ADM para alterações/anulações de facturas.
--- Migration preparada em branch. NÃO aplicar em produção sem homologação funcional.
+-- Migration homologada em PostgreSQL isolado e aplicada no Supabase CIADI em 2026-11-12.
 -- O Caixa pode pedir; apenas perfil admin activo pode decidir. O documento original é preservado.
 
 begin;
