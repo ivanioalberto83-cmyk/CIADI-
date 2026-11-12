@@ -52,7 +52,7 @@ test('interface e repositório não permitem pagamento sem caixa seleccionado', 
     'utf8'
   );
   assert.match(moduleSource, /p_caixa_id: requiredId\(input\.cashboxId, 'Caixa'\)/);
-  assert.match(moduleSource, /<select name="cashboxId" required class="border rounded-lg p-2">/);
+  assert.match(moduleSource, /<select name="cashboxId" required class="[^"]*border rounded-lg p-2">/);
   assert.match(moduleSource, /Seleccione o caixa obrigatório/);
 });
 
