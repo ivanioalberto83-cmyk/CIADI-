@@ -11,7 +11,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = pg_catalog, public, ciadi_ti
-as $
+as $reception_requisition_scope$
 declare
   v_expected_cost_center text;
 begin
@@ -44,7 +44,7 @@ begin
 
   return new;
 end;
-$;
+$reception_requisition_scope$;
 
 revoke all on function ciadi_ti.enforce_reception_stock_requisition_scope() from public, anon, authenticated;
 drop trigger if exists trg_reception_stock_requisition_scope on ciadi_ti.stock_requisitions;
@@ -59,7 +59,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = pg_catalog, public, ciadi_ti
-as $
+as $goods_receipt_polo_scope$
 declare
   v_warehouse_polo text;
   v_request_polo text;
@@ -84,7 +84,7 @@ begin
 
   return new;
 end;
-$;
+$goods_receipt_polo_scope$;
 
 revoke all on function ciadi_ti.enforce_goods_receipt_polo_scope() from public, anon, authenticated;
 drop trigger if exists trg_goods_receipt_polo_scope on ciadi_ti.goods_receipts;
