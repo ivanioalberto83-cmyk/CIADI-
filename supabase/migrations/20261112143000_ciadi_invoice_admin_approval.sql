@@ -197,30 +197,18 @@ begin
     return new;
   end if;
 
-  v_old := to_jsonb(old) - array['estado_pagamento','forma_pagamento','updated_at'];
-  v_new := to_jsonb(new) - array['estado_pagamento','forma_pagamento','updated_at'];
-
-  -- O motor de pagamentos emite o recibo e, no passo seguinte da mesma transacção,
-  -- grava o hash desse recibo. Permitir apenas essa actualização de hash, uma única vez,
-  -- quando existe pagamento de origem e o actor tem capacidade central de receber.
-  if (v_old - array['hash_documento','hash_algoritmo'])
-       is not distinct from
-     (v_new - array['hash_documento','hash_algoritmo'])
-     and old.tipo_documento = 'RC'
-     and old.origem_tipo = 'pagamento'
-     and old.documento_origem_id is not null
-     and old.hash_documento is null
-     and new.hash_documento is not null
-     and old.hash_algoritmo is null
-     and new.hash_algoritmo = 'SHA-256'
-     and exists (
-       select 1 from public.finance_pagamentos fp
-       where fp.documento_id = old.documento_origem_id
-     )
-     and public.ciadi_finance_can('receber')
-  then
-    return new;
-  end if;
+  -- Preserva as mutações operacionais que o trigger fiscal existente já permite:
+  -- pagamento, metadados de AGT, estado fiscal operacional e timestamps.
+  v_old := to_jsonb(old) - array[
+    'estado_pagamento','forma_pagamento','updated_at','updated_by',
+    'agt_submission_status','agt_validation_status','agt_request_id','agt_error',
+    'agt_submission_at','agt_submitted_at','fiscal_status','contabilizado_em'
+  ];
+  v_new := to_jsonb(new) - array[
+    'estado_pagamento','forma_pagamento','updated_at','updated_by',
+    'agt_submission_status','agt_validation_status','agt_request_id','agt_error',
+    'agt_submission_at','agt_submitted_at','fiscal_status','contabilizado_em'
+  ];
 
   if v_old is distinct from v_new then
     raise exception 'Alterações a facturas exigem aprovação do ADM; submeta um pedido';
