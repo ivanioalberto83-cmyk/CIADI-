@@ -23,6 +23,7 @@ test('finalização da recepção usa o movimento seguro por polo, não o helper
   const sql = fs.readFileSync(permissionsSqlPath, 'utf8');
   const finalize = sql.slice(sql.indexOf('create or replace function ciadi_ti.finalize_goods_receipt'));
   assert.match(finalize, /has_reception_operation_access\(v_polo_code\)/i);
+  assert.match(finalize, /join ciadi_ti\.purchase_requests pr[\s\S]*pr\.polo_code=w\.polo/i);
   assert.match(finalize, /post_stock_movement_for_reception\(/i);
   assert.doesNotMatch(finalize, /ciadi_ti\.post_stock_movement\(/i);
   assert.match(finalize, /goods_receipts.*UPDATE|values \('goods_receipts'/is);
