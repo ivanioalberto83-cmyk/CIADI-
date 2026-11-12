@@ -16,6 +16,11 @@ test('workspace de stock é lido por RPC com validação de sessão e polo, sem 
   assert.match(sql, /auth\.uid\(\) is null or not ciadi_ti\.has_reception_operation_access\(p_polo_code\)/i);
   assert.match(sql, /revoke all on function ciadi_ti\.reception_get_stock_workspace\(text\) from public, anon/i);
   assert.match(sql, /grant execute on function ciadi_ti\.reception_get_stock_workspace\(text\) to authenticated/i);
+  const financeWorkspace = fs.readFileSync(
+    path.join(__dirname, '../../supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql'),
+    'utf8'
+  );
+  assert.match(financeWorkspace, /c\.polo_code = p_polo_code/i);
   assert.match(source, /rpc\('reception_get_stock_workspace'/);
   assert.match(source, /data-reception-stock-operations/);
 });
