@@ -23,6 +23,14 @@ create table public.finance_documentos (
   documento_origem_id uuid,
   hash_documento text,
   hash_algoritmo text,
+  updated_by uuid,
+  agt_submission_status text,
+  agt_validation_status text,
+  agt_request_id text,
+  agt_error text,
+  agt_submission_at timestamptz,
+  agt_submitted_at timestamptz,
+  contabilizado_em timestamptz,
   updated_at timestamptz not null default now()
 );
 create table public.finance_pagamentos (
