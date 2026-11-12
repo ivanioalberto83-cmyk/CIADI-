@@ -166,63 +166,11 @@ revoke all on function public.ciadi_reception_decide_invoice_change(uuid,text,te
 grant execute on function public.ciadi_reception_request_invoice_change(uuid,text,text,jsonb) to authenticated;
 grant execute on function public.ciadi_reception_decide_invoice_change(uuid,text,text) to authenticated;
 
--- Defesa adicional na tabela fiscal: não permite apagar documentos nem alterar
--- dados fiscais/financeiros por UPDATE directo. Actualizações operacionais do pagamento
--- continuam permitidas. Alterações protegidas só podem ocorrer depois de aprovação ADM
--- e através de procedimento fiscal dedicado.
-create or replace function public.ciadi_guard_finance_document_mutation()
-returns trigger
-language plpgsql
-security definer
-set search_path = pg_catalog, public
-as $$
-declare
-  v_is_admin boolean;
-  v_old jsonb;
-  v_new jsonb;
-begin
-  select exists (
-    select 1 from public.perfis p
-    where p.id = auth.uid() and p.ativo is true and p.tipo = 'admin'
-  ) into v_is_admin;
-
-  if tg_op = 'DELETE' then
-    if not v_is_admin then
-      raise exception 'A eliminação de facturas exige autorização do ADM; solicite anulação';
-    end if;
-    return old;
-  end if;
-
-  if v_is_admin then
-    return new;
-  end if;
-
-  -- Preserva as mutações operacionais que o trigger fiscal existente já permite:
-  -- pagamento, metadados de AGT, estado fiscal operacional e timestamps.
-  v_old := to_jsonb(old) - array[
-    'estado_pagamento','forma_pagamento','updated_at','updated_by',
-    'agt_submission_status','agt_validation_status','agt_request_id','agt_error',
-    'agt_submission_at','agt_submitted_at','fiscal_status','contabilizado_em'
-  ];
-  v_new := to_jsonb(new) - array[
-    'estado_pagamento','forma_pagamento','updated_at','updated_by',
-    'agt_submission_status','agt_validation_status','agt_request_id','agt_error',
-    'agt_submission_at','agt_submitted_at','fiscal_status','contabilizado_em'
-  ];
-
-  if v_old is distinct from v_new then
-    raise exception 'Alterações a facturas exigem aprovação do ADM; submeta um pedido';
-  end if;
-
-  return new;
-end;
-$$;
-
-drop trigger if exists trg_ciadi_guard_finance_document_mutation
-  on public.finance_documentos;
-create trigger trg_ciadi_guard_finance_document_mutation
-before update or delete on public.finance_documentos
-for each row execute function public.ciadi_guard_finance_document_mutation();
+-- Não instalar um segundo trigger de UPDATE sobre finance_documentos.
+-- A base já possui trg_finance_documentos_immutable, que protege documentos emitidos.
+-- A aprovação fica registada nesta tabela; a execução fiscal deve usar o procedimento
+-- dedicado de correcção/anulação, sem alterar o documento original nem interferir
+-- com os RPCs existentes de emissão e integração AGT.
 
 comment on table ciadi_reception.invoice_change_requests is
   'Pedidos de alteração/anulação de facturas. Apenas ADM activo decide; o documento original nunca é apagado pelo fluxo de pedido.';
