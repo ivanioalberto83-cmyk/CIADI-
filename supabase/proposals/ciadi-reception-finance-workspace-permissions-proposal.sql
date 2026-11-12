@@ -133,6 +133,7 @@ begin
       ) order by c.nome)
       from public.finance_caixas c
       where c.empresa_id = v_company_id
+        and c.polo_code = p_polo_code
         and (v_can_open or v_can_receive or public.ciadi_finance_is_staff())
     ), '[]'::jsonb),
     'documents', coalesce((
