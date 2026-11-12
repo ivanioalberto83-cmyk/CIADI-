@@ -1710,9 +1710,16 @@
             return;
           }
           if (button.hasAttribute('data-invoice-preview-pdf')) {
-            const service = createReceptionInvoicePdfService({ supabase });
-            const result = await service.exportIssuedPdf(button.getAttribute('data-invoice-preview-pdf'));
-            notify(result?.saved ? 'PDF do documento guardado no computador: ' + (result.filePath || '') : 'Exportação PDF cancelada.');
+            const documentId = button.getAttribute('data-invoice-preview-pdf');
+            const desktop = globalThis.ciadiDesktop;
+            if (typeof desktop?.documents?.renderPdf === 'function' && typeof desktop?.documents?.exportIssuedPdf === 'function') {
+              const service = createReceptionInvoicePdfService({ supabase });
+              const result = await service.exportIssuedPdf(documentId);
+              notify(result?.saved ? 'PDF do documento guardado no computador: ' + (result.filePath || '') : 'Exportação PDF cancelada.');
+            } else {
+              await openInvoicePreview(documentId, { autoPrint: true });
+              notify('Na janela de impressão, escolha “Guardar como PDF” para criar o ficheiro.');
+            }
             return;
           }
           if (button.hasAttribute('data-invoice-print')) {
@@ -1737,9 +1744,16 @@
           if (button.hasAttribute('data-invoice-pdf-export')) {
             button.disabled = true;
             try {
-              const service = createReceptionInvoicePdfService({ supabase });
-              const result = await service.exportIssuedPdf(button.getAttribute('data-invoice-pdf-export'));
-              notify(result?.saved ? 'PDF A4 guardado no computador: ' + (result.filePath || '') : 'Exportação PDF cancelada.');
+              const documentId = button.getAttribute('data-invoice-pdf-export');
+              const desktop = globalThis.ciadiDesktop;
+              if (typeof desktop?.documents?.renderPdf === 'function' && typeof desktop?.documents?.exportIssuedPdf === 'function') {
+                const service = createReceptionInvoicePdfService({ supabase });
+                const result = await service.exportIssuedPdf(documentId);
+                notify(result?.saved ? 'PDF A4 guardado no computador: ' + (result.filePath || '') : 'Exportação PDF cancelada.');
+              } else {
+                await openInvoicePreview(documentId, { autoPrint: true });
+                notify('Na janela de impressão, escolha “Guardar como PDF” para criar o ficheiro.');
+              }
             } finally { button.disabled = false; }
             return;
           }
