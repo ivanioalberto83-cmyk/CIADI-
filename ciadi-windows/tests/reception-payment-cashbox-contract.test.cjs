@@ -41,6 +41,9 @@ test('proposta cria pagamento, recibo RC, movimento de caixa e auditoria na mesm
   assert.ok(cashMovement > receipt);
   assert.ok(audit > cashMovement);
   assert.match(sql, /pagamento_id, descricao,[\s\S]*turno_id, operador_id/i);
+  const cashMovementBlock = sql.slice(sql.indexOf('insert into public.finance_movimentos_caixa'), sql.indexOf('update public.finance_documentos d'));
+  assert.match(cashMovementBlock, /v_turno\.id, v_turno\.operador_id/i);
+  assert.doesNotMatch(cashMovementBlock, /v_turno\.id, v_actor/i);
   assert.match(sql, /revoke all on function[\s\S]*from public, anon/i);
   assert.match(sql, /grant execute on function[\s\S]*to authenticated/i);
   assert.match(sql, /PROPOSTA APENAS/i);
