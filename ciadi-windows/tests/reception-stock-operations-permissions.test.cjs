@@ -37,3 +37,15 @@ test('workspace só activa transferência e finalização quando o helper seguro
   assert.match(source, /const canFinalizeGoodsReceipt = snapshot\.canFinalizeGoodsReceipt === true/);
   assert.match(source, /Aguarda homologação das permissões do motor de stock para a Recepção/);
 });
+
+
+test('requisitions and goods receipts enforce matching polo, warehouse and cost centre', () => {
+  const sql = fs.readFileSync(permissionsSqlPath, 'utf8');
+  assert.match(sql, /enforce_reception_stock_requisition_scope/i);
+  assert.match(sql, /has_reception_operation_access\(new\.polo_code\)/i);
+  assert.match(sql, /upper\(btrim\(c\.codigo\)\) = v_expected_cost_center/i);
+  assert.match(sql, /trg_reception_stock_requisition_scope/i);
+  assert.match(sql, /enforce_goods_receipt_polo_scope/i);
+  assert.match(sql, /v_request_polo <> v_warehouse_polo/i);
+  assert.match(sql, /trg_goods_receipt_polo_scope/i);
+});
