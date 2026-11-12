@@ -1,0 +1,65 @@
+name: CIADI Reception SQL Proposal Checks
+
+on:
+  push:
+    branches:
+      - fix/ciadi-reception-payment-cashbox-20261112
+    paths:
+      - 'supabase/proposals/ciadi-reception-*-proposal.sql'
+      - 'ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs'
+      - 'renderer/modules/reception-module.js'
+      - '.github/workflows/ciadi-reception-proposals-check.yml'
+  pull_request:
+    paths:
+      - 'supabase/proposals/ciadi-reception-*-proposal.sql'
+      - 'ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs'
+      - 'renderer/modules/reception-module.js'
+      - '.github/workflows/ciadi-reception-proposals-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  reception-proposal-checks:
+    name: Reception proposal pre-homologation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check Reception module syntax
+        run: node --check renderer/modules/reception-module.js
+
+      - name: Run payment and cashbox regression tests
+        run: node --test ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs
+
+      - name: Install PostgreSQL SQL parser
+        run: python -m pip install --disable-pip-version-check pglast
+
+      - name: Parse all four SQL proposals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from pglast import parse_sql
+
+          files = sorted(Path("supabase/proposals").glob("ciadi-reception-*-proposal.sql"))
+          expected = 4
+          if len(files) != expected:
+              raise SystemExit(f"Esperadas {expected} propostas; encontradas {len(files)}")
+          for file in files:
+              parse_sql(file.read_text(encoding="utf-8"))
+              print(f"SQL exterior válido: {file}")
+          PY
+
+      - name: Confirm proposals remain non-production artefacts
+        run: |
+          if grep -L -i 'PROPOSTA APENAS' supabase/proposals/ciadi-reception-*-proposal.sql; then
+            echo "Foi encontrada uma proposta sem marcador de protecção."
+            exit 1
+          fi
+          echo "As quatro propostas continuam identificadas como propostas não aplicadas."
