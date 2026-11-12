@@ -174,6 +174,7 @@ begin
   perform pg_advisory_xact_lock(hashtextextended(p_item_id::text || ':' || v_first_key,0));
   perform pg_advisory_xact_lock(hashtextextended(p_item_id::text || ':' || v_second_key,0));
 
+  perform pg_advisory_xact_lock(hashtextextended('stock-transfer:' || v_key,0));
   select * into v_from from ciadi_ti.stock_movements where idempotency_key=v_key || ':out';
   select * into v_to from ciadi_ti.stock_movements where idempotency_key=v_key || ':in';
   if v_from.id is not null or v_to.id is not null then
@@ -291,7 +292,11 @@ begin
     'movement_ids',v_movement_ids
   );
 end;
-$$;
+$;
 
--- As funções de operação mantêm EXECUTE para authenticated conforme os grants já existentes.
--- A função auxiliar permanece privada; só os wrappers acima a invocam.
+revoke all on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) from public, anon;
+grant execute on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) to authenticated;
+revoke all on function ciadi_ti.finalize_goods_receipt(uuid) from public, anon;
+grant execute on function ciadi_ti.finalize_goods_receipt(uuid) to authenticated;
+
+-- A função auxiliar permanece privada; só os wrappers SECURITY DEFINER acima a invocam.
