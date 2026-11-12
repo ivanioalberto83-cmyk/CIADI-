@@ -15,6 +15,9 @@ as $
 declare
   v_expected_cost_center text;
 begin
+  if auth.uid() is null or not ciadi_ti.has_reception_operation_access(new.polo_code) then
+    raise exception 'Sessão ou acesso ao polo da requisição inválido.' using errcode = '42501';
+  end if;
   if new.polo_code not in ('talatona','jardim_de_rosas') then
     raise exception 'Polo inválido para a requisição de stock.' using errcode = '22023';
   end if;
@@ -61,6 +64,9 @@ declare
   v_warehouse_polo text;
   v_request_polo text;
 begin
+  if auth.uid() is null then
+    raise exception 'Sessão autenticada obrigatória para a recepção de mercadorias.' using errcode = '42501';
+  end if;
   select w.polo into v_warehouse_polo
   from ciadi_ti.warehouses w
   where w.id = new.warehouse_id and w.active = true;
@@ -71,7 +77,8 @@ begin
 
   if v_warehouse_polo is null or v_request_polo is null
      or v_request_polo not in ('talatona','jardim_de_rosas')
-     or v_request_polo <> v_warehouse_polo then
+     or v_request_polo <> v_warehouse_polo
+     or not ciadi_ti.has_reception_operation_access(v_warehouse_polo) then
     raise exception 'O pedido de compra e o armazém têm de pertencer ao mesmo polo autorizado.' using errcode = '42501';
   end if;
 
