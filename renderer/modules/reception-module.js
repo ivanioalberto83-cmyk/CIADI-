@@ -1355,6 +1355,29 @@
     let activeCompanyId = clean(configuredCompanyId, 128) || null;
     let businessSnapshot = { services: null, clients: null, documentTypes: null, series: null, cashboxes: null, documents: null, shifts: null, stock: null, requests: null, stockRequisitions: null, goodsReceipts: null, inventoryCounts: null, movements: null };
 
+    async function openInvoicePreview(documentId, { autoPrint = false } = {}) {
+      const service = createReceptionInvoicePdfService({ supabase });
+      const result = await service.preview(documentId);
+      const host = container.querySelector('[data-invoice-preview-host]');
+      if (!host) throw new Error('Área de pré-visualização documental indisponível.');
+      const issued = result.document.document_status === 'N' && result.document.fiscal_status === 'emitido';
+      host.classList.remove('hidden');
+      host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-bold">Documento CIADI — visualização A4</h3><p class="text-xs text-slate-500">' + esc(result.document.document_no || result.document.id) + ' · ' + esc(result.document.document_status || 'rascunho') + ' · ' + esc(result.document.fiscal_status || 'pendente') + '</p></div><div class="flex flex-wrap gap-2"><button type="button" data-invoice-preview-print class="rounded-lg bg-orange text-white px-3 py-2">Imprimir</button>' + (issued ? '<button type="button" data-invoice-preview-pdf="' + esc(result.document.id) + '" class="border rounded-lg px-3 py-2">Guardar PDF</button>' : '') + '<button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div></div><iframe title="Pré-visualização do documento CIADI" sandbox="allow-same-origin allow-modals" srcdoc="' + esc(result.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
+      host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (autoPrint) {
+        const frame = host.querySelector('iframe');
+        if (frame) {
+          const printFrame = () => {
+            try { frame.contentWindow?.focus(); frame.contentWindow?.print(); }
+            catch (error) { notify(error.message || 'Não foi possível abrir a impressão deste documento.'); }
+          };
+          frame.addEventListener('load', printFrame, { once: true });
+          if (frame.contentDocument?.readyState === 'complete') printFrame();
+        }
+      }
+      return result;
+    }
+
     function renderUnavailable(error) {
       container.innerHTML = `
         <section class="card p-6 space-y-3">
@@ -1676,13 +1699,39 @@
             return;
           }
           if (button.hasAttribute('data-invoice-preview')) {
+            await openInvoicePreview(button.getAttribute('data-invoice-preview'));
+            return;
+          }
+          if (button.hasAttribute('data-invoice-preview-print')) {
+            const frame = container.querySelector('[data-invoice-preview-host] iframe');
+            if (!frame?.contentWindow) throw new Error('Abra primeiro o documento para o visualizar e imprimir.');
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+            return;
+          }
+          if (button.hasAttribute('data-invoice-preview-pdf')) {
             const service = createReceptionInvoicePdfService({ supabase });
-            const result = await service.preview(button.getAttribute('data-invoice-preview'));
-            const host = container.querySelector('[data-invoice-preview-host]');
-            if (!host) throw new Error('Área de pré-visualização documental indisponível.');
-            host.classList.remove('hidden');
-            host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex items-center justify-between gap-2"><div><h3 class="font-bold">Pré-visualização A4 CIADI</h3><p class="text-xs text-slate-500">' + esc(result.document.document_no || result.document.id) + ' · ' + esc(result.document.document_status || 'rascunho') + '</p></div><button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div><iframe title="Pré-visualização da factura CIADI" sandbox="allow-same-origin" srcdoc="' + esc(result.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
-            host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const result = await service.exportIssuedPdf(button.getAttribute('data-invoice-preview-pdf'));
+            notify(result?.saved ? 'PDF do documento guardado no computador: ' + (result.filePath || '') : 'Exportação PDF cancelada.');
+            return;
+          }
+          if (button.hasAttribute('data-invoice-print')) {
+            await openInvoicePreview(button.getAttribute('data-invoice-print'), { autoPrint: true });
+            return;
+          }
+          if (button.hasAttribute('data-payment-open-invoice')) {
+            const selected = container.querySelector('[data-payment-document]')?.value;
+            if (!selected) throw new Error('Seleccione primeiro uma factura emitida.');
+            await openInvoicePreview(selected);
+            return;
+          }
+          if (button.hasAttribute('data-invoice-issue')) {
+            const documentId = button.getAttribute('data-invoice-issue');
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const issued = await financeRepository.issueInvoice(documentId);
+            notify('Emissão devolvida pelo motor financeiro central: ' + (issued?.document_no || issued?.documento_id || documentId));
+            try { await refresh(); } catch (refreshError) { notify('Documento emitido; não foi possível actualizar a lista: ' + (refreshError.message || 'erro de consulta')); }
+            await openInvoicePreview(documentId);
             return;
           }
           if (button.hasAttribute('data-invoice-pdf-export')) {
@@ -1771,6 +1820,19 @@
       });
 
       container.addEventListener('change', async event => {
+        if (event.target.matches('[data-payment-document]')) {
+          const documentId = event.target.value;
+          const selected = (businessSnapshot.documents?.rows || []).find(row => String(row.id) === String(documentId));
+          const amount = container.querySelector('[data-payment-amount]');
+          const openButton = container.querySelector('[data-payment-open-invoice]');
+          if (openButton) openButton.disabled = !selected;
+          if (amount && selected) {
+            amount.value = selected.estado_pagamento === 'parcial' ? '' : String(Number(selected.total || 0));
+          } else if (amount) {
+            amount.value = '';
+          }
+          return;
+        }
         if (event.target.matches('[data-invoice-document-type]')) {
           const typeCode = clean(event.target.value, 32);
           try {
@@ -1938,9 +2000,17 @@
               reference: values.reference, cashboxId: values.cashboxId, notes: values.notes
             });
             const receipt = Array.isArray(result) ? result[0] : result;
-            notify('Pagamento confirmado pelo motor central' + (receipt?.recibo_no ? ': recibo ' + receipt.recibo_no : '.'));
+            if (!receipt?.pagamento_id || !receipt?.recibo_id || !receipt?.recibo_no) {
+              notify('O motor devolveu a operação, mas não confirmou todos os identificadores do recibo. Consulte o arquivo financeiro antes de repetir o pagamento.');
+            } else {
+              notify('Pagamento confirmado pelo motor central. Recibo emitido: ' + receipt.recibo_no + ' · Estado: ' + (receipt.estado_pagamento || 'confirmado'));
+            }
             form.reset();
-            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            try { await refresh(); } catch (refreshError) { notify('Pagamento já confirmado; a lista não foi actualizada: ' + (refreshError.message || 'erro de consulta')); }
+            if (receipt?.recibo_id) {
+              try { await openInvoicePreview(receipt.recibo_id); }
+              catch (previewError) { notify('Pagamento confirmado e recibo ' + (receipt.recibo_no || receipt.recibo_id) + ' emitido. Não foi possível abrir o PDF: ' + (previewError.message || 'erro de visualização')); }
+            }
           } catch (error) {
             button.disabled = false;
             message.textContent = error.message || 'Não foi possível registar o pagamento.';
