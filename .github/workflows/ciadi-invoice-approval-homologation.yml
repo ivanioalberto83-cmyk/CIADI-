@@ -6,6 +6,7 @@ on:
     paths:
       - 'renderer/modules/reception-module.js'
       - 'ciadi-windows/tests/reception-module.test.cjs'
+      - 'ciadi-windows/tests/support-global-polo.test.cjs'
       - 'supabase/migrations/20261112143000_ciadi_invoice_admin_approval.sql'
       - 'ciadi-windows/tests/sql/invoice-approval-*'
       - '.github/workflows/ciadi-invoice-approval-homologation.yml'
