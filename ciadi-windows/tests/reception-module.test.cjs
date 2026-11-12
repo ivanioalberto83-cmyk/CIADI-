@@ -563,11 +563,10 @@ test('adaptador financeiro da Recepção usa exclusivamente RPCs centrais para f
   };
   const finance = reception.createReceptionFinanceRepository({ supabase });
   await finance.createInvoice({
-    companyId: 'company-1', documentType: 'FT', seriesId: 'series-1', clientId: 'client-1',
-    patientId: 'patient-1', appointmentId: 'appointment-1', issueDate: '2026-11-09T10:00:00Z',
-    dueDate: '2026-11-30', observations: 'Atendimento', lines: [{ serviceId: 'service-1', quantity: 1 }]
+    poloCode: 'talatona', companyId: 'company-1', documentType: 'FT',
+    seriesId: 'series-1', clientId: 'client-1', serviceId: 'service-1',
+    quantity: 1, dueDate: '2026-11-30', observations: 'Atendimento'
   });
-  await finance.issueInvoice('document-1');
   await finance.registerPayment({
     documentId: 'document-1', amount: 5000, method: 'numerario',
     reference: 'PAG-001', cashboxId: 'cash-1', notes: '',
@@ -576,19 +575,20 @@ test('adaptador financeiro da Recepção usa exclusivamente RPCs centrais para f
   await finance.openCashbox({ cashboxId: 'cash-1', openingBalance: 1000 });
   await finance.closeCashbox({ shiftId: 'shift-1', countedBalance: 6000, justification: '' });
   assert.deepEqual(calls.map(call => call.name), [
-    'ciadi_faturacao_criar_documento',
-    'ciadi_faturacao_emitir_documento',
+    'reception_create_finance_invoice_draft',
     'finance_registar_pagamento',
     'ciadi_abrir_caixa',
     'ciadi_fechar_caixa'
   ]);
+  assert.equal(calls[0].args.p_polo_code, 'talatona');
   assert.equal(calls[0].args.p_empresa_id, 'company-1');
-  assert.equal(calls[0].args.p_linhas[0].servico_id, 'service-1');
-  assert.equal(calls[2].args.p_valor, 5000);
-  assert.equal(calls[2].args.p_idempotency_key, 'payment-key-0001');
-  assert.equal(calls[2].args.p_polo_code, 'talatona');
-  assert.equal(calls[3].args.p_saldo_inicial, 1000);
-  assert.equal(calls[4].args.p_saldo_contado, 6000);
+  assert.equal(calls[0].args.p_servico_id, 'service-1');
+  assert.equal(calls[0].args.p_quantidade, 1);
+  assert.equal(calls[1].args.p_valor, 5000);
+  assert.equal(calls[1].args.p_idempotency_key, 'payment-key-0001');
+  assert.equal(calls[1].args.p_polo_code, 'talatona');
+  assert.equal(calls[2].args.p_saldo_inicial, 1000);
+  assert.equal(calls[3].args.p_saldo_contado, 6000);
 });
 
 test('adaptador financeiro rejeita dados incompletos e propaga bloqueios do motor central', async () => {
@@ -596,9 +596,12 @@ test('adaptador financeiro rejeita dados incompletos e propaga bloqueios do moto
   const finance = reception.createReceptionFinanceRepository({
     supabase: { async rpc() { calls += 1; return { data: null, error: new Error('Sem permissão para esta operação') }; } }
   });
-  await assert.rejects(() => finance.createInvoice({ companyId: 'company-1' }), /cliente|série|documento|linha/i);
+  await assert.rejects(() => finance.createInvoice({ poloCode: 'talatona', companyId: 'company-1' }), /cliente|série|documento|tipo/i);
   await assert.rejects(() => finance.registerPayment({ documentId: 'document-1', amount: 0, method: 'numerario' }), /valor/i);
-  await assert.rejects(() => finance.issueInvoice('document-1'), /sem permissão/i);
+  await assert.rejects(() => finance.createInvoice({
+    poloCode: 'talatona', companyId: 'company-1', documentType: 'FT',
+    seriesId: 'series-1', clientId: 'client-1', serviceId: 'service-1', quantity: 1
+  }), /Sem permissão/i);
   assert.equal(calls, 1);
 });
 
@@ -682,7 +685,16 @@ test('motor documental da faturação compõe pré-visualização A4 com identid
     };
     return q;
   }
-  const supabase = { from: query };
+  const supabase = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      return { data: {
+        document,
+        lines: rows.finance_documento_linhas,
+        emitter: rows.finance_emitente_config
+      }, error: null };
+    }
+  };
   const rendered = [];
   const exported = [];
   const desktop = { documents: {
@@ -690,7 +702,7 @@ test('motor documental da faturação compõe pré-visualização A4 com identid
     async exportIssuedPdf(payload) { exported.push(payload); return { saved: true, filePath: 'C:/CIADI/FT-A-2026-0001.pdf', source: 'archive' }; }
   } };
   const identity = { getBrand: () => ({ name: 'CIADI', logoDataUrl: 'data:image/png;base64,QUJD' }) };
-  const service = reception.createReceptionInvoicePdfService({ supabase, desktop, identity });
+  const service = reception.createReceptionInvoicePdfService({ supabase, poloCode: 'talatona', desktop, identity });
   const preview = await service.preview('invoice-1');
   assert.match(preview.html, /data:image\/png;base64,QUJD/);
   assert.match(preview.html, /FT A\/2026\/0001/);
@@ -705,9 +717,9 @@ test('motor documental da faturação compõe pré-visualização A4 com identid
   assert.equal(exported[0].document.status, 'issued');
   assert.equal(exported[0].mimeType, 'application/pdf');
   assert.equal(Buffer.from(exported[0].bytes).subarray(0, 5).toString(), '%PDF-');
-  assert.ok(calls.some(call => call[1] === 'finance_documentos'));
-  assert.ok(calls.some(call => call[1] === 'finance_documento_linhas'));
-  assert.ok(calls.some(call => call[1] === 'finance_emitente_config'));
+  assert.equal(calls[0].name, 'reception_get_finance_document_print_data');
+  assert.equal(calls[0].args.p_polo_code, 'talatona');
+  assert.equal(calls[0].args.p_document_id, 'invoice-1');
 });
 
 test('motor PDF não exporta factura não emitida nem gera um falso QR de autenticação', async () => {
@@ -723,7 +735,8 @@ test('motor PDF não exporta factura não emitida nem gera um falso QR de autent
   }
   let renderCalls = 0;
   const service = reception.createReceptionInvoicePdfService({
-    supabase: { from: query },
+    supabase: { async rpc() { return { data: { document, lines: [], emitter: {} }, error: null }; } },
+    poloCode: 'talatona',
     desktop: { documents: { async renderPdf() { renderCalls += 1; return new Uint8Array([37,80,68,70,45]); }, async exportIssuedPdf() { throw new Error('Não deveria exportar.'); } } },
     identity: { getBrand: () => ({ logoDataUrl: 'data:image/png;base64,QUJD' }) }
   });
