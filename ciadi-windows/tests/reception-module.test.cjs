@@ -556,6 +556,7 @@ test('painel da Recepção permite confirmar ou devolver encaminhamentos pendent
 test('adaptador financeiro da Recepção usa exclusivamente RPCs centrais para facturação, pagamentos e caixa', async () => {
   const calls = [];
   const supabase = {
+    from: query,
     async rpc(name, args) {
       calls.push({ name, args });
       return { data: { ok: true, name }, error: null };
@@ -735,7 +736,7 @@ test('motor PDF não exporta factura não emitida nem gera um falso QR de autent
   }
   let renderCalls = 0;
   const service = reception.createReceptionInvoicePdfService({
-    supabase: { async rpc() { return { data: { document, lines: [], emitter: {} }, error: null }; } },
+    supabase: { from: query, async rpc() { return { data: { document, lines: [], emitter: {} }, error: null }; } },
     poloCode: 'talatona',
     desktop: { documents: { async renderPdf() { renderCalls += 1; return new Uint8Array([37,80,68,70,45]); }, async exportIssuedPdf() { throw new Error('Não deveria exportar.'); } } },
     identity: { getBrand: () => ({ logoDataUrl: 'data:image/png;base64,QUJD' }) }
