@@ -1,4 +1,9 @@
 -- PROPOSTA APENAS — NÃO APLICAR EM PRODUÇÃO SEM HOMOLOGAÇÃO E AUTORIZAÇÃO.
+-- A implementação privilegiada fica fora do schema público; só a RPC invoker é exposta.
+create schema if not exists ciadi_private;
+revoke all on schema ciadi_private from public, anon;
+grant usage on schema ciadi_private to authenticated;
+
 -- CIADI Recepção: pagamento autenticado, idempotente e atomicamente integrado no caixa.
 -- SECURITY DEFINER é usado apenas porque as tabelas financeiras têm RLS reservado a ADM/gestão;
 -- a RPC aplica validações explícitas de perfil activo, capacidade, operador, caixa e turno.
@@ -50,7 +55,7 @@ begin
 end;
 $revoke_legacy$;
 
-create or replace function public.finance_registar_pagamento(
+create or replace function ciadi_private.finance_registar_pagamento(
   p_documento_id uuid,
   p_valor numeric,
   p_metodo text,
@@ -346,6 +351,40 @@ begin
     case when v_restante + p_valor >= v_doc.total then 'pago' else 'parcial' end;
 end;
 $function$;
+
+-- O helper privilegiado só é invocável por utilizadores autenticados através da RPC pública controlada.
+revoke all on function ciadi_private.finance_registar_pagamento(uuid, numeric, text, text, text, text, uuid, text)
+  from public, anon;
+grant execute on function ciadi_private.finance_registar_pagamento(uuid, numeric, text, text, text, text, uuid, text)
+  to authenticated;
+
+-- RPC pública SECURITY INVOKER: mantém o contrato PostgREST sem expor uma função
+-- SECURITY DEFINER no schema público. A autorização e as validações residem no helper privado.
+create or replace function public.finance_registar_pagamento(
+  p_documento_id uuid,
+  p_valor numeric,
+  p_metodo text,
+  p_idempotency_key text,
+  p_polo_code text,
+  p_referencia text default null,
+  p_caixa_id uuid default null,
+  p_observacoes text default null
+)
+returns table(
+  pagamento_id uuid,
+  recibo_id uuid,
+  recibo_no text,
+  estado_pagamento text
+)
+language sql
+security invoker
+set search_path = pg_catalog, public, ciadi_private
+as $payment_rpc_wrapper$
+  select * from ciadi_private.finance_registar_pagamento(
+    p_documento_id, p_valor, p_metodo, p_idempotency_key,
+    p_polo_code, p_referencia, p_caixa_id, p_observacoes
+  );
+$payment_rpc_wrapper$;
 
 revoke all on function public.finance_registar_pagamento(uuid, numeric, text, text, text, text, uuid, text)
   from public, anon;
