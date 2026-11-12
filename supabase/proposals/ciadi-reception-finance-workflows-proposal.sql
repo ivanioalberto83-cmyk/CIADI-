@@ -1,0 +1,137 @@
+-- CIADI Recepção: cadastro de clientes e criação de facturas em rascunho.
+-- Proposta versionada; não aplicar em produção sem aprovação específica.
+create or replace function public.reception_create_finance_client(
+  p_polo_code text,
+  p_empresa_id uuid,
+  p_nome text,
+  p_tipo_adquirente text default 'particular',
+  p_nif text default null,
+  p_email text default null,
+  p_telefone text default null,
+  p_endereco text default null,
+  p_cidade text default null,
+  p_provincia text default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, ciadi_ti, auth
+as $$
+declare v_id uuid; v_tipo text;
+begin
+  if auth.uid() is null then raise exception 'Sessão autenticada obrigatória'; end if;
+  if p_polo_code not in ('talatona','jardim_de_rosas') then raise exception 'Polo inválido'; end if;
+  if not exists (
+    select 1 from public.perfis p
+    where p.id=auth.uid() and p.ativo=true
+      and (p.tipo in ('admin','gestor') or (
+        p.tipo='operador' and exists (
+          select 1 from ciadi_ti.reception_user_polos rup
+          where rup.user_id=p.id and rup.polo_code=p_polo_code and rup.active=true
+        )
+      ))
+  ) then raise exception 'Sem autorização para cadastrar clientes neste polo'; end if;
+  if p_empresa_id is null then raise exception 'Empresa obrigatória'; end if;
+  if length(trim(coalesce(p_nome,''))) < 2 then raise exception 'Nome/razão social obrigatório'; end if;
+  v_tipo := case when lower(coalesce(p_tipo_adquirente,'particular')) in ('empresa','pessoa_colectiva','pessoa_coletiva') then 'empresa' else 'particular' end;
+  insert into public.finance_clientes(
+    nome,nome_comercial,nif,email,telefone,endereco,cidade,provincia,pais,
+    tipo,tipo_adquirente,empresa_id,ativo,created_at,updated_at
+  ) values (
+    trim(p_nome),trim(p_nome),nullif(trim(p_nif),''),nullif(trim(p_email),''),
+    nullif(trim(p_telefone),''),nullif(trim(p_endereco),''),nullif(trim(p_cidade),''),
+    nullif(trim(p_provincia),''),'AO',v_tipo,v_tipo,p_empresa_id,true,now(),now()
+  ) returning id into v_id;
+  return jsonb_build_object('ok',true,'cliente_id',v_id);
+end;
+$$;
+
+create or replace function public.reception_create_finance_invoice_draft(
+  p_polo_code text,
+  p_empresa_id uuid,
+  p_tipo_documento text,
+  p_serie_id uuid,
+  p_cliente_id uuid,
+  p_servico_id uuid,
+  p_quantidade numeric default 1,
+  p_data_vencimento date default null,
+  p_observacoes text default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, ciadi_ti, auth
+as $$
+declare
+  v_id uuid; v_cliente public.finance_clientes%rowtype;
+  v_tipo public.finance_tipos_documento%rowtype;
+  v_serie public.finance_series%rowtype;
+  v_servico public.finance_servicos%rowtype;
+  v_base numeric(15,2); v_imposto numeric(15,2); v_total numeric(15,2);
+begin
+  if auth.uid() is null then raise exception 'Sessão autenticada obrigatória'; end if;
+  if p_polo_code not in ('talatona','jardim_de_rosas') then raise exception 'Polo inválido'; end if;
+  if not exists (
+    select 1 from public.perfis p
+    where p.id=auth.uid() and p.ativo=true
+      and (p.tipo in ('admin','gestor') or (
+        p.tipo='operador' and exists (
+          select 1 from ciadi_ti.reception_user_polos rup
+          where rup.user_id=p.id and rup.polo_code=p_polo_code and rup.active=true
+        )
+      ))
+  ) then raise exception 'Sem autorização para criar rascunhos neste polo'; end if;
+  if p_empresa_id is null or p_cliente_id is null or p_serie_id is null or p_servico_id is null then
+    raise exception 'Empresa, cliente, série e serviço são obrigatórios';
+  end if;
+  if coalesce(p_quantidade,0) <= 0 then raise exception 'Quantidade inválida'; end if;
+  select * into v_tipo from public.finance_tipos_documento
+   where codigo=p_tipo_documento and ativo=true limit 1;
+  if not found then raise exception 'Tipo documental inválido/inactivo'; end if;
+  select * into v_serie from public.finance_series
+   where id=p_serie_id and ativa=true and estado='ativa'
+     and (empresa_id is null or empresa_id=p_empresa_id)
+   for share;
+  if not found or upper(v_serie.tipo_documento) <> upper(p_tipo_documento) then
+    raise exception 'Série inválida para o tipo documental/empresa';
+  end if;
+  select * into v_cliente from public.finance_clientes
+   where id=p_cliente_id and ativo=true and (empresa_id is null or empresa_id=p_empresa_id);
+  if not found then raise exception 'Cliente inválido para a empresa'; end if;
+  select * into v_servico from public.finance_servicos
+   where id=p_servico_id and ativo=true and (empresa_id is null or empresa_id=p_empresa_id);
+  if not found then raise exception 'Serviço inválido para a empresa'; end if;
+  v_base := round(p_quantidade*v_servico.preco_base,2);
+  v_imposto := round(v_base*v_servico.taxa_imposto/100,2);
+  v_total := v_base+v_imposto;
+  insert into public.finance_documentos(
+    tipo_documento,serie_id,numero_sequencial,document_no,document_status,
+    cliente_id,data_emissao,data_vencimento,moeda,subtotal,desconto,imposto,
+    retencao,total,estado_pagamento,observacoes,criado_por,created_at,updated_at,
+    empresa_id,origem_tipo,fiscal_status,agt_submission_status,
+    adquirente_nome_snapshot,adquirente_nome_comercial_snapshot,adquirente_nif_snapshot,
+    adquirente_tipo_snapshot,adquirente_contacto_snapshot,adquirente_telefone_snapshot,
+    adquirente_email_snapshot,adquirente_endereco_snapshot,adquirente_pais_snapshot
+  ) values (
+    p_tipo_documento,p_serie_id,0,'RASCUNHO-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12)),
+    'em_edicao',p_cliente_id,now(),p_data_vencimento,
+    coalesce((select moeda from public.finance_empresas where id=p_empresa_id),'AOA'),
+    v_base,0,v_imposto,0,v_total,'pendente',nullif(trim(p_observacoes),''),auth.uid(),
+    now(),now(),p_empresa_id,'MANUAL','rascunho','nao_submetido',
+    v_cliente.nome,v_cliente.nome_comercial,v_cliente.nif,v_cliente.tipo_adquirente,
+    v_cliente.contacto_principal,v_cliente.telefone,v_cliente.email,v_cliente.endereco,v_cliente.pais
+  ) returning id into v_id;
+  insert into public.finance_documento_linhas(
+    documento_id,servico_id,codigo,descricao,quantidade,unidade,preco_unitario,
+    desconto,taxa_imposto,imposto,total_linha,conta_receita
+  ) values (
+    v_id,v_servico.id,v_servico.codigo,v_servico.nome,p_quantidade,
+    coalesce(v_servico.unidade,'UN'),v_servico.preco_base,0,v_servico.taxa_imposto,
+    v_imposto,v_total,v_servico.conta_receita
+  );
+  return jsonb_build_object('ok',true,'documento_id',v_id,'estado','em_edicao','fiscal_status','rascunho','total',v_total);
+end;
+$$;
+
+revoke all on function public.reception_create_finance_client(text,uuid,text,text,text,text,text,text,text,text) from public, anon;
+grant execute on function public.reception_create_finance_client(text,uuid,text,text,text,text,text,text,text,text) to authenticated;
+revoke all on function public.reception_create_finance_invoice_draft(text,uuid,text,uuid,uuid,uuid,numeric,date,text) from public, anon;
+grant execute on function public.reception_create_finance_invoice_draft(text,uuid,text,uuid,uuid,uuid,numeric,date,text) to authenticated;
