@@ -1,0 +1,33 @@
+name: CIADI Reception Appointment Search
+
+on:
+  push:
+    branches:
+      - fix/ciadi-reception-appointment-search-20261112
+    paths:
+      - 'renderer/modules/reception-module.js'
+      - 'tests/reception-search-appointments.test.cjs'
+      - '.github/workflows/ciadi-reception-appointment-search.yml'
+  pull_request:
+    branches:
+      - feature/ciadi-reception-completion-20261109
+    paths:
+      - 'renderer/modules/reception-module.js'
+      - 'tests/reception-search-appointments.test.cjs'
+      - '.github/workflows/ciadi-reception-appointment-search.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  appointment-search:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verificar sintaxe do módulo
+        run: node --check renderer/modules/reception-module.js
+      - name: Executar testes de contrato da pesquisa por polo
+        run: node --test tests/reception-search-appointments.test.cjs
