@@ -79,6 +79,60 @@ begin
       from ciadi_ti.stock_requisitions r
       where r.polo_code = p_polo_code
     ), '[]'::jsonb),
+    'purchaseRequests', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', r.id, 'request_number', r.request_number, 'status', r.status,
+        'justification', r.justification, 'estimated_total', r.estimated_total,
+        'supplier_id', r.supplier_id, 'supplier_name', s.name,
+        'created_at', r.created_at,
+        'lines', coalesce((
+          select jsonb_agg(jsonb_build_object(
+            'id', l.id, 'item_id', l.item_id, 'description', l.description,
+            'quantity', l.quantity, 'unit_of_measure', l.unit_of_measure,
+            'estimated_unit_cost', l.estimated_unit_cost,
+            'already_received_quantity', coalesce((
+              select sum(grl.received_quantity)
+              from ciadi_ti.goods_receipt_lines grl
+              join ciadi_ti.goods_receipts gr on gr.id = grl.receipt_id
+              where grl.purchase_request_line_id = l.id
+                and gr.status <> 'cancelled'
+            ), 0)
+          ) order by l.id)
+          from ciadi_ti.purchase_request_lines l
+          where l.request_id = r.id
+        ), '[]'::jsonb)
+      ) order by r.created_at desc)
+      from ciadi_ti.purchase_requests r
+      left join ciadi_ti.suppliers s on s.id = r.supplier_id
+      where r.status = 'approved'
+        and exists (
+          select 1 from ciadi_ti.purchase_request_lines l
+          where l.request_id = r.id and l.item_id is not null
+        )
+    ), '[]'::jsonb),
+    'goodsReceipts', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', r.id, 'receipt_number', r.receipt_number,
+        'purchase_request_id', r.purchase_request_id,
+        'warehouse_id', r.warehouse_id, 'warehouse_name', w.name,
+        'delivery_reference', r.delivery_reference, 'delivery_date', r.delivery_date,
+        'status', r.status, 'notes', r.notes, 'created_at', r.created_at,
+        'lines', coalesce((
+          select jsonb_agg(jsonb_build_object(
+            'id', l.id, 'purchase_request_line_id', l.purchase_request_line_id,
+            'item_id', l.item_id, 'received_quantity', l.received_quantity,
+            'accepted_quantity', l.accepted_quantity, 'damaged_quantity', l.damaged_quantity,
+            'returned_quantity', l.returned_quantity, 'unit_cost', l.unit_cost,
+            'lot_code', l.lot_code, 'notes', l.notes
+          ) order by l.id)
+          from ciadi_ti.goods_receipt_lines l
+          where l.receipt_id = r.id
+        ), '[]'::jsonb)
+      ) order by r.created_at desc)
+      from ciadi_ti.goods_receipts r
+      join ciadi_ti.warehouses w on w.id = r.warehouse_id
+      where w.polo = p_polo_code
+    ), '[]'::jsonb),
     'movements', coalesce((
       select jsonb_agg(recent.movement order by recent.created_at desc)
       from (
