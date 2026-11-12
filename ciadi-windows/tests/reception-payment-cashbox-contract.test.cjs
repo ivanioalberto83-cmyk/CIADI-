@@ -16,7 +16,10 @@ test('proposta de pagamento exige caixa e turno do operador antes de qualquer re
   assert.match(sql, /p_caixa_id is null/i);
   assert.match(sql, /empresa_id = v_doc\.empresa_id/i);
   assert.match(sql, /estado = 'aberto'/i);
-  assert.match(sql, /operador_id = v_actor/i);
+  assert.match(sql, /ciadi_finance_can\('receber'\)/i);
+  assert.match(sql, /ciadi_finance_can\('recibo'\)/i);
+  assert.match(sql, /ciadi_finance_operator_id\(\)/i);
+  assert.match(sql, /operador_id = v_operator_id/i);
   assert.match(sql, /raise exception 'Não existe turno aberto deste operador/i);
   assert.match(sql, /document_status <> 'N'/i);
   assert.match(sql, /fiscal_status <> 'emitido'/i);
