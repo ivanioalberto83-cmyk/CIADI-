@@ -55,3 +55,15 @@ test('interface e repositório não permitem pagamento sem caixa seleccionado', 
   assert.match(moduleSource, /<select name="cashboxId" required class="border rounded-lg p-2">/);
   assert.match(moduleSource, /Seleccione o caixa obrigatório/);
 });
+
+test('formulário de recebimento chama o motor central, confirma o RC e disponibiliza pré-visualização PDF', () => {
+  const moduleSource = fs.readFileSync(
+    path.join(__dirname, '../../renderer/modules/reception-module.js'),
+    'utf8'
+  );
+  assert.match(moduleSource, /form\.matches\('\[data-reception-payment-form\]'\)/);
+  assert.match(moduleSource, /financeRepository\.registerPayment\(/);
+  assert.match(moduleSource, /result\?\.pagamento_id[\s\S]*result\?\.recibo_id[\s\S]*result\?\.recibo_no/);
+  assert.match(moduleSource, /pdfService\.preview\(result\.recibo_id\)/);
+  assert.match(moduleSource, /data-invoice-pdf-export=/);
+});
