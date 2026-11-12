@@ -8,6 +8,9 @@ DECLARE
   v_wh_b uuid := 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   v_wh_other uuid := 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
   v_receipt uuid := 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+  v_purchase_request uuid := '22222222-3333-4333-8333-222222222222';
+  v_cost_center_tal uuid := 'aaaaaaaa-2222-4222-8222-aaaaaaaa2222';
+  v_cost_center_ros uuid := 'bbbbbbbb-3333-4333-8333-bbbbbbbb3333';
   v_line uuid := '11111111-1111-4111-8111-111111111111';
   v_result jsonb;
   v_id uuid;
@@ -93,9 +96,34 @@ BEGIN
   EXCEPTION WHEN SQLSTATE '23505' THEN NULL;
   END;
 
+  -- A requisição e o centro de custo ficam explicitamente ligados ao polo.
+  INSERT INTO public.finance_centros_custo(id,codigo,nome,ativo) VALUES
+    (v_cost_center_tal,'CC-001','CIADI POLO TALATONA',true),
+    (v_cost_center_ros,'CC-002','CIADI POLO JARDIM DE ROSAS',true);
+  INSERT INTO ciadi_ti.stock_requisitions(
+    polo_code,warehouse_id,cost_center_id,purpose,priority,requested_by
+  ) VALUES (
+    'talatona',v_wh_a,v_cost_center_tal,'Reposição de material clínico','normal',v_actor
+  );
+
+  -- A tentativa de associar o centro de custo do outro polo tem de ser bloqueada.
+  BEGIN
+    INSERT INTO ciadi_ti.stock_requisitions(
+      polo_code,warehouse_id,cost_center_id,purpose,priority,requested_by
+    ) VALUES (
+      'talatona',v_wh_a,v_cost_center_ros,'Reposição de material clínico','normal',v_actor
+    );
+    RAISE EXCEPTION 'Esperava rejeição de centro de custo de outro polo';
+  EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+  END;
+
+  -- Pedido de compra e armazém têm de pertencer ao mesmo polo antes de criar a recepção.
+  INSERT INTO ciadi_ti.purchase_requests(id,status,polo_code)
+  VALUES (v_purchase_request,'approved','talatona');
+
   -- Checked goods receipt posts its accepted quantity once and updates its status.
-  INSERT INTO ciadi_ti.goods_receipts(id,warehouse_id,receipt_number,status,notes)
-  VALUES (v_receipt,v_wh_a,'GR-TEST-001','checked','entrada de teste');
+  INSERT INTO ciadi_ti.goods_receipts(id,purchase_request_id,warehouse_id,receipt_number,status,notes)
+  VALUES (v_receipt,v_purchase_request,v_wh_a,'GR-TEST-001','checked','entrada de teste');
   INSERT INTO ciadi_ti.goods_receipt_lines(
     id,receipt_id,item_id,received_quantity,accepted_quantity,unit_cost,lot_code
   ) VALUES (v_line,v_receipt,v_item,2,2,10,'LOTE-TESTE');
