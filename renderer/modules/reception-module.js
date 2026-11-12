@@ -775,7 +775,7 @@
         if (reason.length < 10) throw new Error('Indique um motivo com pelo menos 10 caracteres.');
         const { data, error } = await supabase.rpc('ciadi_reception_request_invoice_change', {
           p_document_id: documentId, p_request_type: requestType,
-          p_reason: reason, p_requested_changes: {}
+          p_reason: reason, p_requested_changes: input.requestedChanges && typeof input.requestedChanges === 'object' ? input.requestedChanges : {}
         });
         if (error) throw error;
         if (!data) throw new Error('O servidor não confirmou o pedido.');
