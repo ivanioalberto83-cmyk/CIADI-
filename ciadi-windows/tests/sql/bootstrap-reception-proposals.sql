@@ -19,23 +19,23 @@ CREATE OR REPLACE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
-AS $
+AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.ciadi_finance_can(p_capability text)
-RETURNS boolean LANGUAGE sql STABLE AS $ SELECT false $;
+RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
 CREATE OR REPLACE FUNCTION public.ciadi_finance_operator_id()
-RETURNS uuid LANGUAGE sql STABLE AS $ SELECT NULL::uuid $;
+RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
 CREATE OR REPLACE FUNCTION public.finance_recalcular_documento(p_documento_id uuid)
-RETURNS void LANGUAGE sql AS $ SELECT $;
+RETURNS void LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
 
 CREATE OR REPLACE FUNCTION ciadi_ti.has_reception_operation_access(p_polo_code text)
-RETURNS boolean LANGUAGE sql STABLE AS $
+RETURNS boolean LANGUAGE sql STABLE AS $$
   SELECT p_polo_code = current_setting('ciadi.test_allowed_polo', true)
-$;
+$$;
 CREATE OR REPLACE FUNCTION ciadi_ti.has_finance_approval()
-RETURNS boolean LANGUAGE sql STABLE AS $ SELECT false $;
+RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
 
 -- Composite row types required by the four Reception proposal functions.
 CREATE TABLE public.finance_documentos (
