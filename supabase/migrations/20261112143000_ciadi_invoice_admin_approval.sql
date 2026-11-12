@@ -96,6 +96,11 @@ begin
     raise exception 'As alterações solicitadas devem ser um objecto JSON';
   end if;
 
+  if p_request_type = 'alteracao'
+     and length(trim(coalesce(p_requested_changes->>'description', ''))) < 10 then
+    raise exception 'Descreva a alteração pretendida com pelo menos 10 caracteres';
+  end if;
+
   if not exists (
     select 1 from public.finance_documentos d
     where d.id = p_document_id
