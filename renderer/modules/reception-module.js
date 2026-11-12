@@ -956,17 +956,19 @@
     }
 
     return Object.freeze({
-      async searchAppointments({ term, dateFrom, dateTo } = {}) {
+      async searchAppointments({ term, dateFrom, dateTo, poloCode } = {}) {
         const needle = clean(term, 80).replace(/[%,_(),\\]/g, ' ').replace(/\s+/g, ' ').trim();
         if (needle.length < 2) throw new Error('Introduza pelo menos dois caracteres para pesquisar o utente.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom || '') || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo || '')) {
           throw new Error('Seleccione um intervalo de datas válido.');
         }
         if (dateFrom > dateTo) throw new Error('A data inicial não pode ser posterior à data final.');
+        if (!POLOS.includes(poloCode)) throw new Error('Seleccione um polo CIADI válido.');
         const { data, error } = await db.rpc('reception_search_appointments', {
           p_search_term: needle,
           p_date_from: dateFrom,
-          p_date_to: dateTo
+          p_date_to: dateTo,
+          p_polo_code: poloCode
         });
         if (error) throw error;
         return Object.freeze(Array.isArray(data) ? data : []);
@@ -1287,7 +1289,7 @@
 
     let appointmentResults = [];
     let selectedAppointment = null;
-    let appointmentSearch = { term: '', dateFrom: '', dateTo: '' };
+    let appointmentSearch = { term: '', dateFrom: '', dateTo: '', poloCode: activePolo || POLOS[0] };
 
     function renderArrivalForm() {
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Luanda' });
@@ -1298,11 +1300,12 @@
           <div class="flex items-center justify-between gap-3"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Recepção</span><h2 class="text-2xl font-black">Registar chegada</h2></div><button data-reception-home class="border rounded-lg px-3 py-2">Voltar</button></div>
           <section class="rounded-xl border p-4 space-y-3">
             <h3 class="font-bold">Localizar marcação existente</h3>
-            <form data-reception-appointment-search class="grid md:grid-cols-4 gap-3">
+            <form data-reception-appointment-search class="grid md:grid-cols-5 gap-3">
               <label class="text-sm font-semibold md:col-span-2">Nome ou código do utente<input name="term" required minlength="2" maxlength="80" value="${esc(appointmentSearch.term)}" class="block w-full border rounded-lg p-2 mt-1" placeholder="Pesquisar nome ou código"></label>
               <label class="text-sm font-semibold">Data inicial<input name="dateFrom" type="date" required value="${esc(dateFrom)}" class="block w-full border rounded-lg p-2 mt-1"></label>
               <label class="text-sm font-semibold">Data final<input name="dateTo" type="date" required value="${esc(dateTo)}" class="block w-full border rounded-lg p-2 mt-1"></label>
-              <div class="md:col-span-4"><button type="submit" class="border border-orange text-orange rounded-lg px-4 py-2 font-bold">Pesquisar agenda</button></div>
+              <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-lg p-2 mt-1">${POLOS.map(code => `<option value="${code}" ${(appointmentSearch.poloCode || activePolo || POLOS[0]) === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
+              <div class="md:col-span-5"><button type="submit" class="border border-orange text-orange rounded-lg px-4 py-2 font-bold">Pesquisar agenda</button></div>
             </form>
             <div data-reception-appointment-results aria-live="polite">
               ${appointmentResults.length ? appointmentResults.map(row => `<button type="button" data-appointment-select="${esc(row.id)}" class="w-full text-left border rounded-lg p-3 mt-2 hover:border-orange-400">
@@ -1314,7 +1317,7 @@
           ${selectedAppointment ? `<div class="rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm"><strong>Marcação seleccionada:</strong> ${esc(selectedAppointment.patient_name)} — ${esc(new Date(selectedAppointment.data_hora).toLocaleString('pt-PT'))}</div>` : ''}
           <form data-reception-arrival-form class="grid md:grid-cols-2 gap-4">
             <label class="text-sm font-semibold">Tipo de chegada<select name="visitType" required class="block w-full border rounded-xl p-3 mt-1"><option value="appointment" ${selectedAppointment ? 'selected' : ''}>Com marcação</option><option value="walk_in">Sem marcação</option></select></label>
-            <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-xl p-3 mt-1">${POLOS.map(code => `<option value="${code}" ${activePolo === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
+            <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-xl p-3 mt-1">${POLOS.map(code => `<option value="${code}" ${(activePolo || appointmentSearch.poloCode || POLOS[0]) === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
             <input type="hidden" name="appointmentId" value="${esc(selectedAppointment?.id || '')}">
             <input type="hidden" name="patientId" value="${esc(selectedAppointment?.paciente_id || '')}">
             <label class="text-sm font-semibold">Nome do responsável presente<input name="displayName" required maxlength="120" value="${esc(selectedAppointment?.responsible_name || '')}" class="block w-full border rounded-xl p-3 mt-1"></label>
@@ -1467,7 +1470,7 @@
           if (button.hasAttribute('data-reception-form')) {
             selectedAppointment = null;
             appointmentResults = [];
-            appointmentSearch = { term: '', dateFrom: '', dateTo: '' };
+            appointmentSearch = { term: '', dateFrom: '', dateTo: '', poloCode: activePolo || POLOS[0] };
             return button.getAttribute('data-reception-form') === 'arrival' ? renderArrivalForm() : renderVisitorForm();
           }
           if (button.hasAttribute('data-appointment-select')) {
@@ -1630,7 +1633,7 @@
         if (form.matches('[data-reception-appointment-search]')) {
           event.preventDefault();
           const values = Object.fromEntries(new FormData(form).entries());
-          appointmentSearch = { term: values.term, dateFrom: values.dateFrom, dateTo: values.dateTo };
+          appointmentSearch = { term: values.term, dateFrom: values.dateFrom, dateTo: values.dateTo, poloCode: values.poloCode };
           const results = form.parentElement.querySelector('[data-reception-appointment-results]');
           results.textContent = 'A pesquisar agenda...';
           try {
