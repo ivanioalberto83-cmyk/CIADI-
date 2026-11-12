@@ -1235,7 +1235,8 @@ test('caixa apresenta abertura da factura, emissão central, impressão e PDF', 
   assert.match(html, /data-invoice-preview="doc-issued"/);
   assert.match(html, /data-invoice-print="doc-issued"/);
   assert.match(html, /data-invoice-pdf-export="doc-issued"/);
-  const paymentSelect = html.match(/<select name="documentId"[\\s\\S]*?<\\/select>/)?.[0] || '';\n  assert.doesNotMatch(paymentSelect, /doc-paid/);
+  const paymentSelect = html.split('<select name="documentId"')[1]?.split("</select>")[0] || "";
+  assert.doesNotMatch(paymentSelect, /doc-paid/);
 });
 
 test('pré-visualização de documento tem controlos de impressão e exportação', () => {
