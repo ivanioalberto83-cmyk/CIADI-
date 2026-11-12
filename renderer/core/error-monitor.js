@@ -1,8 +1,8 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.CIADI_ERROR_MONITOR=api;})(typeof window!=='undefined'?window:globalThis,function(){
 'use strict';
 const MAX_MESSAGE=1200;
-function clean(value,max=MAX_MESSAGE){return String(value??'').replace(/[\\u0000-\\u001f\\u007f]/g,' ').replace(/\\s+/g,' ').trim().slice(0,max);}
-function safeErrorMessage(value){let message=clean(value);message=message.replace(/(password|token|secret|authorization|apikey|api_key)\\s*[:=]\\s*[^\\s,;]+/gi,'$1=[redigido]').replace(/eyJ[a-zA-Z0-9_-]{20,}\\.[a-zA-Z0-9_-]{10,}\\.[a-zA-Z0-9_-]{10,}/g,'[token redigido]').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi,'[email redigido]');return message||'Erro sem mensagem disponível.';}
+function clean(value,max=MAX_MESSAGE){return String(value??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);}
+function safeErrorMessage(value){let message=clean(value);message=message.replace(/(password|token|secret|authorization|apikey|api_key)\s*[:=]\s*[^\s,;]+/gi,'$1=[redigido]').replace(/eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g,'[token redigido]').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[email redigido]');return message||'Erro sem mensagem disponível.';}
 function fingerprint(type,message){let h=2166136261;const value=type+'|'+message;for(let i=0;i<value.length;i++){h^=value.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(16);}
 function collectDiagnostics({windowRef={},documentRef={},stationLabel='CIADI ERP',profile={},poloCode=null,now=()=>new Date()}={}){
  const nav=windowRef.navigator||{};const screen=windowRef.screen||{};const location=windowRef.location||{};
@@ -27,7 +27,7 @@ function buildReportDescription({type='Relato manual',message='',diagnostics={},
   'Idioma: '+clean(diagnostics.language,35),'Ligação à Internet: '+(diagnostics.online===null?'não identificada':diagnostics.online?'online':'offline'),
   'Janela: '+clean(diagnostics.viewport,30),'Ecrã: '+clean(diagnostics.screen,30),
   'Versão da aplicação: '+clean(diagnostics.appVersion,60),'Referência técnica: '+clean(reference,32)
- ].join('\\n').slice(0,4900);
+ ].join('\n').slice(0,4900);
 }
 function create({supabase,actorId,profile,poloCode=null,stationLabel='CIADI ERP',notify=()=>{},documentRef=typeof document!=='undefined'?document:null,windowRef=typeof window!=='undefined'?window:null,now=()=>new Date()}={}){
  if(!supabase||!actorId)throw new Error('Sessão autenticada e ligação ao CIADI obrigatórias.');
@@ -65,7 +65,7 @@ function create({supabase,actorId,profile,poloCode=null,stationLabel='CIADI ERP'
    submitButton.disabled=true;submitButton.textContent='A enviar…';status.textContent='A registar o incidente…';
    try{
     const extra=latestError?'Último erro técnico detectado automaticamente: '+safeErrorMessage(latestError):'';
-    const ticket=await submit('Relato manual',detail+(extra?'\\n\\n'+extra:''),false,{title:'Erro reportado · '+title,category:clean(values.get('category'),32),priority:clean(values.get('priority'),16),affectedService:stationLabel});
+    const ticket=await submit('Relato manual',detail+(extra?'\n\n'+extra:''),false,{title:'Erro reportado · '+title,category:clean(values.get('category'),32),priority:clean(values.get('priority'),16),affectedService:stationLabel});
     closeModal();notify('Relato enviado ao Suporte. Referência: '+(ticket?.ticket_number||ticket?.id||'registado'));
    }catch(error){status.textContent='Não foi possível enviar. Verifique a ligação e tente novamente.';submitButton.disabled=false;submitButton.textContent='Tentar novamente';}
   });
