@@ -39,6 +39,11 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'A RPC financeira deve executar com privilégios controlados SECURITY DEFINER';
   END IF;
+  IF has_function_privilege('anon', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('service_role', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'A assinatura antiga da RPC de pagamento deve ficar desactivada';
+  END IF;
   IF NOT has_function_privilege('authenticated', 'ciadi_ti.reception_get_stock_workspace(text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'authenticated deve poder executar o workspace de stock controlado';
   END IF;
