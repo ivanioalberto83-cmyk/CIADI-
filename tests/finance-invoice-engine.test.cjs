@@ -33,6 +33,12 @@ test('A4 preview reflects the persisted document state', () => {
   assert.match(dashboard, /preview:d\.document_status!=='N'\|\|d\.fiscal_status!=='emitido'/);
 });
 
+test('Cash movement is created once; accounting retry does not create a duplicate movement', () => {
+  assert.match(dashboard, /finance_registar_pagamento',[^;]*p_caixa_id:caixaId/);
+  assert.match(dashboard, /ciadi_finance_integrar_pagamento',[^;]*p_caixa_id:null/);
+  assert.match(dashboard, /PAGAMENTO_INTEGRACAO_PENDENTE/);
+});
+
 test('SQL proposal assigns AGT numbering before fiscal validation and uses N as normal status', () => {
   assert.match(sql, /document_status = 'N'/);
   assert.match(sql, /v_doc_no := d\.tipo_documento \|\| ' ' \|\| v_serie_agt \|\| '\/' \|\| v_num::text/);
