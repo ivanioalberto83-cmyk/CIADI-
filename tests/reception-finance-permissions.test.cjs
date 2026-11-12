@@ -36,7 +36,23 @@ test('recepção não apresenta acções de alteração ou eliminação de factu
   });
 
   assert.match(html, /Criar factura em rascunho/);
+  assert.match(html, /data-reception-client-form/);
+  assert.match(html, /Guardar cliente/);
+  assert.doesNotMatch(html, /data-invoice-calculate|data-invoice-edit|data-invoice-delete/);
   assert.match(html, /Cadastrar cliente\/entidade/);
   assert.doesNotMatch(html, /data-invoice-edit|data-invoice-delete|Apagar factura|Alterar factura/);
-  assert.match(html, /Não pode alterar nem apagar facturas ou documentos/);
+  assert.match(html, /Não pode alterar, apagar, emitir ou anular facturas\/documentos/);
+});
+
+test('proposta SQL limita Recepção a cadastro e rascunhos, sem mutação de documentos existentes', () => {
+  const fs = require('node:fs');
+  const sql = fs.readFileSync('supabase/proposals/ciadi-reception-finance-workflows-proposal.sql', 'utf8');
+  assert.match(sql, /reception_create_finance_client/);
+  assert.match(sql, /reception_create_finance_invoice_draft/);
+  assert.match(sql, /reception_get_finance_workspace/);
+  assert.match(sql, /'N',p_cliente_id/);
+  assert.match(sql, /'rascunho','nao_submetido'/);
+  assert.match(sql, /revoke all on function public\.reception_create_finance_client/);
+  assert.match(sql, /grant execute on function public\.reception_create_finance_client/);
+  assert.doesNotMatch(sql, /grant\s+(insert|update|delete|all)\s+on\s+public\.finance_(clientes|documentos)/i);
 });
