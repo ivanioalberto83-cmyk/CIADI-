@@ -16,8 +16,27 @@ create table public.finance_documentos (
   total numeric(14,2) not null,
   estado_pagamento text not null default 'pendente',
   forma_pagamento text,
+  tipo_documento text,
+  document_status text,
+  fiscal_status text,
+  origem_tipo text,
+  documento_origem_id uuid,
+  hash_documento text,
+  hash_algoritmo text,
   updated_at timestamptz not null default now()
 );
+create table public.finance_pagamentos (
+  id uuid primary key default gen_random_uuid(),
+  documento_id uuid not null,
+  valor numeric(14,2) not null,
+  created_at timestamptz not null default now()
+);
+create or replace function public.ciadi_finance_can(p_action text)
+returns boolean language sql stable security definer
+as $ select exists (
+  select 1 from public.perfis p
+  where p.id=auth.uid() and p.ativo is true and p.tipo in ('admin','operador')
+) $;
 grant usage on schema public, auth to authenticated;
 grant select on public.perfis to authenticated;
 grant execute on function auth.uid() to authenticated;
