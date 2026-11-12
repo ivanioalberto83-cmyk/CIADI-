@@ -1485,6 +1485,18 @@
             } finally { button.disabled = false; }
             return;
           }
+          if (button.hasAttribute('data-invoice-change-decision')) {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const decision = button.getAttribute('data-invoice-change-decision');
+            const requestId = button.getAttribute('data-invoice-change-id');
+            const note = globalThis.prompt ? globalThis.prompt(decision === 'aprovado' ? 'Nota da aprovação (opcional):' : 'Motivo da rejeição (opcional):') : '';
+            if (note === null) return;
+            button.disabled = true;
+            await financeRepository.decideInvoiceChange({ requestId, decision, note });
+            notify(decision === 'aprovado' ? 'Pedido aprovado pelo ADM. A execução fiscal exige o procedimento próprio.' : 'Pedido rejeitado pelo ADM.');
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            return;
+          }
           if (button.hasAttribute('data-invoice-calculate')) {
             if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
             const result = await financeRepository.calculateInvoice(button.getAttribute('data-invoice-calculate'));
@@ -1621,6 +1633,23 @@
           } catch (error) {
             button.disabled = false;
             message.textContent = error.message || 'Não foi possível criar o rascunho.';
+          }
+          return;
+        }
+        if (form.matches('[data-invoice-change-request]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const documentId = form.getAttribute('data-invoice-change-request');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            await financeRepository.requestInvoiceChange({ documentId, requestType: values.requestType, reason: values.reason });
+            notify('Pedido enviado ao ADM. A factura original não foi alterada.');
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+          } catch (error) {
+            button.disabled = false;
+            notify(error.message || 'Não foi possível submeter o pedido.');
           }
           return;
         }
