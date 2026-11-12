@@ -1118,6 +1118,15 @@
         '<ul class="text-xs list-disc pl-5">' + lines.map(item => '<li>' + esc(item.item_name || item.sku || item.item_id) + ' — ' + esc(item.quantity_requested) + ' ' + esc(item.unit_of_measure || '') + ' · aprovado: ' + esc(item.quantity_approved) + ' · entregue: ' + esc(item.quantity_issued) + '</li>').join('') + '</ul>' +
         actions + '</article>';
     }).join('');
+    const issueOptions = option('', 'Seleccione uma linha aprovada') + requisitions
+      .filter(request => ['approved', 'partially_fulfilled'].includes(request.status))
+      .flatMap(request => (Array.isArray(request.lines) ? request.lines : []).map(item => {
+        const remaining = Number(item.quantity_approved || 0) - Number(item.quantity_issued || 0);
+        if (remaining <= 0) return '';
+        const label = 'REQ-' + request.request_number + ' · ' + (item.item_name || item.sku || item.item_id) + ' · disponível: ' + remaining;
+        return '<option value="' + esc(item.id) + '" data-request-id="' + esc(request.id) + '" data-item-id="' + esc(item.item_id) + '" data-warehouse-id="' + esc(request.warehouse_id) + '" data-max-quantity="' + esc(remaining) + '">' + esc(label) + '</option>';
+      })).join('');
+    const hasIssueLines = issueOptions !== option('', 'Seleccione uma linha aprovada');
     return '<section class="card p-5 space-y-4" data-reception-stock-operations>' +
       '<div><h3 class="font-black text-lg">Gestão de stock e requisições internas</h3><p class="text-xs text-slate-500">Consulta por polo, criação de requisições, submissão e decisão do ADM. A saída física só é registada depois da aprovação.</p></div>' +
       (snapshot.error ? '<p class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Consulta segura do stock indisponível: ' + esc(snapshot.error.message || 'RPC de leitura ainda não homologada.') + '</p>' : '') +
@@ -1132,6 +1141,14 @@
         '<div class="space-y-2"><div class="flex justify-between items-center"><strong class="text-sm">Artigos solicitados</strong><button type="button" data-stock-add-line class="border rounded-lg px-3 py-1 text-xs font-bold">Adicionar artigo</button></div><div data-stock-requisition-lines>' + line() + '</div></div>' +
         '<p data-stock-message role="status" class="text-xs text-amber-800"></p>' +
         '<button type="submit" class="rounded-lg bg-orange text-white px-4 py-2 font-bold"' + (available ? '' : ' disabled title="Aguarda a leitura autorizada de artigos, armazéns e centros de custo."') + '>Guardar requisição</button>' +
+      '</form>' +
+      '<form data-stock-exit-form class="rounded-xl border p-4 space-y-3">' +
+        '<h4 class="font-bold">Registar saída de stock</h4>' +
+        '<p class="text-xs text-slate-500">Só permite saídas de linhas aprovadas e com quantidade ainda disponível.</p>' +
+        '<label class="block text-xs font-semibold">Linha aprovada<select name="requestLineId" required class="mt-1 w-full border rounded-lg p-2">' + issueOptions + '</select></label>' +
+        '<div class="grid md:grid-cols-2 gap-2"><label class="text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label><label class="text-xs font-semibold">Referência<input name="reference" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label></div>' +
+        '<p data-stock-exit-message role="status" class="text-xs text-amber-800"></p>' +
+        '<button type="submit" class="rounded-lg border px-4 py-2 font-bold"' + (hasIssueLines && !snapshot.error ? '' : ' disabled title="Não existem linhas aprovadas com saldo por entregar."') + '>Registar saída</button>' +
       '</form>' +
       '<div class="space-y-2"><h4 class="font-bold">Requisições do polo</h4>' + (cards || '<p class="text-sm text-slate-500">Não existem requisições para este polo.</p>') + '</div>' +
     '</section>';
@@ -1694,6 +1711,40 @@
           } catch (error) {
             button.disabled = false;
             if (message) message.textContent = error.message || 'Não foi possível registar o pagamento.';
+          }
+          return;
+        }
+        if (form.matches('[data-stock-exit-form]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-stock-exit-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            const selected = form.querySelector('[name="requestLineId"]')?.selectedOptions?.[0];
+            if (!selected?.value) throw new Error('Seleccione uma linha de requisição aprovada.');
+            const quantity = Number(values.quantity);
+            const maximum = Number(selected.dataset.maxQuantity);
+            if (!Number.isFinite(quantity) || quantity <= 0 || quantity > maximum) {
+              throw new Error('A quantidade excede o saldo aprovado ainda por entregar (' + maximum + ').');
+            }
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo || POLOS[0] });
+            const movementId = await service.registerStockExit({
+              mode: 'approved_request',
+              itemId: selected.dataset.itemId,
+              warehouseId: selected.dataset.warehouseId,
+              quantity,
+              requestId: selected.dataset.requestId,
+              requestLineId: selected.value,
+              reference: values.reference
+            });
+            if (!movementId) throw new Error('O motor de stock não confirmou a saída.');
+            notify('Saída de stock registada: ' + movementId);
+            form.reset();
+            try { await refresh(); } catch (refreshError) { notify('Saída registada; não foi possível actualizar a consulta: ' + (refreshError.message || 'erro de leitura.')); }
+          } catch (error) {
+            button.disabled = false;
+            if (message) message.textContent = error.message || 'Não foi possível registar a saída.';
           }
           return;
         }
