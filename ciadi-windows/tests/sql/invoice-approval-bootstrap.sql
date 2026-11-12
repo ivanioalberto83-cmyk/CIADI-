@@ -19,6 +19,7 @@ create table public.finance_documentos (
   updated_at timestamptz not null default now()
 );
 grant usage on schema public, auth to authenticated;
+grant select on public.perfis to authenticated;
 grant execute on function auth.uid() to authenticated;
 grant select, update on public.finance_documentos to authenticated;
 insert into public.perfis(id,tipo,ativo) values
