@@ -11,7 +11,11 @@ test('proposta de pagamento exige caixa e turno do operador antes de qualquer re
     'utf8'
   );
 
+  assert.match(sql, /create or replace function ciadi_private\.finance_registar_pagamento/i);
   assert.match(sql, /security definer/i);
+  assert.match(sql, /create or replace function public\.finance_registar_pagamento/i);
+  assert.match(sql, /security invoker/i);
+  assert.match(sql, /revoke all on schema ciadi_private from public, anon/i);
   assert.match(sql, /public\.perfis p[\s\S]*p\.ativo = true/i);
   assert.match(sql, /auth\.uid\(\)/i);
   assert.match(sql, /p_caixa_id is null/i);
