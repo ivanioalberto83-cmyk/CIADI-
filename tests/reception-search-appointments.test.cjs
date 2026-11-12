@@ -61,3 +61,8 @@ test('appointment search rejects missing or unsupported polo before calling the 
 
   assert.equal(calls.length, 0);
 });
+
+test('arrival form keeps the polo used for the appointment search', () => {
+  const source = require('node:fs').readFileSync(require.resolve('../renderer/modules/reception-module.js'), 'utf8');
+  assert.match(source, /\(appointmentSearch\\.poloCode \\|\\| activePolo \\|\\| POLOS\\[0\\]\)/);
+});
