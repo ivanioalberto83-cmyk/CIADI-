@@ -215,7 +215,7 @@ BEGIN
       v_overpay_invoice,60,'numerário','payment-over-001','PAY-OVER-001',v_cashbox,'excede saldo'
     );
     RAISE EXCEPTION 'Esperava rejeição de pagamento superior ao saldo';
-  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+  EXCEPTION WHEN SQLSTATE '23514' THEN
     GET STACKED DIAGNOSTICS v_state = MESSAGE_TEXT;
     IF v_state NOT LIKE 'Pagamento excede o saldo em aberto:%' THEN RAISE; END IF;
   END;
