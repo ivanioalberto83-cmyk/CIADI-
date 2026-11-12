@@ -1091,7 +1091,7 @@
     const shifts = list('shifts');
     const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
     const issuedDocuments = documents.filter(row => row.fiscal_status === 'emitido' && row.document_status === 'N');
-    const editableDocuments = documents.filter(row => ['em_edicao', 'rascunho', 'draft'].includes(row.document_status));
+    const editableDocuments = documents.filter(row => row.document_status === 'N' && ['rascunho', 'em_edicao', 'draft'].includes(row.fiscal_status));
     const brand = globalThis.CIADI_INSTITUTIONAL_IDENTITY?.getBrand?.() || null;
     const logo = brand?.logoDataUrl ? '<img src="' + esc(brand.logoDataUrl) + '" alt="Logótipo CIADI" class="h-10 w-auto object-contain">' : '<strong class="text-orange">CIADI</strong>';
     return '<section class="card p-5 space-y-4" data-reception-finance-operations>' +
@@ -1341,12 +1341,15 @@
     async function loadBusinessSnapshot() {
       if (!businessRepository) businessRepository = createReceptionBusinessRepository({ supabase });
       const polo = activePolo || POLOS[0];
-      const workspace = await businessRepository.getFinanceWorkspace(polo);
-      activeCompanyId = clean(configuredCompanyId, 128) || clean(workspace.companyId, 128) || null;
-      const rowsFor = key => Array.isArray(workspace[key]) ? workspace[key] : [];
+      let workspace = null;
+      let workspaceError = null;
+      try { workspace = await businessRepository.getFinanceWorkspace(polo); }
+      catch (error) { workspaceError = error; }
+      activeCompanyId = clean(configuredCompanyId, 128) || clean(workspace?.companyId, 128) || null;
+      const rowsFor = key => Array.isArray(workspace?.[key]) ? workspace[key] : [];
       const financeKeys = ['clients','services','documentTypes','series','cashboxes','documents','shifts'];
-      businessSnapshot = Object.fromEntries(financeKeys.map(key => [key, { rows: rowsFor(key), error: null }]));
-      if (!activeCompanyId) {
+      businessSnapshot = Object.fromEntries(financeKeys.map(key => [key, { rows: rowsFor(key), error: workspaceError }]));
+      if (!activeCompanyId && !workspaceError) {
         const missingCompany = new Error('Empresa principal não identificada; operações financeiras indisponíveis.');
         for (const key of financeKeys) businessSnapshot[key] = { rows: [], error: missingCompany };
       }
@@ -1416,13 +1419,6 @@
               const result = await service.exportIssuedPdf(button.getAttribute('data-invoice-pdf-export'));
               notify(result?.saved ? 'PDF A4 guardado no computador: ' + (result.filePath || '') : 'Exportação PDF cancelada.');
             } finally { button.disabled = false; }
-            return;
-          }
-          if (button.hasAttribute('data-invoice-calculate')) {
-            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
-            const result = await financeRepository.calculateInvoice(button.getAttribute('data-invoice-calculate'));
-            notify('Cálculo devolvido pelo motor central: ' + JSON.stringify(result));
-            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
             return;
           }
           if (button.hasAttribute('data-reception-route')) {
