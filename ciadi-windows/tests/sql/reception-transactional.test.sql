@@ -128,9 +128,9 @@ BEGIN
       '22222222-2222-4222-8222-222222222222',1,'numerário','payment-no-cash-01',null,null,null
     );
     RAISE EXCEPTION 'Esperava rejeição de pagamento sem caixa';
-  EXCEPTION WHEN SQLSTATE 'P0001' THEN
-    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
-    IF v_state <> 'P0001' THEN RAISE; END IF;
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    GET STACKED DIAGNOSTICS v_state = MESSAGE_TEXT;
+    IF v_state NOT LIKE 'Seleccione um caixa aberto%' THEN RAISE; END IF;
   END;
 
 
