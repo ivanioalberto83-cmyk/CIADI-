@@ -1,0 +1,35 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const sqlPath = path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql');
+const modulePath = path.join(__dirname, '../../renderer/modules/reception-module.js');
+
+test('workspace de stock é lido por RPC com validação de sessão e polo, sem abrir SELECT directo', () => {
+  const sql = fs.readFileSync(sqlPath, 'utf8');
+  const source = fs.readFileSync(modulePath, 'utf8');
+
+  assert.match(sql, /reception_get_stock_workspace\(p_polo_code text\)/i);
+  assert.match(sql, /auth\.uid\(\) is null or not ciadi_ti\.has_reception_operation_access\(p_polo_code\)/i);
+  assert.match(sql, /revoke all on function ciadi_ti\.reception_get_stock_workspace\(text\) from public, anon/i);
+  assert.match(sql, /grant execute on function ciadi_ti\.reception_get_stock_workspace\(text\) to authenticated/i);
+  assert.match(source, /rpc\('reception_get_stock_workspace'/);
+  assert.match(source, /data-reception-stock-operations/);
+});
+
+test('Recepção cria e submete requisições; só Administração/Gestão vê decisões', () => {
+  const sql = fs.readFileSync(sqlPath, 'utf8');
+  const source = fs.readFileSync(modulePath, 'utf8');
+
+  assert.match(source, /createStockRequisition\(input = \{\}\)/);
+  assert.match(source, /submitStockRequisition\(requisitionId\)/);
+  assert.match(source, /decideStockRequisition\(requisitionId, decision/);
+  assert.match(source, /request\.status === 'submitted' && canApprove/);
+  assert.match(sql, /'canApprove', ciadi_ti\.has_finance_approval\(\)/i);
+  assert.match(sql, /'stockBalances'/i);
+  assert.match(sql, /'requisitions'/i);
+  assert.match(sql, /'movements'/i);
+});
