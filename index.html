@@ -120,7 +120,7 @@ function visibleMenu(){
 }
 function nav(){document.getElementById('nav').innerHTML=visibleMenu().map(entry=>`<button onclick="go('${entry.id}')" class="w-full text-left px-3 py-2.5 rounded-xl font-semibold ${current===entry.id?'bg-orange/10 text-orange':''}">${entry.label}</button>`).join('')}
 function stationDefaultRoute(){
-  return ({adm:'cash_reports',recepcao:'reception',suporte_informatica:'support'})[stationProfile] || null;
+  return ({adm:'overview',recepcao:'reception',suporte_informatica:'support'})[stationProfile] || null;
 }
 function canOpenStationRoute(id){
   return visibleMenu().some(entry=>entry.id===id);
