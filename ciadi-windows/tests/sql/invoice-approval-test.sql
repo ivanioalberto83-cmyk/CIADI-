@@ -31,7 +31,7 @@ begin
     if sqlerrm = 'Falha: operador conseguiu decidir pedido' then raise; end if;
   end;
   update public.finance_documentos
-    set estado_pagamento='pago', forma_pagamento='transferencia'
+    set estado_pagamento='pago'
     where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   update public.finance_documentos
     set agt_submission_status='submetido',
