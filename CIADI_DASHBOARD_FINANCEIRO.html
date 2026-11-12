@@ -896,7 +896,7 @@ async function enter(u){
     if(stationMode && !Object.prototype.hasOwnProperty.call(stationProfileLabels,stationProfile)) throw new Error('Perfil desta estação não identificado. Reinstale o CIADI e seleccione um perfil válido.');
     if(stationRequiresPolo && !Object.prototype.hasOwnProperty.call(stationPoloLabels,stationPolo)) throw new Error('Polo desta estação não identificado. Reinstale o CIADI e seleccione um polo válido.');
     if(profile.ativo!==true){ await authService.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
-    const hasStationAccess = ['admin','gestor','profissional'].includes(profile.tipo) || (profile.tipo==='operador' && ['recepcao','suporte_informatica'].includes(stationProfile));
+    const hasStationAccess = ['admin','gestor','profissional'].includes(profile.tipo) || (stationProfile==='recepcao' && profile.tipo==='operador') || (stationProfile==='suporte_informatica' && profile.tipo==='suporte_informatica');
     if(!hasStationAccess){ await authService.signOut(); throw new Error('Este utilizador não possui acesso à estação seleccionada.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
