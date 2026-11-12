@@ -11,9 +11,14 @@ test('proposta de pagamento exige caixa e turno do operador antes de qualquer re
     'utf8'
   );
 
-  assert.match(sql, /security invoker/i);
+  assert.match(sql, /security definer/i);
+  assert.match(sql, /public\.perfis p[\s\S]*p\.ativo = true/i);
   assert.match(sql, /auth\.uid\(\)/i);
   assert.match(sql, /p_caixa_id is null/i);
+  assert.match(sql, /p_idempotency_key text/i);
+  assert.match(sql, /finance_pagamentos_idempotency_key_uidx/i);
+  assert.match(sql, /pg_advisory_xact_lock/i);
+  assert.match(sql, /idempotent_replay|chave idempotente/i);
   assert.match(sql, /empresa_id = v_doc\.empresa_id/i);
   assert.match(sql, /estado = 'aberto'/i);
   assert.match(sql, /ciadi_finance_can\('receber'\)/i);
@@ -55,6 +60,7 @@ test('interface e repositório não permitem pagamento sem caixa seleccionado', 
     'utf8'
   );
   assert.match(moduleSource, /p_caixa_id: requiredId\(input\.cashboxId, 'Caixa'\)/);
+  assert.match(moduleSource, /p_idempotency_key: requiredId\(input\.idempotencyKey/);
   assert.match(moduleSource, /<select name="cashboxId" required class="[^"]*border rounded-lg p-2">/);
   assert.match(moduleSource, /Seleccione o caixa obrigatório/);
 });
@@ -66,6 +72,8 @@ test('formulário de recebimento chama o motor central, confirma o RC e disponib
   );
   assert.match(moduleSource, /form\.matches\('\[data-reception-payment-form\]'\)/);
   assert.match(moduleSource, /financeRepository\.registerPayment\(/);
+  assert.match(moduleSource, /paymentIdempotencyKey/);
+  assert.match(moduleSource, /globalThis\.crypto\?\.randomUUID/);
   assert.match(moduleSource, /result\?\.pagamento_id[\s\S]*result\?\.recibo_id[\s\S]*result\?\.recibo_no/);
   assert.match(moduleSource, /pdfService\.preview\(result\.recibo_id\)/);
   assert.match(moduleSource, /data-invoice-pdf-export=/);
