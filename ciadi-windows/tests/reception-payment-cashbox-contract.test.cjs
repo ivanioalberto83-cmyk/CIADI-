@@ -84,8 +84,9 @@ test('formulário de recebimento chama o motor central, confirma o RC e disponib
   assert.match(moduleSource, /paymentIdempotencyKey/);
   assert.match(moduleSource, /globalThis\.crypto\?\.randomUUID/);
   assert.match(moduleSource, /crypto\.subtle\.digest/);
-  assert.match(moduleSource, /localStorage\?\.getItem/);
-  assert.match(moduleSource, /localStorage\?\.setItem/);
+  assert.match(moduleSource, /storage\.getItem\(storageKey\)/);
+  assert.match(moduleSource, /storage\.setItem\(storageKey, idempotencyKey\)/);
+  assert.match(moduleSource, /pagamento foi bloqueado para evitar duplicações/);
   assert.match(moduleSource, /localStorage\?\.removeItem/);
   assert.match(moduleSource, /result\?\.pagamento_id[\s\S]*result\?\.recibo_id[\s\S]*result\?\.recibo_no/);
   assert.match(moduleSource, /pdfService\.preview\(result\.recibo_id\)/);
