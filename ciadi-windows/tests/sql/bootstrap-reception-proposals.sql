@@ -19,7 +19,23 @@ CREATE OR REPLACE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
-AS $$ SELECT NULL::uuid $$;
+AS $
+  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$;
+
+CREATE OR REPLACE FUNCTION public.ciadi_finance_can(p_capability text)
+RETURNS boolean LANGUAGE sql STABLE AS $ SELECT false $;
+CREATE OR REPLACE FUNCTION public.ciadi_finance_operator_id()
+RETURNS uuid LANGUAGE sql STABLE AS $ SELECT NULL::uuid $;
+CREATE OR REPLACE FUNCTION public.finance_recalcular_documento(p_documento_id uuid)
+RETURNS void LANGUAGE sql AS $ SELECT $;
+
+CREATE OR REPLACE FUNCTION ciadi_ti.has_reception_operation_access(p_polo_code text)
+RETURNS boolean LANGUAGE sql STABLE AS $
+  SELECT p_polo_code = current_setting('ciadi.test_allowed_polo', true)
+$;
+CREATE OR REPLACE FUNCTION ciadi_ti.has_finance_approval()
+RETURNS boolean LANGUAGE sql STABLE AS $ SELECT false $;
 
 -- Composite row types required by the four Reception proposal functions.
 CREATE TABLE public.finance_documentos (
@@ -80,3 +96,48 @@ CREATE TABLE ciadi_ti.goods_receipt_lines (
   id uuid, receipt_id uuid, item_id uuid, accepted_quantity numeric,
   unit_cost numeric, lot_code text, notes text, movement_id uuid
 );
+
+
+-- Minimal operational stock fixture for transactional tests.
+CREATE TABLE ciadi_ti.items (
+  id uuid PRIMARY KEY,
+  sku text NOT NULL,
+  name text NOT NULL,
+  unit_of_measure text NOT NULL DEFAULT 'UN',
+  minimum_stock numeric NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true
+);
+CREATE TABLE ciadi_ti.warehouses (
+  id uuid PRIMARY KEY,
+  code text NOT NULL,
+  name text NOT NULL,
+  polo text NOT NULL,
+  active boolean NOT NULL DEFAULT true
+);
+ALTER TABLE ciadi_ti.stock_movements
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE ciadi_ti.stock_movements
+  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE ciadi_ti.stock_movements
+  ADD CONSTRAINT stock_movements_idempotency_key_unique UNIQUE (idempotency_key);
+CREATE TABLE ciadi_ti.audit_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  table_name text NOT NULL,
+  record_id uuid NOT NULL,
+  action text NOT NULL,
+  actor_id uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE ciadi_ti.goods_receipts
+  ADD COLUMN IF NOT EXISTS purchase_request_id uuid,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE ciadi_ti.goods_receipt_lines
+  ADD COLUMN IF NOT EXISTS received_quantity numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS damaged_quantity numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS returned_quantity numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS purchase_request_line_id uuid;
+ALTER TABLE ciadi_ti.goods_receipts
+  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE ciadi_ti.goods_receipt_lines
+  ALTER COLUMN id SET DEFAULT gen_random_uuid();
