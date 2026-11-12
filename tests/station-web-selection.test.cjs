@@ -35,7 +35,7 @@ test('installer-provided station profile remains authoritative in the desktop ap
 });
 
 test('Reception operator accounts are admitted only in the Reception station', () => {
-  assert.match(html, /profile\.tipo==='operador' && stationProfile==='recepcao'/);
+  assert.match(html, /profile\.tipo==='operador' && \['recepcao','suporte_informatica'\]\.includes\(stationProfile\)/);
   assert.match(html, /stationProfile==='recepcao' \? 'reception'/);
   assert.match(html, /Este utilizador não possui acesso à estação seleccionada/);
 });
