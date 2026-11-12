@@ -40,7 +40,7 @@ as $fn$ select exists (
 grant usage on schema public, auth to authenticated;
 grant select on public.perfis to authenticated;
 grant execute on function auth.uid() to authenticated;
-grant select, update on public.finance_documentos to authenticated;
+grant select, insert, update on public.finance_documentos to authenticated;
 grant insert on public.finance_pagamentos to authenticated;
 insert into public.perfis(id,tipo,ativo) values
  ('11111111-1111-4111-8111-111111111111','operador',true),
