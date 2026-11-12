@@ -21,6 +21,36 @@ $;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS ciadi_ti;
 
+-- Minimal polo/procurement fixtures required by the scoped workspace triggers.
+CREATE TABLE ciadi_ti.purchase_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_number bigint NOT NULL DEFAULT 1,
+  supplier_id uuid,
+  status text NOT NULL DEFAULT 'draft',
+  justification text NOT NULL DEFAULT '',
+  estimated_total numeric,
+  polo_code text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE ciadi_ti.stock_requisitions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  polo_code text NOT NULL,
+  warehouse_id uuid NOT NULL,
+  cost_center_id uuid NOT NULL,
+  purpose text NOT NULL,
+  priority text NOT NULL DEFAULT 'normal',
+  status text NOT NULL DEFAULT 'draft',
+  requested_by uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE public.finance_centros_custo (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  codigo text NOT NULL,
+  nome text NOT NULL,
+  ativo boolean NOT NULL DEFAULT true,
+  empresa_id uuid
+);
+
 CREATE OR REPLACE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
