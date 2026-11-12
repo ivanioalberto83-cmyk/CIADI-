@@ -12,8 +12,13 @@ create unique index if not exists finance_pagamentos_idempotency_key_uidx
 
 -- Desactiva a assinatura antiga (6 argumentos), que aceitava chamadas anónimas
 -- e não exigia caixa/turno nem chave idempotente. A nova assinatura exige a chave.
-revoke all on function public.finance_registar_pagamento(uuid, numeric, text, text, uuid, text)
-  from public, anon, authenticated;
+do $revoke_legacy$
+begin
+  if to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)') is not null then
+    execute 'revoke all on function public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text) from public, anon, authenticated';
+  end if;
+end;
+$revoke_legacy$;
 
 create or replace function public.finance_registar_pagamento(
   p_documento_id uuid,
