@@ -45,9 +45,20 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_proc p
     WHERE p.oid = to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)')
+      AND p.prosecdef = false
+  ) THEN
+    RAISE EXCEPTION 'A RPC pública de pagamento deve ser SECURITY INVOKER';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    WHERE p.oid = to_regprocedure('ciadi_private.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)')
       AND p.prosecdef = true
   ) THEN
-    RAISE EXCEPTION 'A RPC financeira deve executar com privilégios controlados SECURITY DEFINER';
+    RAISE EXCEPTION 'A implementação privilegiada deve ficar no schema privado';
+  END IF;
+  IF has_function_privilege('anon', 'ciadi_private.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'ciadi_private.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'O helper privado deve ser acessível apenas a authenticated';
   END IF;
   IF has_function_privilege('anon', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE')
