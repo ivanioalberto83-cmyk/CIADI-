@@ -33,10 +33,10 @@ create table public.finance_pagamentos (
 );
 create or replace function public.ciadi_finance_can(p_action text)
 returns boolean language sql stable security definer
-as $ select exists (
+as $fn$ select exists (
   select 1 from public.perfis p
   where p.id=auth.uid() and p.ativo is true and p.tipo in ('admin','operador')
-) $;
+) $fn$;
 grant usage on schema public, auth to authenticated;
 grant select on public.perfis to authenticated;
 grant execute on function auth.uid() to authenticated;
