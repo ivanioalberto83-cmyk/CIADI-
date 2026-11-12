@@ -2,6 +2,16 @@
 -- Operador: cria pedido, lê apenas o próprio e pode actualizar dados de recebimento.
 set role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+do $
+begin
+  perform public.ciadi_reception_request_invoice_change(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','alteracao',
+    'Motivo de correcção válido','{}'::jsonb
+  );
+  raise exception 'Falha: pedido de alteração sem descrição foi aceite';
+exception when others then
+  if sqlerrm = 'Falha: pedido de alteração sem descrição foi aceite' then raise; end if;
+end $;
 select public.ciadi_reception_request_invoice_change(
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','anulacao',
  'Factura emitida com dados incorrectos','{}'::jsonb
