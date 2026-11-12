@@ -332,6 +332,8 @@ begin
   select w.polo into v_polo_code
   from ciadi_ti.goods_receipts r
   join ciadi_ti.warehouses w on w.id=r.warehouse_id
+  join ciadi_ti.purchase_requests pr
+    on pr.id=r.purchase_request_id and pr.polo_code=w.polo
   where r.id=p_receipt_id and w.active=true;
   if not found or v_polo_code not in ('talatona','jardim_de_rosas')
      or not ciadi_ti.has_reception_operation_access(v_polo_code) then
