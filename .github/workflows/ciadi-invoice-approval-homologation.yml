@@ -9,7 +9,7 @@ on:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'ciadi-windows/tests/reception-module.test.cjs'
       - 'ciadi-windows/tests/support-global-polo.test.cjs'
-      - 'supabase/migrations/20261112143000_ciadi_invoice_admin_approval.sql'
+      - 'supabase/migrations/20261112125553_ciadi_reception_invoice_admin_approval_20261112.sql'
       - 'ciadi-windows/tests/sql/invoice-approval-*'
       - '.github/workflows/ciadi-invoice-approval-homologation.yml'
   pull_request:
@@ -18,7 +18,7 @@ on:
     paths:
       - 'renderer/modules/reception-module.js'
       - 'ciadi-windows/tests/reception-module.test.cjs'
-      - 'supabase/migrations/20261112143000_ciadi_invoice_admin_approval.sql'
+      - 'supabase/migrations/20261112125553_ciadi_reception_invoice_admin_approval_20261112.sql'
       - 'ciadi-windows/tests/sql/invoice-approval-*'
       - '.github/workflows/ciadi-invoice-approval-homologation.yml'
 permissions:
@@ -66,6 +66,6 @@ jobs:
       - name: Preparar base isolada
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/invoice-approval-bootstrap.sql
       - name: Aplicar migração apenas na base isolada
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261112143000_ciadi_invoice_admin_approval.sql
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261112125553_ciadi_reception_invoice_admin_approval_20261112.sql
       - name: Testar isolamento, bloqueios e aprovação ADM
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/invoice-approval-test.sql
