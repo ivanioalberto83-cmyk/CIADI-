@@ -1593,7 +1593,7 @@
               const result = await service.checkGoodsReceipt(button.getAttribute('data-goods-receipt-check'));
               if (result?.status !== 'checked') throw new Error('O motor não confirmou a conferência da recepção.');
               notify('Recepção conferida. Pode agora lançar as quantidades aceites no stock.');
-              await refresh();
+              try { await refresh(); } catch (refreshError) { notify('Recepção conferida; a actualização da lista falhou: ' + (refreshError.message || 'erro de leitura.')); }
             } catch (error) {
               button.disabled = false;
               notify(error.message || 'Não foi possível conferir a recepção.');
@@ -1607,7 +1607,7 @@
               const result = await service.finalizeGoodsReceipt(button.getAttribute('data-goods-receipt-finalize'));
               if (result?.status !== 'posted') throw new Error('O motor não confirmou a entrada das mercadorias no stock.');
               notify('Recepção lançada no stock. Movimentos criados: ' + (result.movements_created || 0) + '.');
-              await refresh();
+              try { await refresh(); } catch (refreshError) { notify('Entrada lançada; a actualização da lista falhou: ' + (refreshError.message || 'erro de leitura.')); }
             } catch (error) {
               button.disabled = false;
               notify(error.message || 'Não foi possível lançar a recepção no stock.');
@@ -1841,7 +1841,7 @@
             if (!movementId) throw new Error('O motor de stock não confirmou a devolução.');
             notify('Devolução registada no razão de stock: ' + movementId);
             form.reset();
-            await refresh();
+            try { await refresh(); } catch (refreshError) { notify('Devolução registada; a actualização da consulta falhou: ' + (refreshError.message || 'erro de leitura.')); }
           } catch (error) {
             button.disabled = false;
             if (message) message.textContent = error.message || 'Não foi possível registar a devolução.';
@@ -1867,7 +1867,7 @@
             }
             notify('Transferência concluída. Saída e entrada registadas no razão central.');
             form.reset();
-            await refresh();
+            try { await refresh(); } catch (refreshError) { notify('Transferência registada; a actualização da consulta falhou: ' + (refreshError.message || 'erro de leitura.')); }
           } catch (error) {
             button.disabled = false;
             if (message) message.textContent = error.message || 'Não foi possível transferir o stock.';
@@ -1908,7 +1908,7 @@
             form.reset();
             const linesHost = form.querySelector('[data-goods-receipt-lines]');
             if (linesHost) linesHost.innerHTML = '<p class="text-xs text-slate-500">Seleccione um pedido para carregar as respectivas linhas.</p>';
-            await refresh();
+            try { await refresh(); } catch (refreshError) { notify('Recepção criada; a actualização da lista falhou: ' + (refreshError.message || 'erro de leitura.')); }
           } catch (error) {
             button.disabled = false;
             if (message) message.textContent = error.message || 'Não foi possível criar a recepção de mercadorias.';
