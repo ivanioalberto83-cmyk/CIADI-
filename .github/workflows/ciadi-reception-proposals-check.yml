@@ -47,19 +47,30 @@ jobs:
           from pathlib import Path
           from pglast import parse_sql
 
-          files = sorted(Path("supabase/proposals").glob("ciadi-reception-*-proposal.sql"))
-          expected = 4
-          if len(files) != expected:
-              raise SystemExit(f"Esperadas {expected} propostas; encontradas {len(files)}")
-          for file in files:
+          names = [
+              "ciadi-reception-payment-cashbox-hardening-proposal.sql",
+              "ciadi-reception-finance-workspace-permissions-proposal.sql",
+              "ciadi-reception-stock-read-workspace-proposal.sql",
+              "ciadi-reception-stock-operations-permissions-proposal.sql",
+          ]
+          for name in names:
+              file = Path("supabase/proposals") / name
+              if not file.is_file():
+                  raise SystemExit(f"Proposta em falta: {file}")
               parse_sql(file.read_text(encoding="utf-8"))
               print(f"SQL exterior válido: {file}")
           PY
 
       - name: Confirm proposals remain non-production artefacts
         run: |
-          if grep -L -i 'PROPOSTA APENAS' supabase/proposals/ciadi-reception-*-proposal.sql; then
-            echo "Foi encontrada uma proposta sem marcador de protecção."
-            exit 1
-          fi
+          for file in \
+            supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql \
+            supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql \
+            supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql \
+            supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql; do
+            grep -qi 'PROPOSTA APENAS' "$file" || {
+              echo "Falta o marcador de protecção em $file"
+              exit 1
+            }
+          done
           echo "As quatro propostas continuam identificadas como propostas não aplicadas."
