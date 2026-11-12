@@ -1064,7 +1064,6 @@
       { key: 'requests', title: 'Requisições de compra', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
       { key: 'stockRequisitions', title: 'Requisições internas de stock', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + ' · ' + esc(row.polo_code) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
       { key: 'goodsReceipts', title: 'Recepção de mercadorias', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.receipt_number || row.delivery_reference || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
-      { key: 'inventoryCounts', title: 'Contagens físicas', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.id.slice(0, 8)) + ' · ' + esc(row.warehouse_id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
       { key: 'movements', title: 'Razão de movimentos de stock', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.movement_type) + ' · ' + esc(row.reference || row.item_id) + '</span><strong>' + esc(row.quantity_delta) + '</strong></div>').join('') }
     ];
     return '<section class="card p-5 space-y-4" data-reception-business-integration>' +
@@ -1091,12 +1090,19 @@
     const warehouses = Array.isArray(snapshot.warehouses) ? snapshot.warehouses : [];
     const costCenters = Array.isArray(snapshot.costCenters) ? snapshot.costCenters : [];
     const requisitions = Array.isArray(snapshot.requisitions) ? snapshot.requisitions : [];
+    const purchaseRequests = Array.isArray(snapshot.purchaseRequests) ? snapshot.purchaseRequests : [];
+    const goodsReceipts = Array.isArray(snapshot.goodsReceipts) ? snapshot.goodsReceipts : [];
     const actorId = clean(snapshot.actorId, 128);
     const canApprove = snapshot.canApprove === true;
     const available = !snapshot.error && items.length > 0 && warehouses.length > 0 && costCenters.length > 0;
+    const movementAvailable = !snapshot.error && items.length > 0 && warehouses.length > 0;
+    const receiptAvailable = !snapshot.error && warehouses.length > 0 && purchaseRequests.some(row => row.status === 'approved');
     const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
     const itemOptions = option('', 'Seleccione o artigo') + items.map(item =>
       option(item.id, (item.sku ? item.sku + ' · ' : '') + item.name + ' (' + (item.unit_of_measure || 'unidade') + ')')
+    ).join('');
+    const warehouseOptions = option('', 'Seleccione o armazém') + warehouses.map(row =>
+      option(row.id, row.code + ' · ' + row.name)
     ).join('');
     const line = () => '<div data-stock-requisition-line class="grid md:grid-cols-12 gap-2 items-end">' +
       '<label class="md:col-span-6 text-xs font-semibold">Artigo<select name="itemId" required class="mt-1 w-full border rounded-lg p-2">' + itemOptions + '</select></label>' +
@@ -1127,13 +1133,25 @@
         return '<option value="' + esc(item.id) + '" data-request-id="' + esc(request.id) + '" data-item-id="' + esc(item.item_id) + '" data-warehouse-id="' + esc(request.warehouse_id) + '" data-max-quantity="' + esc(remaining) + '">' + esc(label) + '</option>';
       })).join('');
     const hasIssueLines = issueOptions !== option('', 'Seleccione uma linha aprovada');
+    const approvedPurchaseOptions = option('', 'Seleccione o pedido aprovado') + purchaseRequests
+      .filter(row => row.status === 'approved')
+      .map(row => option(row.id, 'COMP-' + row.request_number + ' · ' + (row.supplier_name || 'Fornecedor não indicado') + ' · ' + (row.justification || '')))
+      .join('');
+    const receiptCards = goodsReceipts.map(receipt => {
+      const actions = receipt.status === 'draft'
+        ? '<button type="button" data-goods-receipt-check="' + esc(receipt.id) + '" class="rounded-lg border px-3 py-2 text-xs font-bold">Conferir recepção</button>'
+        : receipt.status === 'checked'
+          ? '<button type="button" data-goods-receipt-finalize="' + esc(receipt.id) + '" class="rounded-lg bg-orange text-white px-3 py-2 text-xs font-bold">Lançar no stock</button>'
+          : '';
+      return '<article class="rounded-xl border p-3 space-y-2"><div class="flex flex-wrap justify-between gap-2"><strong>GR-' + esc(receipt.receipt_number) + ' · ' + esc(receipt.delivery_reference || 'Sem referência') + '</strong><span class="text-xs font-semibold">' + esc(receipt.status) + '</span></div><p class="text-xs text-slate-500">' + esc(receipt.warehouse_name || '') + ' · ' + esc(receipt.delivery_date || '') + '</p><ul class="text-xs list-disc pl-5">' + (Array.isArray(receipt.lines) ? receipt.lines : []).map(item => '<li>' + esc(item.received_quantity) + ' recebida(s), ' + esc(item.accepted_quantity) + ' aceite(s), ' + esc(item.damaged_quantity) + ' danificada(s), ' + esc(item.returned_quantity) + ' devolvida(s)</li>').join('') + '</ul>' + actions + '</article>';
+    }).join('');
     return '<section class="card p-5 space-y-4" data-reception-stock-operations>' +
-      '<div><h3 class="font-black text-lg">Gestão de stock e requisições internas</h3><p class="text-xs text-slate-500">Consulta por polo, criação de requisições, submissão e decisão do ADM. A saída física só é registada depois da aprovação.</p></div>' +
+      '<div><h3 class="font-black text-lg">Gestão de stock e aprovisionamento</h3><p class="text-xs text-slate-500">Requisições internas, saídas, devoluções, transferências e recepção de mercadorias. Os movimentos são registados no razão central e validados no servidor.</p></div>' +
       (snapshot.error ? '<p class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Consulta segura do stock indisponível: ' + esc(snapshot.error.message || 'RPC de leitura ainda não homologada.') + '</p>' : '') +
       '<form data-stock-requisition-form class="rounded-xl border p-4 space-y-3">' +
         '<h4 class="font-bold">Nova requisição interna</h4>' +
         '<div class="grid md:grid-cols-3 gap-2">' +
-          '<label class="text-xs font-semibold">Armazém<select name="warehouseId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o armazém') + warehouses.map(row => option(row.id, row.code + ' · ' + row.name)).join('') + '</select></label>' +
+          '<label class="text-xs font-semibold">Armazém<select name="warehouseId" required class="mt-1 w-full border rounded-lg p-2">' + warehouseOptions + '</select></label>' +
           '<label class="text-xs font-semibold">Centro de custo<select name="costCenterId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o centro de custo') + costCenters.map(row => option(row.id, row.code + ' · ' + row.name)).join('') + '</select></label>' +
           '<label class="text-xs font-semibold">Prioridade<select name="priority" required class="mt-1 w-full border rounded-lg p-2"><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label>' +
         '</div>' +
@@ -1142,16 +1160,37 @@
         '<p data-stock-message role="status" class="text-xs text-amber-800"></p>' +
         '<button type="submit" class="rounded-lg bg-orange text-white px-4 py-2 font-bold"' + (available ? '' : ' disabled title="Aguarda a leitura autorizada de artigos, armazéns e centros de custo."') + '>Guardar requisição</button>' +
       '</form>' +
-      '<form data-stock-exit-form class="rounded-xl border p-4 space-y-3">' +
-        '<h4 class="font-bold">Registar saída de stock</h4>' +
-        '<p class="text-xs text-slate-500">Só permite saídas de linhas aprovadas e com quantidade ainda disponível.</p>' +
-        '<label class="block text-xs font-semibold">Linha aprovada<select name="requestLineId" required class="mt-1 w-full border rounded-lg p-2">' + issueOptions + '</select></label>' +
-        '<div class="grid md:grid-cols-2 gap-2"><label class="text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label><label class="text-xs font-semibold">Referência<input name="reference" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label></div>' +
-        '<p data-stock-exit-message role="status" class="text-xs text-amber-800"></p>' +
-        '<button type="submit" class="rounded-lg border px-4 py-2 font-bold"' + (hasIssueLines && !snapshot.error ? '' : ' disabled title="Não existem linhas aprovadas com saldo por entregar."') + '>Registar saída</button>' +
-      '</form>' +
-      '<div class="space-y-2"><h4 class="font-bold">Requisições do polo</h4>' + (cards || '<p class="text-sm text-slate-500">Não existem requisições para este polo.</p>') + '</div>' +
+      '<div class="grid xl:grid-cols-2 gap-3">' +
+        '<form data-stock-exit-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registar saída de stock</h4><p class="text-xs text-slate-500">Só permite saídas de linhas aprovadas e com quantidade ainda disponível.</p><label class="block text-xs font-semibold">Linha aprovada<select name="requestLineId" required class="mt-1 w-full border rounded-lg p-2">' + issueOptions + '</select></label><div class="grid md:grid-cols-2 gap-2"><label class="text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label><label class="text-xs font-semibold">Referência<input name="reference" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label></div><p data-stock-exit-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold"' + (hasIssueLines && !snapshot.error ? '' : ' disabled title="Não existem linhas aprovadas com saldo por entregar."') + '>Registar saída</button></form>' +
+        '<form data-stock-return-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registar devolução</h4><label class="block text-xs font-semibold">Artigo<select name="itemId" required class="mt-1 w-full border rounded-lg p-2">' + itemOptions + '</select></label><label class="block text-xs font-semibold">Armazém<select name="warehouseId" required class="mt-1 w-full border rounded-lg p-2">' + warehouseOptions + '</select></label><label class="block text-xs font-semibold">Tipo<select name="returnType" required class="mt-1 w-full border rounded-lg p-2"><option value="devolucao_entrada">Devolução ao stock</option><option value="devolucao_saida">Devolução ao fornecedor</option></select></label><div class="grid md:grid-cols-2 gap-2"><label class="text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label><label class="text-xs font-semibold">Referência<input name="reference" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label></div><label class="block text-xs font-semibold">Motivo<textarea name="reason" required minlength="10" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-stock-return-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold"' + (movementAvailable ? '' : ' disabled title="Consulta de stock indisponível."') + '>Registar devolução</button></form>' +
+        '<form data-stock-transfer-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Transferir entre armazéns do polo</h4><label class="block text-xs font-semibold">Artigo<select name="itemId" required class="mt-1 w-full border rounded-lg p-2">' + itemOptions + '</select></label><div class="grid md:grid-cols-2 gap-2"><label class="text-xs font-semibold">Armazém de origem<select name="fromWarehouseId" required class="mt-1 w-full border rounded-lg p-2">' + warehouseOptions + '</select></label><label class="text-xs font-semibold">Armazém de destino<select name="toWarehouseId" required class="mt-1 w-full border rounded-lg p-2">' + warehouseOptions + '</select></label></div><div class="grid md:grid-cols-2 gap-2"><label class="text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label><label class="text-xs font-semibold">Lote (opcional)<input name="lotCode" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label></div><label class="block text-xs font-semibold">Referência<input name="reference" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Observações<textarea name="notes" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-stock-transfer-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold"' + (movementAvailable && warehouses.length > 1 ? '' : ' disabled title="São necessários dois armazéns activos no mesmo polo."') + '>Confirmar transferência</button></form>' +
+        '<form data-goods-receipt-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Receber mercadorias de fornecedor</h4><p class="text-xs text-slate-500">A recepção começa em rascunho, passa por conferência e só depois lança as quantidades aceites no stock.</p><label class="block text-xs font-semibold">Pedido de compra aprovado<select name="requestId" data-goods-receipt-request required class="mt-1 w-full border rounded-lg p-2">' + approvedPurchaseOptions + '</select></label><label class="block text-xs font-semibold">Armazém de destino<select name="warehouseId" required class="mt-1 w-full border rounded-lg p-2">' + warehouseOptions + '</select></label><div class="grid md:grid-cols-2 gap-2"><label class="text-xs font-semibold">Referência da guia<input name="deliveryReference" required maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label><label class="text-xs font-semibold">Data da entrega<input name="deliveryDate" type="date" class="mt-1 w-full border rounded-lg p-2"></label></div><label class="block text-xs font-semibold">Observações<textarea name="notes" maxlength="2000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><div data-goods-receipt-lines class="space-y-2"><p class="text-xs text-slate-500">Seleccione um pedido para carregar as respectivas linhas.</p></div><p data-goods-receipt-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg bg-orange text-white px-4 py-2 font-bold"' + (receiptAvailable ? '' : ' disabled title="Não existem pedidos aprovados disponíveis ou a consulta segura está indisponível."') + '>Guardar recepção em rascunho</button></form>' +
+      '</div>' +
+      '<div class="space-y-2"><h4 class="font-bold">Requisições internas do polo</h4>' + (cards || '<p class="text-sm text-slate-500">Não existem requisições para este polo.</p>') + '</div>' +
+      '<div class="space-y-2"><h4 class="font-bold">Recepções de mercadorias</h4>' + (receiptCards || '<p class="text-sm text-slate-500">Não existem recepções de mercadorias para este polo.</p>') + '</div>' +
     '</section>';
+  }
+
+  function renderReceptionGoodsReceiptLines(request) {
+    const lines = Array.isArray(request?.lines) ? request.lines : [];
+    if (!lines.length) return '<p class="text-xs text-amber-800">O pedido não tem linhas com artigos de stock elegíveis.</p>';
+    return lines.map(line => {
+      const ordered = Number(line.quantity || 0);
+      const already = Number(line.already_received_quantity || 0);
+      const remaining = Math.max(0, Math.round((ordered - already) * 1000) / 1000);
+      if (!line.item_id || remaining <= 0) return '';
+      return '<fieldset data-goods-receipt-line class="rounded-lg border p-3 grid md:grid-cols-3 gap-2"><legend class="text-xs font-bold px-1">' + esc(line.description) + '</legend>' +
+        '<input type="hidden" name="requestLineId" value="' + esc(line.id) + '"><input type="hidden" name="orderedQuantity" value="' + esc(ordered) + '"><input type="hidden" name="alreadyReceivedQuantity" value="' + esc(already) + '">' +
+        '<p class="md:col-span-3 text-xs text-slate-500">Encomendado: ' + esc(ordered) + ' ' + esc(line.unit_of_measure || '') + ' · já recebido: ' + esc(already) + ' · em falta: ' + esc(remaining) + '</p>' +
+        '<label class="text-xs font-semibold">Recebido<input name="receivedQuantity" type="number" min="0.001" max="' + esc(remaining) + '" step="0.001" required class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold">Aceite<input name="acceptedQuantity" type="number" min="0" step="0.001" required value="0" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold">Danificado<input name="damagedQuantity" type="number" min="0" step="0.001" required value="0" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold">Devolvido<input name="returnedQuantity" type="number" min="0" step="0.001" required value="0" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold">Custo unitário (opcional)<input name="unitCost" type="number" min="0" step="0.01" class="mt-1 w-full border rounded-lg p-2" value="' + esc(line.estimated_unit_cost ?? '') + '"></label>' +
+        '<label class="text-xs font-semibold">Lote<input name="lotCode" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<label class="text-xs font-semibold md:col-span-3">Observações<input name="lineNotes" maxlength="1000" class="mt-1 w-full border rounded-lg p-2"></label>' +
+      '</fieldset>';
+    }).join('') || '<p class="text-xs text-amber-800">Todas as linhas deste pedido já foram recebidas.</p>';
   }
 
   function renderReceptionFinancePanel(snapshot = {}) {
@@ -1219,7 +1258,7 @@
     let businessRepository = null;
     let financeRepository = null;
     let activeCompanyId = clean(configuredCompanyId, 128) || null;
-    let businessSnapshot = { services: null, clients: null, documentTypes: null, series: null, cashboxes: null, documents: null, shifts: null, stock: null, requests: null, stockRequisitions: null, goodsReceipts: null, inventoryCounts: null, movements: null };
+    let businessSnapshot = { services: null, clients: null, documentTypes: null, series: null, cashboxes: null, documents: null, shifts: null, stock: null, requests: null, stockRequisitions: null, goodsReceipts: null, purchaseRequests: null, movements: null };
 
     function renderUnavailable(error) {
       container.innerHTML = `
@@ -1276,6 +1315,8 @@
             warehouses: businessSnapshot.stockWarehouses?.rows,
             costCenters: businessSnapshot.stockCostCenters?.rows,
             requisitions: businessSnapshot.stockRequisitions?.rows,
+            purchaseRequests: businessSnapshot.stockWorkspace?.purchaseRequests,
+            goodsReceipts: businessSnapshot.stockWorkspace?.goodsReceipts,
             canApprove: businessSnapshot.stockWorkspace?.canApprove,
             error: businessSnapshot.stockWorkspace?.error,
             actorId,
@@ -1450,15 +1491,6 @@
       let stockWorkspaceError = null;
       try { stockWorkspace = await businessRepository.getStockWorkspace(polo); }
       catch (error) { stockWorkspaceError = error; }
-      const stockTasks = [
-        ['requests', () => businessRepository.getPurchaseRequests()],
-        ['goodsReceipts', () => businessRepository.getGoodsReceipts()],
-        ['inventoryCounts', () => businessRepository.getInventoryCounts()]
-      ];
-      const stockResults = await Promise.all(stockTasks.map(async ([key, load]) => {
-        try { return [key, { rows: await load(), error: null }]; }
-        catch (error) { return [key, { rows: [], error }]; }
-      }));
       businessSnapshot = {
         ...businessSnapshot,
         stock: { rows: stockWorkspace?.stockBalances || [], error: stockWorkspaceError },
@@ -1468,11 +1500,13 @@
         stockRequisitions: { rows: stockWorkspace?.requisitions || [], error: stockWorkspaceError },
         movements: { rows: stockWorkspace?.movements || [], error: stockWorkspaceError },
         stockWorkspace: stockWorkspace ? { ...stockWorkspace, error: null } : { canApprove: false, error: stockWorkspaceError },
+        requests: { rows: stockWorkspace?.purchaseRequests || [], error: stockWorkspaceError },
+        purchaseRequests: { rows: stockWorkspace?.purchaseRequests || [], error: stockWorkspaceError },
+        goodsReceipts: { rows: stockWorkspace?.goodsReceipts || [], error: stockWorkspaceError },
         canOpenCashbox: workspace?.canOpenCashbox === true,
         canCloseCashbox: workspace?.canCloseCashbox === true,
         canReceivePayments: workspace?.canReceivePayments === true,
-        operatorId: workspace?.operatorId || null,
-        ...Object.fromEntries(stockResults)
+        operatorId: workspace?.operatorId || null
       };
     }
 
@@ -1563,7 +1597,9 @@
             const host = container.querySelector('[data-invoice-preview-host]');
             if (!host) throw new Error('Área de pré-visualização documental indisponível.');
             host.classList.remove('hidden');
-            host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex items-center justify-between gap-2"><div><h3 class="font-bold">Pré-visualização A4 CIADI</h3><p class="text-xs text-slate-500">' + esc(result.document.document_no || result.document.id) + ' · ' + esc(result.document.document_status || 'rascunho') + '</p></div><div class="flex gap-2"><button type="button" data-invoice-pdf-export="' + esc(result.document.id) + '" class="rounded-lg bg-orange text-white px-3 py-2">Guardar PDF</button><button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div></div><iframe title="Pré-visualização do documento CIADI" sandbox="allow-same-origin" srcdoc="' + esc(result.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
+            const canExport = result.document.document_status === 'N' && result.document.fiscal_status === 'emitido' && typeof globalThis.ciadiDesktop?.documents?.renderPdf === 'function' && typeof globalThis.ciadiDesktop?.documents?.exportIssuedPdf === 'function';
+            const exportControl = canExport ? '<button type="button" data-invoice-pdf-export="' + esc(result.document.id) + '" class="rounded-lg bg-orange text-white px-3 py-2">Guardar PDF</button>' : '<span class="text-xs text-slate-500">PDF oficial: disponível após emissão no CIADI Desktop</span>';
+            host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex items-center justify-between gap-2"><div><h3 class="font-bold">Pré-visualização A4 CIADI</h3><p class="text-xs text-slate-500">' + esc(result.document.document_no || result.document.id) + ' · ' + esc(result.document.document_status || 'rascunho') + '</p></div><div class="flex gap-2">' + exportControl + '<button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div></div><iframe title="Pré-visualização do documento CIADI" sandbox="allow-same-origin" srcdoc="' + esc(result.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
             host.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
           }
@@ -1703,7 +1739,9 @@
               const host = container.querySelector('[data-invoice-preview-host]');
               if (!host) throw new Error('Área de pré-visualização do recibo indisponível.');
               host.classList.remove('hidden');
-              host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-bold">Recibo CIADI</h3><p class="text-xs text-slate-500">' + esc(preview.document.document_no || result.recibo_no) + '</p></div><div class="flex gap-2"><button type="button" data-invoice-pdf-export="' + esc(result.recibo_id) + '" class="rounded-lg bg-orange text-white px-3 py-2">Guardar PDF</button><button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div></div><iframe title="Pré-visualização do recibo CIADI" sandbox="allow-same-origin" srcdoc="' + esc(preview.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
+              const canExportReceipt = preview.document.document_status === 'N' && preview.document.fiscal_status === 'emitido' && typeof globalThis.ciadiDesktop?.documents?.renderPdf === 'function' && typeof globalThis.ciadiDesktop?.documents?.exportIssuedPdf === 'function';
+              const receiptExportControl = canExportReceipt ? '<button type="button" data-invoice-pdf-export="' + esc(result.recibo_id) + '" class="rounded-lg bg-orange text-white px-3 py-2">Guardar PDF</button>' : '<span class="text-xs text-slate-500">PDF oficial: disponível no CIADI Desktop</span>';
+              host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-bold">Recibo CIADI</h3><p class="text-xs text-slate-500">' + esc(preview.document.document_no || result.recibo_no) + '</p></div><div class="flex gap-2">' + receiptExportControl + '<button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div></div><iframe title="Pré-visualização do recibo CIADI" sandbox="allow-same-origin" srcdoc="' + esc(preview.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
               host.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } catch (pdfError) {
               notify('Pagamento e recibo confirmados; pré-visualização PDF indisponível: ' + (pdfError.message || 'erro de leitura.'));
