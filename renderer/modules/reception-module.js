@@ -762,6 +762,31 @@
           p_observacoes: clean(input.notes, 1000) || null
         });
       },
+      async requestInvoiceChange(input = {}) {
+        const documentId = requiredId(input.documentId, 'Factura');
+        const requestType = requiredId(input.requestType, 'Tipo de pedido');
+        const reason = clean(input.reason, 2000);
+        if (!['alteracao', 'anulacao'].includes(requestType)) throw new Error('Tipo de pedido inválido.');
+        if (reason.length < 10) throw new Error('Indique um motivo com pelo menos 10 caracteres.');
+        const { data, error } = await supabase.rpc('ciadi_reception_request_invoice_change', {
+          p_document_id: documentId, p_request_type: requestType,
+          p_reason: reason, p_requested_changes: {}
+        });
+        if (error) throw error;
+        if (!data) throw new Error('O servidor não confirmou o pedido.');
+        return data;
+      },
+      async decideInvoiceChange(input = {}) {
+        const requestId = requiredId(input.requestId, 'Pedido');
+        const decision = requiredId(input.decision, 'Decisão');
+        if (!['aprovado', 'rejeitado'].includes(decision)) throw new Error('Decisão inválida.');
+        const { data, error } = await supabase.rpc('ciadi_reception_decide_invoice_change', {
+          p_request_id: requestId, p_decision: decision,
+          p_decision_note: clean(input.note, 1000) || null
+        });
+        if (error) throw error;
+        return data;
+      },
       async openCashbox(input = {}) {
         return call('ciadi_abrir_caixa', {
           p_caixa_id: requiredId(input.cashboxId, 'Caixa'),
