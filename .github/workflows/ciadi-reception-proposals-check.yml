@@ -72,8 +72,8 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql
 
       - name: Verify RPC registration and privilege boundaries in PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-proposals-compile.test.sql
