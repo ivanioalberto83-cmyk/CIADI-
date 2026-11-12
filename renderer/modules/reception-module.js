@@ -1560,6 +1560,7 @@
             const list = button.closest('[data-stock-requisition-lines]');
             const rows = list?.querySelectorAll('[data-stock-requisition-line]') || [];
             if (rows.length > 1) button.closest('[data-stock-requisition-line]').remove();
+            else notify('A requisição tem de manter pelo menos um artigo.');
             return;
           }
           if (button.hasAttribute('data-stock-submit')) {
@@ -1568,7 +1569,7 @@
               const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo || POLOS[0] });
               await service.submitStockRequisition(button.getAttribute('data-stock-submit'));
               notify('Requisição submetida para aprovação do ADM.');
-              await refresh();
+              try { await refresh(); } catch (refreshError) { notify('Requisição submetida; a actualização da lista falhou: ' + (refreshError.message || 'erro de leitura.')); }
             } catch (error) {
               button.disabled = false;
               notify(error.message || 'Não foi possível submeter a requisição.');
@@ -1587,7 +1588,7 @@
                 note
               );
               notify(button.getAttribute('data-stock-decide') === 'approved' ? 'Requisição aprovada.' : 'Requisição rejeitada.');
-              await refresh();
+              try { await refresh(); } catch (refreshError) { notify('Decisão registada; a actualização da lista falhou: ' + (refreshError.message || 'erro de leitura.')); }
             } catch (error) {
               button.disabled = false;
               notify(error.message || 'Não foi possível decidir a requisição.');
@@ -1672,7 +1673,7 @@
             if (!nextVisit) throw new Error('Não existem utentes em espera.');
             await repository.transitionVisit(nextVisit.id, 'waiting', 'in_service', actorId);
             notify(`Senha ${nextVisit.polo_code === 'talatona' ? 'TAL' : 'JDR'} #${String(nextVisit.ticket_number || '').padStart(3, '0')} chamada para atendimento.`);
-            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            try { await refresh(); } catch (refreshError) { notify('Senha chamada; a actualização da fila falhou: ' + (refreshError.message || 'erro de leitura.')); }
             return;
           }
           if (button.hasAttribute('data-visit-route')) {
@@ -1682,14 +1683,14 @@
             if (!specialtyId) throw new Error('Seleccione o serviço de destino antes de encaminhar.');
             await repository.routeVisit(visitId, specialtyId, actorId);
             notify('Encaminhamento registado no histórico do atendimento.');
-            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            try { await refresh(); } catch (refreshError) { notify('Encaminhamento registado; a actualização da fila falhou: ' + (refreshError.message || 'erro de leitura.')); }
             return;
           }
           if (button.hasAttribute('data-referral-confirm')) {
             const visitId = button.getAttribute('data-referral-confirm');
             await repository.confirmReferral(visitId, actorId);
             notify('O serviço de destino confirmou a recepção do encaminhamento.');
-            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            try { await refresh(); } catch (refreshError) { notify('Recepção confirmada; a actualização da fila falhou: ' + (refreshError.message || 'erro de leitura.')); }
             return;
           }
           if (button.hasAttribute('data-referral-return')) {
@@ -1698,7 +1699,7 @@
               .find(input => input.getAttribute('data-referral-return-reason') === visitId);
             await repository.returnReferral(visitId, reasonInput?.value || '', actorId);
             notify('Encaminhamento devolvido e motivo registado no histórico.');
-            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            try { await refresh(); } catch (refreshError) { notify('Encaminhamento devolvido; a actualização da fila falhou: ' + (refreshError.message || 'erro de leitura.')); }
             return;
           }
           if (button.hasAttribute('data-visit-action')) {
@@ -1706,13 +1707,14 @@
             if (!visit) throw new Error('O atendimento seleccionado já não está disponível.');
             await repository.transitionVisit(visit.id, visit.status, button.getAttribute('data-visit-action'), actorId);
             notify('Estado do atendimento actualizado.');
-            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+            try { await refresh(); } catch (refreshError) { notify('Estado actualizado; a actualização da fila falhou: ' + (refreshError.message || 'erro de leitura.')); }
             return;
           }
           if (button.hasAttribute('data-visitor-exit')) {
             await repository.closeVisitor(button.getAttribute('data-visitor-exit'), actorId);
             notify('Saída do visitante registada.');
-            return refresh();
+            try { await refresh(); } catch (refreshError) { notify('Saída registada; a actualização da lista falhou: ' + (refreshError.message || 'erro de leitura.')); }
+            return;
           }
         } catch (error) { notify(error.message || 'Não foi possível concluir a operação.'); }
       });
