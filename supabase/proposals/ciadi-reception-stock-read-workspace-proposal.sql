@@ -21,6 +21,8 @@ begin
   select jsonb_build_object(
     'poloCode', p_polo_code,
     'canApprove', ciadi_ti.has_finance_approval(),
+    'canTransferStock', to_regprocedure('ciadi_ti.post_stock_movement_for_reception(uuid,uuid,text,text,numeric,text,text,numeric,text,text,uuid)') is not null,
+    'canFinalizeGoodsReceipt', to_regprocedure('ciadi_ti.post_stock_movement_for_reception(uuid,uuid,text,text,numeric,text,text,numeric,text,text,uuid)') is not null,
     'items', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', i.id, 'sku', i.sku, 'name', i.name,
