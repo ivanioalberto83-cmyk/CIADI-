@@ -26,7 +26,14 @@ $$;
 CREATE OR REPLACE FUNCTION public.ciadi_finance_can(p_capability text)
 RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT p_capability = ANY(string_to_array(current_setting('ciadi.test_finance_caps', true), ',')) $$;
 CREATE OR REPLACE FUNCTION public.ciadi_finance_operator_id()
-RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('ciadi.test_operator_id', true), '')::uuid $$;
+RETURNS uuid LANGUAGE sql STABLE AS $ SELECT nullif(current_setting('ciadi.test_operator_id', true), '')::uuid $;
+CREATE OR REPLACE FUNCTION public.ciadi_finance_is_staff()
+RETURNS boolean LANGUAGE sql STABLE AS $ SELECT false $;
+CREATE TABLE public.perfis (
+  id uuid PRIMARY KEY,
+  ativo boolean NOT NULL DEFAULT true,
+  tipo text NOT NULL DEFAULT 'operador'
+);
 CREATE OR REPLACE FUNCTION public.finance_recalcular_documento(p_documento_id uuid)
 RETURNS void LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
 
@@ -174,7 +181,8 @@ ALTER TABLE public.finance_pagamentos
   ADD COLUMN IF NOT EXISTS referencia text,
   ADD COLUMN IF NOT EXISTS observacoes text,
   ADD COLUMN IF NOT EXISTS recebido_por uuid,
-  ADD COLUMN IF NOT EXISTS empresa_id uuid;
+  ADD COLUMN IF NOT EXISTS empresa_id uuid,
+  ADD COLUMN IF NOT EXISTS idempotency_key text;
 ALTER TABLE public.finance_pagamentos ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE public.finance_series
   ADD COLUMN IF NOT EXISTS nome text,
