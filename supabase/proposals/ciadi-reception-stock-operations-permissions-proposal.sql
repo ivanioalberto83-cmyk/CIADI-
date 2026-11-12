@@ -3,6 +3,89 @@
 --   1) reception_transfer_stock -> transfer_stock (has_support_access)
 --   2) finalize_goods_receipt -> post_stock_movement (has_support_access)
 -- A Recepção mantém acesso apenas ao polo validado por has_reception_operation_access.
+
+-- Restringe centros de custo e armazéns ao polo indicado no pedido interno.
+-- A associação operacional CIADI é CC-001 = Talatona e CC-002 = Jardim de Rosas.
+create or replace function ciadi_ti.enforce_reception_stock_requisition_scope()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public, ciadi_ti
+as $
+declare
+  v_expected_cost_center text;
+begin
+  if new.polo_code not in ('talatona','jardim_de_rosas') then
+    raise exception 'Polo inválido para a requisição de stock.' using errcode = '22023';
+  end if;
+
+  v_expected_cost_center := case new.polo_code
+    when 'talatona' then 'CC-001'
+    when 'jardim_de_rosas' then 'CC-002'
+  end;
+
+  if not exists (
+    select 1 from ciadi_ti.warehouses w
+    where w.id = new.warehouse_id and w.active = true and w.polo = new.polo_code
+  ) then
+    raise exception 'O armazém não pertence ao polo da requisição.' using errcode = '42501';
+  end if;
+
+  if not exists (
+    select 1 from public.finance_centros_custo c
+    where c.id = new.cost_center_id and c.ativo = true
+      and upper(btrim(c.codigo)) = v_expected_cost_center
+  ) then
+    raise exception 'O centro de custo não corresponde ao polo da requisição.' using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$;
+
+revoke all on function ciadi_ti.enforce_reception_stock_requisition_scope() from public, anon, authenticated;
+drop trigger if exists trg_reception_stock_requisition_scope on ciadi_ti.stock_requisitions;
+create trigger trg_reception_stock_requisition_scope
+before insert or update of polo_code, warehouse_id, cost_center_id
+on ciadi_ti.stock_requisitions
+for each row execute function ciadi_ti.enforce_reception_stock_requisition_scope();
+
+-- Uma recepção de mercadorias só pode ligar um pedido e um armazém do mesmo polo.
+create or replace function ciadi_ti.enforce_goods_receipt_polo_scope()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public, ciadi_ti
+as $
+declare
+  v_warehouse_polo text;
+  v_request_polo text;
+begin
+  select w.polo into v_warehouse_polo
+  from ciadi_ti.warehouses w
+  where w.id = new.warehouse_id and w.active = true;
+
+  select pr.polo_code into v_request_polo
+  from ciadi_ti.purchase_requests pr
+  where pr.id = new.purchase_request_id and pr.status = 'approved';
+
+  if v_warehouse_polo is null or v_request_polo is null
+     or v_request_polo not in ('talatona','jardim_de_rosas')
+     or v_request_polo <> v_warehouse_polo then
+    raise exception 'O pedido de compra e o armazém têm de pertencer ao mesmo polo autorizado.' using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$;
+
+revoke all on function ciadi_ti.enforce_goods_receipt_polo_scope() from public, anon, authenticated;
+drop trigger if exists trg_goods_receipt_polo_scope on ciadi_ti.goods_receipts;
+create trigger trg_goods_receipt_polo_scope
+before insert or update of purchase_request_id, warehouse_id
+on ciadi_ti.goods_receipts
+for each row execute function ciadi_ti.enforce_goods_receipt_polo_scope();
+
 -- O helper interno abaixo não é executável directamente por authenticated.
 
 create or replace function ciadi_ti.post_stock_movement_for_reception(
