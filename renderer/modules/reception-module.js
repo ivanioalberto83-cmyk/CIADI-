@@ -1108,6 +1108,62 @@
     }[char]));
   }
 
+  const BUSINESS_DETAIL_CONFIG = Object.freeze({
+    services: { title: 'Serviços e preços', fields: [['codigo','Código'],['nome','Serviço'],['categoria','Categoria'],['preco_base','Preço base (Kz)'],['taxa_imposto','Imposto (%)'],['codigo_imposto','Código fiscal']] },
+    cashboxes: { title: 'Caixas', fields: [['codigo','Código'],['nome','Caixa'],['localizacao','Localização'],['estado','Estado'],['moeda','Moeda']] },
+    documents: { title: 'Documentos recentes', fields: [['document_no','N.º documento'],['tipo_documento','Tipo'],['document_status','Estado'],['data_emissao','Data de emissão'],['total','Total (Kz)'],['estado_pagamento','Pagamento'],['fiscal_status','Estado fiscal']] },
+    stock: { title: 'Stock e inventário', fields: [['sku','Referência'],['item_name','Artigo'],['warehouse_name','Armazém'],['quantity_on_hand','Quantidade'],['unit_of_measure','Unidade'],['minimum_stock','Stock mínimo'],['below_minimum','Nível de stock']] },
+    requests: { title: 'Requisições de compra', fields: [['request_number','N.º requisição'],['status','Estado'],['justification','Justificação'],['estimated_total','Total estimado (Kz)'],['finance_decision_at','Decisão financeira'],['finance_decision_note','Nota da decisão'],['created_at','Criada em']] },
+    stockRequisitions: { title: 'Requisições internas de stock', fields: [['request_number','N.º requisição'],['polo_code','Polo'],['status','Estado'],['purpose','Finalidade'],['priority','Prioridade'],['created_at','Criada em']] },
+    goodsReceipts: { title: 'Recepção de mercadorias', fields: [['receipt_number','N.º recepção'],['delivery_reference','Referência de entrega'],['status','Estado'],['created_at','Registada em'],['posted_at','Entrada em stock']] },
+    inventoryCounts: { title: 'Contagens físicas', fields: [['id','Identificador'],['warehouse_id','Armazém'],['status','Estado'],['created_at','Data de abertura'],['reconciled_at','Data de reconciliação']] },
+    movements: { title: 'Razão de movimentos de stock', fields: [['movement_type','Tipo de movimento'],['reference','Referência'],['quantity_delta','Variação de quantidade'],['created_at','Data']] }
+  });
+
+  function formatBusinessDetailValue(field, value) {
+    if (value === null || value === undefined || value === '') return '—';
+    if (field === 'below_minimum') return value ? 'Abaixo do mínimo' : 'Dentro do nível';
+    if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
+    if (['preco_base','total','estimated_total'].includes(field) && Number.isFinite(Number(value))) {
+      return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 2 }).format(Number(value));
+    }
+    if (['data_emissao','finance_decision_at','created_at','posted_at','reconciled_at'].includes(field)) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('pt-AO', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+    }
+    if (field === 'polo_code') return POLO_LABELS[value] || String(value);
+    if (field === 'id' && typeof value === 'string') return value.slice(0, 8).toUpperCase();
+    return String(value);
+  }
+
+  function buildReceptionBusinessDetailModel(snapshot = {}, key) {
+    const config = BUSINESS_DETAIL_CONFIG[key];
+    if (!config) return Object.freeze({ key: null, title: 'Módulo indisponível', status: 'O módulo solicitado não existe.', columns: Object.freeze([]), rows: Object.freeze([]) });
+    const result = snapshot[key] || null;
+    const rows = Array.isArray(result?.rows) ? result.rows : [];
+    const error = result?.error || null;
+    const errorCode = String(error?.code || error?.status || '');
+    const denied = ['42501','PGRST301','401','403'].includes(errorCode);
+    const status = error
+      ? (denied ? 'A sessão actual não tem autorização para consultar este módulo. A permissão deve ser corrigida no servidor, mantendo o acesso limitado ao polo e à função.' : 'Não foi possível consultar os dados neste momento.' + (errorCode ? ' Código: ' + errorCode + '.' : ''))
+      : rows.length ? rows.length + ' registo(s) encontrado(s).' : 'Sem registos reais disponíveis. Não foram criados dados de demonstração.';
+    const detailRows = rows.map(row => Object.freeze(config.fields.map(([field]) => formatBusinessDetailValue(field, row?.[field]))));
+    return Object.freeze({ key, title: config.title, status, error: Boolean(error), denied, columns: Object.freeze(config.fields.map(([,label]) => label)), rows: Object.freeze(detailRows) });
+  }
+
+  function renderReceptionBusinessDetailPanel(snapshot = {}, key) {
+    const model = buildReceptionBusinessDetailModel(snapshot, key);
+    const table = model.rows.length
+      ? '<div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">' + model.columns.map(label => '<th class="p-2 whitespace-nowrap">' + esc(label) + '</th>').join('') + '</tr></thead><tbody>' + model.rows.map(row => '<tr class="border-b">' + row.map(value => '<td class="p-2 align-top">' + esc(value) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>'
+      : '<div class="rounded-xl border border-dashed p-6 text-sm text-slate-500">' + esc(model.status) + '</div>';
+    return '<div class="fixed inset-0 z-[70] bg-slate-950/50 p-3 md:p-6 flex items-center justify-center" data-business-detail-dialog role="dialog" aria-modal="true" aria-label="' + esc(model.title) + '">' +
+      '<section class="card w-full max-w-6xl max-h-[90vh] overflow-auto p-5 space-y-4">' +
+      '<header class="flex flex-wrap items-center justify-between gap-3"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Recepção</span><h3 class="text-xl font-black">' + esc(model.title) + '</h3><p class="text-xs text-slate-500">' + esc(model.status) + '</p></div><div class="flex gap-2"><button type="button" data-business-refresh class="border rounded-lg px-3 py-2">Actualizar</button><button type="button" data-business-close class="bg-orange text-white rounded-lg px-3 py-2 font-bold">Fechar</button></div></header>' +
+      (model.error ? '<div class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">' + esc(model.status) + '</div>' : table) +
+      '<p class="text-xs text-slate-500">Consulta limitada às permissões atribuídas à conta e ao polo activo. As operações de escrita continuam sujeitas à validação dos motores do CIADI.</p>' +
+      '</section></div>';
+  }
+
   function renderBusinessPanel(snapshot = {}, poloCode = null) {
     const cards = [
       { key: 'services', title: 'Serviços e preços', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.nome) + '</span><strong>' + esc(row.preco_base) + ' Kz</strong></div>').join('') },
@@ -1117,21 +1173,22 @@
       { key: 'requests', title: 'Requisições de compra', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
       { key: 'stockRequisitions', title: 'Requisições internas de stock', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.request_number || row.id) + ' · ' + esc(row.polo_code) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
       { key: 'goodsReceipts', title: 'Recepção de mercadorias', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.receipt_number || row.delivery_reference || row.id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
-      { key: 'inventoryCounts', title: 'Contagens físicas', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.id.slice(0, 8)) + ' · ' + esc(row.warehouse_id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
+      { key: 'inventoryCounts', title: 'Contagens físicas', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(String(row.id || '').slice(0, 8)) + ' · ' + esc(row.warehouse_id) + '</span><strong>' + esc(row.status) + '</strong></div>').join('') },
       { key: 'movements', title: 'Razão de movimentos de stock', render: rows => rows.slice(0, 5).map(row => '<div class="flex justify-between gap-2 py-1 border-b text-sm"><span>' + esc(row.movement_type) + ' · ' + esc(row.reference || row.item_id) + '</span><strong>' + esc(row.quantity_delta) + '</strong></div>').join('') }
     ];
     return '<section class="card p-5 space-y-4" data-reception-business-integration>' +
-      '<div><h3 class="font-black text-lg">Facturação, caixa e aprovisionamento</h3><p class="text-xs text-slate-500">Consulta das estruturas centrais existentes. Requisição interna, compra a fornecedor, recepção, saída, devolução, transferência e inventário são fluxos separados que escrevem no razão único de movimentos.</p></div>' +
+      '<div><h3 class="font-black text-lg">Facturação, caixa e aprovisionamento</h3><p class="text-xs text-slate-500">Consulta e detalhe dos motores centrais existentes. Requisição interna, compra a fornecedor, recepção, saída, devolução, transferência e inventário mantêm fluxos separados.</p></div>' +
       '<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">' +
       cards.map(card => {
         const result = snapshot[card.key];
         let content = '<p class="text-xs text-slate-500">A carregar dados…</p>';
-        if (result && result.error) content = '<p class="text-xs text-amber-700">Sem acesso autorizado ou serviço indisponível.</p>';
+        if (result && result.error) content = '<p class="text-xs text-amber-700">' + esc(buildReceptionBusinessDetailModel(snapshot, card.key).status) + '</p>';
         else if (result && result.rows.length) content = card.render(result.rows);
         else if (result) content = '<p class="text-xs text-slate-500">Sem registos disponíveis.</p>';
-        return '<article class="rounded-xl border p-3"><h4 class="font-bold text-sm mb-2">' + card.title + '</h4>' + content + '</article>';
+        const count = result && !result.error ? result.rows.length : 0;
+        return '<article class="rounded-xl border p-3 flex flex-col gap-2"><div><h4 class="font-bold text-sm mb-2">' + card.title + '</h4>' + content + '</div><div class="mt-auto pt-2 flex items-center justify-between gap-2"><span class="text-xs text-slate-500">' + (result?.error ? 'Consulta bloqueada' : count + ' registo(s)') + '</span><button type="button" data-business-open="' + card.key + '" class="rounded-lg border border-orange-300 text-orange px-3 py-2 text-xs font-bold">Abrir módulo</button></div></article>';
       }).join('') +
-      '</div>' + renderReceptionProcurementPanel(snapshot, poloCode) + '</section>';
+      '</div>' + renderReceptionProcurementPanel(snapshot, poloCode) + '<div data-business-detail-host></div></section>';
   }
 
   function renderGoodsReceiptLineInputs(snapshot = {}, requestId = '') {
@@ -1582,6 +1639,22 @@
         const button = event.target.closest('button');
         if (!button) return;
         try {
+          if (button.hasAttribute('data-business-open')) {
+            const key = button.getAttribute('data-business-open');
+            const host = container.querySelector('[data-business-detail-host]');
+            if (!host) throw new Error('Área de detalhe do módulo indisponível.');
+            host.innerHTML = renderReceptionBusinessDetailPanel(businessSnapshot, key);
+            return;
+          }
+          if (button.hasAttribute('data-business-close')) {
+            const host = container.querySelector('[data-business-detail-host]');
+            if (host) host.innerHTML = '';
+            return;
+          }
+          if (button.hasAttribute('data-business-refresh')) {
+            await refresh();
+            return;
+          }
           if (button.hasAttribute('data-goods-receipt-check')) {
             const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
             const result = await service.checkGoodsReceipt(button.getAttribute('data-goods-receipt-check'));
@@ -1971,6 +2044,6 @@
     validateReceptionStockExitInput, validateReceptionStockRequisitionInput, validateReceptionStockReturnInput,
     validateReceptionStockTransferInput, validateReceptionGoodsInput, createReceptionProcurementService,
     buildReceptionInvoiceHtml, createReceptionInvoicePdfService,
-    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionProcurementPanel, renderReceptionDocumentHeader, create
+    summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionProcurementPanel, renderReceptionBusinessDetailPanel, buildReceptionBusinessDetailModel, renderReceptionDocumentHeader, create
   });
 });
