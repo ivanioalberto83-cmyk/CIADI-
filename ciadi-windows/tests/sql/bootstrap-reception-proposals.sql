@@ -24,9 +24,9 @@ AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION public.ciadi_finance_can(p_capability text)
-RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
+RETURNS boolean LANGUAGE sql STABLE AS $ SELECT p_capability = ANY(string_to_array(current_setting('ciadi.test_finance_caps', true), ',')) $;
 CREATE OR REPLACE FUNCTION public.ciadi_finance_operator_id()
-RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
+RETURNS uuid LANGUAGE sql STABLE AS $ SELECT nullif(current_setting('ciadi.test_operator_id', true), '')::uuid $;
 CREATE OR REPLACE FUNCTION public.finance_recalcular_documento(p_documento_id uuid)
 RETURNS void LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
 
@@ -141,3 +141,56 @@ ALTER TABLE ciadi_ti.goods_receipts
   ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE ciadi_ti.goods_receipt_lines
   ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+
+-- Additional synthetic finance columns for successful and rejected payment transactions.
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+CREATE OR REPLACE FUNCTION extensions.digest(data text, type text)
+RETURNS bytea LANGUAGE sql IMMUTABLE AS $
+  SELECT public.digest(data, type)
+$;
+ALTER TABLE public.finance_documentos
+  ADD COLUMN IF NOT EXISTS serie_id uuid,
+  ADD COLUMN IF NOT EXISTS numero_sequencial bigint,
+  ADD COLUMN IF NOT EXISTS documento_origem_id uuid,
+  ADD COLUMN IF NOT EXISTS subtotal numeric,
+  ADD COLUMN IF NOT EXISTS desconto numeric,
+  ADD COLUMN IF NOT EXISTS imposto numeric,
+  ADD COLUMN IF NOT EXISTS retencao numeric,
+  ADD COLUMN IF NOT EXISTS forma_pagamento text,
+  ADD COLUMN IF NOT EXISTS observacoes text,
+  ADD COLUMN IF NOT EXISTS data_operacao date,
+  ADD COLUMN IF NOT EXISTS documento_serie text,
+  ADD COLUMN IF NOT EXISTS origem_tipo text,
+  ADD COLUMN IF NOT EXISTS hash_documento text,
+  ADD COLUMN IF NOT EXISTS hash_algoritmo text,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.finance_documentos ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE public.finance_pagamentos
+  ADD COLUMN IF NOT EXISTS documento_id uuid,
+  ADD COLUMN IF NOT EXISTS valor numeric,
+  ADD COLUMN IF NOT EXISTS metodo text,
+  ADD COLUMN IF NOT EXISTS referencia text,
+  ADD COLUMN IF NOT EXISTS observacoes text,
+  ADD COLUMN IF NOT EXISTS recebido_por uuid,
+  ADD COLUMN IF NOT EXISTS empresa_id uuid;
+ALTER TABLE public.finance_pagamentos ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE public.finance_series
+  ADD COLUMN IF NOT EXISTS nome text,
+  ADD COLUMN IF NOT EXISTS estado text,
+  ADD COLUMN IF NOT EXISTS ano integer,
+  ADD COLUMN IF NOT EXISTS codigo text,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.finance_series ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE public.finance_caixas
+  ADD COLUMN IF NOT EXISTS codigo text,
+  ADD COLUMN IF NOT EXISTS nome text,
+  ADD COLUMN IF NOT EXISTS localizacao text,
+  ADD COLUMN IF NOT EXISTS tipo text,
+  ADD COLUMN IF NOT EXISTS moeda text;
+ALTER TABLE public.finance_caixas ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE public.finance_caixa_turnos
+  ADD COLUMN IF NOT EXISTS aberto_em timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS saldo_inicial numeric NOT NULL DEFAULT 0;
+ALTER TABLE public.finance_caixa_turnos ALTER COLUMN id SET DEFAULT gen_random_uuid();
