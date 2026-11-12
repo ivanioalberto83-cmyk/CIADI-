@@ -1317,7 +1317,7 @@
           ${selectedAppointment ? `<div class="rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm"><strong>Marcação seleccionada:</strong> ${esc(selectedAppointment.patient_name)} — ${esc(new Date(selectedAppointment.data_hora).toLocaleString('pt-PT'))}</div>` : ''}
           <form data-reception-arrival-form class="grid md:grid-cols-2 gap-4">
             <label class="text-sm font-semibold">Tipo de chegada<select name="visitType" required class="block w-full border rounded-xl p-3 mt-1"><option value="appointment" ${selectedAppointment ? 'selected' : ''}>Com marcação</option><option value="walk_in">Sem marcação</option></select></label>
-            <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-xl p-3 mt-1">${POLOS.map(code => `<option value="${code}" ${(activePolo || appointmentSearch.poloCode || POLOS[0]) === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
+            <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-xl p-3 mt-1">${POLOS.map(code => `<option value="${code}" ${(appointmentSearch.poloCode || activePolo || POLOS[0]) === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
             <input type="hidden" name="appointmentId" value="${esc(selectedAppointment?.id || '')}">
             <input type="hidden" name="patientId" value="${esc(selectedAppointment?.paciente_id || '')}">
             <label class="text-sm font-semibold">Nome do responsável presente<input name="displayName" required maxlength="120" value="${esc(selectedAppointment?.responsible_name || '')}" class="block w-full border rounded-xl p-3 mt-1"></label>
