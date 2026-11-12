@@ -302,7 +302,7 @@ begin
     'movement_ids',v_movement_ids
   );
 end;
-$;
+$$;
 
 revoke all on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) from public, anon;
 grant execute on function ciadi_ti.reception_transfer_stock(uuid,uuid,uuid,numeric,text,text,text,text,text) to authenticated;
