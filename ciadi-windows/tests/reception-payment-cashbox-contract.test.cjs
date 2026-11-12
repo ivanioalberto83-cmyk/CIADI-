@@ -1,0 +1,44 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+test('proposta de pagamento exige caixa e turno do operador antes de qualquer registo', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../../supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql'),
+    'utf8'
+  );
+
+  assert.match(sql, /security invoker/i);
+  assert.match(sql, /auth\.uid\(\)/i);
+  assert.match(sql, /p_caixa_id is null/i);
+  assert.match(sql, /empresa_id = v_doc\.empresa_id/i);
+  assert.match(sql, /estado = 'aberto'/i);
+  assert.match(sql, /operador_id = v_actor/i);
+  assert.match(sql, /raise exception 'Não existe turno aberto deste operador/i);
+  assert.match(sql, /document_status <> 'N'/i);
+  assert.match(sql, /fiscal_status <> 'emitido'/i);
+});
+
+test('proposta cria pagamento, recibo RC, movimento de caixa e auditoria na mesma função', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../../supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql'),
+    'utf8'
+  );
+
+  const payment = sql.indexOf('insert into public.finance_pagamentos');
+  const receipt = sql.indexOf("insert into public.finance_documentos(");
+  const cashMovement = sql.indexOf('insert into public.finance_movimentos_caixa');
+  const audit = sql.indexOf('insert into public.finance_auditoria_fiscal');
+
+  assert.ok(payment > 0);
+  assert.ok(receipt > payment);
+  assert.ok(cashMovement > receipt);
+  assert.ok(audit > cashMovement);
+  assert.match(sql, /pagamento_id, descricao,[\s\S]*turno_id, operador_id/i);
+  assert.match(sql, /revoke all on function[\s\S]*from public, anon/i);
+  assert.match(sql, /grant execute on function[\s\S]*to authenticated/i);
+  assert.match(sql, /PROPOSTA APENAS/i);
+});
