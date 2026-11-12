@@ -11,6 +11,15 @@ begin
   if (select count(*) from ciadi_reception.invoice_change_requests) <> 1 then
     raise exception 'Operador não consegue consultar o próprio pedido';
   end if;
+  begin
+    perform public.ciadi_reception_decide_invoice_change(
+      (select id from ciadi_reception.invoice_change_requests limit 1),
+      'aprovado','Tentativa pelo operador'
+    );
+    raise exception 'Falha: operador conseguiu decidir pedido';
+  exception when others then
+    if sqlerrm = 'Falha: operador conseguiu decidir pedido' then raise; end if;
+  end;
   update public.finance_documentos
     set estado_pagamento='pago', forma_pagamento='transferencia'
     where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
