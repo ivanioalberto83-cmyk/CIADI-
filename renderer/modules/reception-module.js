@@ -566,6 +566,12 @@
     }
 
     return Object.freeze({
+      async getFinanceWorkspace(poloCode) {
+        const { data, error } = await supabase.rpc('reception_get_finance_workspace', { p_polo_code: clean(poloCode, 32) });
+        if (error) throw error;
+        if (!data || typeof data !== 'object') throw new Error('O servidor não devolveu o espaço financeiro da Recepção.');
+        return data;
+      },
       async getActiveServices(companyId) {
         const id = requireCompany(companyId);
         return rows(supabase.from('finance_servicos')
@@ -1334,34 +1340,17 @@
 
     async function loadBusinessSnapshot() {
       if (!businessRepository) businessRepository = createReceptionBusinessRepository({ supabase });
-      let company = clean(configuredCompanyId, 128);
-      if (!company) {
-        try {
-          const { data, error } = await supabase.from('finance_empresas')
-            .select('id')
-            .eq('ativo', true)
-            .eq('empresa_principal', true)
-            .maybeSingle();
-          if (error) throw error;
-          company = clean(data?.id, 128);
-        } catch (error) {
-          businessSnapshot.services = { rows: [], error };
-          businessSnapshot.cashboxes = { rows: [], error };
-          businessSnapshot.documents = { rows: [], error };
-        }
+      const polo = activePolo || POLOS[0];
+      const workspace = await businessRepository.getFinanceWorkspace(polo);
+      activeCompanyId = clean(configuredCompanyId, 128) || clean(workspace.companyId, 128) || null;
+      const rowsFor = key => Array.isArray(workspace[key]) ? workspace[key] : [];
+      const financeKeys = ['clients','services','documentTypes','series','cashboxes','documents','shifts'];
+      businessSnapshot = Object.fromEntries(financeKeys.map(key => [key, { rows: rowsFor(key), error: null }]));
+      if (!activeCompanyId) {
+        const missingCompany = new Error('Empresa principal não identificada; operações financeiras indisponíveis.');
+        for (const key of financeKeys) businessSnapshot[key] = { rows: [], error: missingCompany };
       }
-      activeCompanyId = company || null;
-      if (!company && !businessSnapshot.services?.error) {
-        const missingCompany = new Error('Empresa principal não identificada; consulta financeira bloqueada.');
-        for (const key of ['services', 'clients', 'cashboxes', 'documents', 'series']) businessSnapshot[key] = { rows: [], error: missingCompany };
-      }
-      const tasks = [
-        ['services', () => company ? businessRepository.getActiveServices(company) : Promise.resolve([])],
-        ['clients', () => company ? businessRepository.getActiveClients(company) : Promise.resolve([])],
-        ['documentTypes', () => businessRepository.getActiveDocumentTypes()],
-        ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
-        ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
-        ['shifts', () => businessRepository.getOpenCashboxShifts()],
+      const stockTasks = [
         ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()],
         ['stockRequisitions', () => businessRepository.getStockRequisitions()],
@@ -1369,23 +1358,11 @@
         ['inventoryCounts', () => businessRepository.getInventoryCounts()],
         ['movements', () => businessRepository.getStockMovements()]
       ];
-      const results = await Promise.all(tasks.map(async ([key, load]) => {
-        if (businessSnapshot[key]?.error && ['services', 'clients', 'cashboxes', 'documents'].includes(key) && !company) return [key, businessSnapshot[key]];
+      const stockResults = await Promise.all(stockTasks.map(async ([key, load]) => {
         try { return [key, { rows: await load(), error: null }]; }
         catch (error) { return [key, { rows: [], error }]; }
       }));
-      businessSnapshot = Object.fromEntries(results);
-      const documentTypes = businessSnapshot.documentTypes?.rows || [];
-      if (company && documentTypes.length) {
-        try {
-          const seriesRows = await Promise.all(documentTypes.map(row => businessRepository.getActiveSeries(company, row.codigo)));
-          businessSnapshot.series = { rows: seriesRows.flat(), error: null };
-        } catch (error) {
-          businessSnapshot.series = { rows: [], error };
-        }
-      } else {
-        businessSnapshot.series = { rows: [], error: null };
-      }
+      businessSnapshot = { ...businessSnapshot, ...Object.fromEntries(stockResults) };
     }
 
     async function refresh() {
