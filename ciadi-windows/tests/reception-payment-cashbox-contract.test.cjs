@@ -78,5 +78,6 @@ test('proposta de operações de stock fecha correctamente todos os corpos PL/pg
   );
 
   assert.equal((sql.match(/\$\$/g) || []).length % 2, 0, 'delimitadores $$ devem estar emparelhados');
-  assert.match(sql, /return jsonb_build_object\([\s\S]*?\n  end;\n\$\$;\n\nrevoke all on function ciadi_ti\.reception_transfer_stock/i);
+  const finalizer = sql.slice(sql.indexOf('create or replace function ciadi_ti.finalize_goods_receipt'));
+  assert.match(finalizer, /\nend;\n\$\$;\n\nrevoke all on function ciadi_ti\.reception_transfer_stock/i);
 });
