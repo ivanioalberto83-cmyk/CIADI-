@@ -128,7 +128,7 @@ begin
     'cashboxes', coalesce((
       select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
         'id', c.id, 'codigo', c.codigo, 'nome', c.nome,
-        'localizacao', c.localizacao, 'tipo', c.tipo,
+        'localizacao', c.localizacao, 'tipo', c.tipo, 'polo_code', c.polo_code,
         'estado', c.estado, 'moeda', c.moeda, 'empresa_id', c.empresa_id
       ) order by c.nome)
       from public.finance_caixas c
