@@ -125,7 +125,7 @@ BEGIN
   -- Payment cannot proceed without an explicitly selected cashbox.
   BEGIN
     PERFORM * FROM public.finance_registar_pagamento(
-      '22222222-2222-4222-8222-222222222222',1,'numerário','payment-no-cash-01',null,null,null
+      '22222222-2222-4222-8222-222222222222',1,'numerário','payment-no-cash-01','talatona',null,null,null
     );
     RAISE EXCEPTION 'Esperava rejeição de pagamento sem caixa';
   EXCEPTION WHEN SQLSTATE '22023' THEN
@@ -137,8 +137,8 @@ BEGIN
   -- Successful partial and final payments: RC, payment, cash movement and audit are atomic.
   PERFORM set_config('ciadi.test_finance_caps','receber,recibo',true);
   PERFORM set_config('ciadi.test_operator_id',v_operator::text,true);
-  INSERT INTO public.finance_caixas(id,empresa_id,estado,codigo,nome)
-  VALUES (v_cashbox,v_company,'aberto','CX-TST','Caixa de teste');
+  INSERT INTO public.finance_caixas(id,empresa_id,estado,codigo,nome,polo_code)
+  VALUES (v_cashbox,v_company,'aberto','CX-TST','Caixa de teste','talatona');
   INSERT INTO public.finance_caixa_turnos(id,caixa_id,operador_id,estado)
   VALUES (v_shift,v_cashbox,v_operator,'aberto');
   INSERT INTO public.finance_series(
@@ -152,7 +152,7 @@ BEGIN
     (v_overpay_invoice,'N','emitido','aberto',50,v_company,'FT-TST-002','AOA',v_actor,'FT');
 
   SELECT * INTO v_payment FROM public.finance_registar_pagamento(
-    v_invoice,40,'numerário','payment-key-001','PAY-REF-001',v_cashbox,'pagamento parcial'
+    v_invoice,40,'numerário','payment-key-001','talatona','PAY-REF-001',v_cashbox,'pagamento parcial'
   );
   IF v_payment.estado_pagamento <> 'parcial' OR v_payment.recibo_no <> 'RC-TST/1' THEN
     RAISE EXCEPTION 'Primeiro pagamento/recibo inesperado: %',row_to_json(v_payment);
@@ -162,7 +162,7 @@ BEGIN
 
   -- Repetir o mesmo pedido devolve o mesmo recibo e não cria novo movimento/auditoria.
   SELECT * INTO v_payment FROM public.finance_registar_pagamento(
-    v_invoice,40,'numerário','payment-key-001','PAY-REF-001',v_cashbox,'pagamento parcial'
+    v_invoice,40,'numerário','payment-key-001','talatona','PAY-REF-001',v_cashbox,'pagamento parcial'
   );
   IF v_payment.pagamento_id <> v_first_payment OR v_payment.recibo_id <> v_first_receipt THEN
     RAISE EXCEPTION 'Replay idempotente não devolveu os identificadores originais';
@@ -176,14 +176,14 @@ BEGIN
   -- A mesma chave com payload diferente deve ser rejeitada.
   BEGIN
     PERFORM * FROM public.finance_registar_pagamento(
-      v_invoice,41,'numerário','payment-key-001','PAY-REF-001',v_cashbox,'payload alterado'
+      v_invoice,41,'numerário','payment-key-001','talatona','PAY-REF-001',v_cashbox,'payload alterado'
     );
     RAISE EXCEPTION 'Esperava rejeição de reutilização da chave com payload diferente';
   EXCEPTION WHEN SQLSTATE '23505' THEN NULL;
   END;
 
   SELECT * INTO v_payment FROM public.finance_registar_pagamento(
-    v_invoice,60,'transferência','payment-key-002','PAY-REF-002',v_cashbox,'liquidação'
+    v_invoice,60,'transferência','payment-key-002','talatona','PAY-REF-002',v_cashbox,'liquidação'
   );
   IF v_payment.estado_pagamento <> 'pago' OR v_payment.recibo_no <> 'RC-TST/2' THEN
     RAISE EXCEPTION 'Liquidação/recibo inesperado: %',row_to_json(v_payment);
@@ -212,7 +212,7 @@ BEGIN
   -- Overpayment is rejected and does not leave a payment, RC or cash movement.
   BEGIN
     PERFORM * FROM public.finance_registar_pagamento(
-      v_overpay_invoice,60,'numerário','payment-over-001','PAY-OVER-001',v_cashbox,'excede saldo'
+      v_overpay_invoice,60,'numerário','payment-over-001','talatona','PAY-OVER-001',v_cashbox,'excede saldo'
     );
     RAISE EXCEPTION 'Esperava rejeição de pagamento superior ao saldo';
   EXCEPTION WHEN SQLSTATE '23514' THEN
