@@ -28,7 +28,9 @@ test('interface da Recepção só activa caixa e pagamentos quando o workspace c
   );
   assert.match(source, /snapshot\.canOpenCashbox === true && cashboxes\.length > 0/);
   assert.match(source, /snapshot\.canCloseCashbox === true && shifts\.length > 0/);
-  assert.match(source, /snapshot\.canReceivePayments === true && shifts\.length > 0/);
+  assert.match(source, /snapshot\.canReceivePayments === true && paymentCashboxes\.length > 0/);
+  assert.match(source, /row\.operador_id === snapshot\.operatorId/);
+  assert.match(source, /paymentCashboxes = cashboxes\.filter/);
   assert.match(source, /canOpenCashbox: businessSnapshot\.canOpenCashbox/);
   assert.match(source, /canCloseCashbox: businessSnapshot\.canCloseCashbox/);
   assert.match(source, /canReceivePayments: businessSnapshot\.canReceivePayments/);
