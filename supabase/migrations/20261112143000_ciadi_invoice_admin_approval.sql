@@ -38,6 +38,8 @@ create index if not exists invoice_change_requests_document_idx
 
 alter table ciadi_reception.invoice_change_requests enable row level security;
 
+grant usage on schema ciadi_reception to authenticated;
+
 drop policy if exists invoice_change_requests_read_own_or_adm
   on ciadi_reception.invoice_change_requests;
 create policy invoice_change_requests_read_own_or_adm
