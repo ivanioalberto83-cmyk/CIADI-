@@ -225,11 +225,11 @@ test('pesquisa marcações existentes por nome/código e período sem escrever n
     }
   };
   const repository = reception.createReceptionRepository({ supabase });
-  const result = await repository.searchAppointments({ term: 'Maria', dateFrom: '2026-11-09', dateTo: '2026-11-09' });
+  const result = await repository.searchAppointments({ poloCode: 'talatona', term: 'Maria', dateFrom: '2026-11-09', dateTo: '2026-11-09' });
   assert.equal(result.length, 1);
   assert.equal(result[0].id, 'appointment-1');
   assert.equal(calls[0].rpcName, 'reception_search_appointments');
-  assert.deepEqual(calls[0].args, { p_search_term: 'Maria', p_date_from: '2026-11-09', p_date_to: '2026-11-09' });
+  assert.deepEqual(calls[0].args, { p_polo_code: 'talatona', p_search_term: 'Maria', p_date_from: '2026-11-09', p_date_to: '2026-11-09' });
   assert.equal(calls.some(call => call.rpcName === 'insert' || call.rpcName === 'update'), false);
 });
 
