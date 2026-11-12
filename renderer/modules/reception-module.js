@@ -1784,12 +1784,20 @@
               const fingerprint = Array.from(new Uint8Array(fingerprintBytes))
                 .map(byte => byte.toString(16).padStart(2, '0')).join('');
               const storageKey = 'ciadi:reception:payment:' + fingerprint;
-              let savedKey = null;
-              try { savedKey = globalThis.localStorage?.getItem(storageKey) || null; } catch (_) {}
-              form.dataset.paymentPayload = paymentPayload;
-              form.dataset.paymentStorageKey = storageKey;
-              form.dataset.paymentIdempotencyKey = savedKey || globalThis.crypto.randomUUID();
-              try { globalThis.localStorage?.setItem(storageKey, form.dataset.paymentIdempotencyKey); } catch (_) {}
+              try {
+                const storage = globalThis.localStorage;
+                if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') {
+                  throw new Error('Armazenamento local indisponível.');
+                }
+                const savedKey = storage.getItem(storageKey);
+                const idempotencyKey = savedKey || globalThis.crypto.randomUUID();
+                storage.setItem(storageKey, idempotencyKey);
+                form.dataset.paymentPayload = paymentPayload;
+                form.dataset.paymentStorageKey = storageKey;
+                form.dataset.paymentIdempotencyKey = idempotencyKey;
+              } catch (_) {
+                throw new Error('Não foi possível guardar a chave segura de repetição. O pagamento foi bloqueado para evitar duplicações.');
+              }
             }
             const result = await financeRepository.registerPayment({
               documentId: values.documentId,
