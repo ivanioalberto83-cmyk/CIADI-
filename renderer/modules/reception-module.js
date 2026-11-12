@@ -1146,7 +1146,7 @@
     const cashboxes = list('cashboxes');
     const documents = list('documents');
     const shifts = list('shifts');
-    const canOpenCashbox = snapshot.canOpenCashbox === true;
+    const canOpenCashbox = snapshot.canOpenCashbox === true && cashboxes.length > 0;
     const canCloseCashbox = snapshot.canCloseCashbox === true && shifts.length > 0;
     const canRegisterPayment = snapshot.canReceivePayments === true && shifts.length > 0;
     const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
