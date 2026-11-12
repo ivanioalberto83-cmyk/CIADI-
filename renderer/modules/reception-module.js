@@ -725,16 +725,6 @@
           p_observacoes: clean(input.observations, 1000) || null
         });
       },
-      async calculateInvoice(documentId) {
-        return call('ciadi_faturacao_calcular_documento', {
-          p_documento_id: requiredId(documentId, 'Documento')
-        });
-      },
-      async issueInvoice(documentId) {
-        return call('ciadi_faturacao_emitir_documento', {
-          p_documento_id: requiredId(documentId, 'Documento')
-        });
-      },
       async registerPayment(input = {}) {
         const documentId = requiredId(input.documentId, 'Documento');
         const amount = positiveAmount(input.amount, 'Valor do pagamento');
@@ -864,34 +854,27 @@
       qr + '</div></footer></main></body></html>';
   }
 
-  function createReceptionInvoicePdfService({ supabase, desktop = globalThis.ciadiDesktop, identity = globalThis.CIADI_INSTITUTIONAL_IDENTITY } = {}) {
+  function createReceptionInvoicePdfService({ supabase, poloCode, desktop = globalThis.ciadiDesktop, identity = globalThis.CIADI_INSTITUTIONAL_IDENTITY } = {}) {
     if (typeof supabase?.from !== 'function') throw new Error('Ligação ao arquivo financeiro indisponível.');
     async function load(documentId, { requireIssued = false } = {}) {
       const id = clean(documentId, 128);
+      const polo = clean(poloCode, 32);
       if (!id) throw new Error('Identificador da factura obrigatório.');
-      const [documentResult, linesResult, emitterResult] = await Promise.all([
-        supabase.from('finance_documentos')
-          .select('*,finance_clientes(nome,nif,email,telefone,endereco,cidade,provincia,pais),finance_series(codigo,nome)')
-          .eq('id', id).single(),
-        supabase.from('finance_documento_linhas').select('*').eq('documento_id', id).order('created_at'),
-        supabase.from('finance_emitente_config').select('*').eq('ativo', true)
-          .order('updated_at', { ascending: false }).limit(1).maybeSingle()
-      ]);
-      if (documentResult?.error) throw documentResult.error;
-      if (linesResult?.error) throw linesResult.error;
-      if (emitterResult?.error) throw emitterResult.error;
-      if (!documentResult?.data) throw new Error('Factura não encontrada no arquivo financeiro.');
-      const document = documentResult.data;
+      if (!POLOS.includes(polo)) throw new Error('Polo de trabalho obrigatório para consultar o documento.');
+      const { data, error } = await supabase.rpc('reception_get_finance_document_print_data', {
+        p_polo_code: polo,
+        p_document_id: id
+      });
+      if (error) throw error;
+      if (!data?.document) throw new Error('Factura não encontrada ou sem autorização de consulta.');
+      const document = data.document;
+      const lines = Array.isArray(data.lines) ? data.lines : [];
+      const emitter = data.emitter || {};
       if (requireIssued && (document.document_status !== 'N' || document.fiscal_status !== 'emitido')) {
         throw new Error('Só é possível exportar PDF de uma factura emitida e validada pelo motor central.');
       }
-      const html = buildReceptionInvoiceHtml({
-        document,
-        lines: Array.isArray(linesResult?.data) ? linesResult.data : [],
-        emitter: emitterResult?.data || {},
-        identity
-      });
-      return Object.freeze({ document, html, lines: Object.freeze(linesResult?.data || []), emitter: emitterResult?.data || {} });
+      const html = buildReceptionInvoiceHtml({ document, lines, emitter, identity });
+      return Object.freeze({ document, html, lines: Object.freeze(lines), emitter });
     }
     async function preview(documentId) {
       return load(documentId);
@@ -1118,8 +1101,8 @@
         '<p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg bg-orange text-white font-bold px-4 py-2">Criar factura</button>' +
       '</form>' +
       '<div class="space-y-3">' +
-        '<form data-reception-cashbox-open class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Abertura de caixa</h4><label class="block text-xs font-semibold">Caixa<select name="cashboxId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o caixa') + cashboxes.map(row => option(row.id, (row.codigo || '') + ' · ' + (row.nome || row.id) + ' (' + (row.estado || 'estado não indicado') + ')')).join('') + '</select></label><label class="block text-xs font-semibold">Saldo inicial (Kz)<input name="openingBalance" type="number" min="0" step="0.01" required value="0" class="mt-1 w-full border rounded-lg p-2"></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold">Abrir caixa</button></form>' +
-        '<form data-reception-cashbox-close class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Fecho de caixa</h4><label class="block text-xs font-semibold">Turno aberto<select name="shiftId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o turno') + shifts.map(row => option(row.id, 'Turno ' + row.id.slice(0, 8) + ' · ' + row.aberto_em)).join('') + '</select></label><label class="block text-xs font-semibold">Saldo contado (Kz)<input name="countedBalance" type="number" min="0" step="0.01" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Justificação de diferença<textarea name="justification" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold" ' + (shifts.length ? '' : 'disabled') + '>Fechar turno</button></form>' +
+        '<form data-reception-cashbox-open class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Abertura de caixa</h4><label class="block text-xs font-semibold">Caixa<select name="cashboxId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o caixa') + cashboxes.map(row => option(row.id, (row.codigo || '') + ' · ' + (row.nome || row.id) + ' (' + (row.estado || 'estado não indicado') + ')')).join('') + '</select></label><label class="block text-xs font-semibold">Saldo inicial (Kz)<input name="openingBalance" type="number" min="0" step="0.01" required value="0" class="mt-1 w-full border rounded-lg p-2"></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" disabled title="A autorização do operador ainda não foi homologada." class="rounded-lg border px-4 py-2 font-bold opacity-50">Abertura pendente de autorização</button></form>' +
+        '<form data-reception-cashbox-close class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Fecho de caixa</h4><label class="block text-xs font-semibold">Turno aberto<select name="shiftId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o turno') + shifts.map(row => option(row.id, 'Turno ' + row.id.slice(0, 8) + ' · ' + row.aberto_em)).join('') + '</select></label><label class="block text-xs font-semibold">Saldo contado (Kz)<input name="countedBalance" type="number" min="0" step="0.01" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Justificação de diferença<textarea name="justification" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold" ' disabled title="A autorização do operador ainda não foi homologada." class="rounded-lg border px-4 py-2 font-bold opacity-50">Fecho pendente de autorização</button></form>' +
       '</div></div>' +
       '<form data-reception-payment-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registo de recebimento</h4><p class="text-xs text-amber-800">Recebimentos continuam bloqueados até à validação das permissões individuais do operador e da existência de um turno de caixa aberto.</p><fieldset disabled class="grid md:grid-cols-4 gap-2 opacity-60"><select name="documentId" required class="border rounded-lg p-2">' + option('', 'Documento emitido') + issuedDocuments.map(row => option(row.id, row.document_no + ' · ' + row.total + ' Kz')).join('') + '</select><input name="amount" type="number" min="0.01" step="0.01" placeholder="Valor (Kz)" class="border rounded-lg p-2"><select name="method" class="border rounded-lg p-2">' + ['numerario','transferencia','tpa','deposito','multicaixa'].map(x => option(x, x)).join('') + '</select><select name="cashboxId" class="border rounded-lg p-2">' + option('', 'Caixa (opcional)') + cashboxes.map(row => option(row.id, row.nome || row.codigo || row.id)).join('') + '</select></fieldset><button type="submit" disabled class="rounded-lg border px-4 py-2 font-bold opacity-50">Registar pagamento — bloqueado</button></form>' +
       '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos em edição</h4>' + (editableDocuments.length ? editableDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem documentos em edição visíveis.</p>') + '</div>' +
@@ -1403,7 +1386,7 @@
             return;
           }
           if (button.hasAttribute('data-invoice-preview')) {
-            const service = createReceptionInvoicePdfService({ supabase });
+            const service = createReceptionInvoicePdfService({ supabase, poloCode: activePolo });
             const result = await service.preview(button.getAttribute('data-invoice-preview'));
             const host = container.querySelector('[data-invoice-preview-host]');
             if (!host) throw new Error('Área de pré-visualização documental indisponível.');
