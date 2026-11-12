@@ -145,7 +145,7 @@ ALTER TABLE ciadi_ti.goods_receipt_lines
 
 -- Additional synthetic finance columns for successful and rejected payment transactions.
 CREATE SCHEMA IF NOT EXISTS extensions;
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE OR REPLACE FUNCTION extensions.digest(data text, type text)
 RETURNS bytea LANGUAGE sql IMMUTABLE AS $
   SELECT public.digest(data, type)
