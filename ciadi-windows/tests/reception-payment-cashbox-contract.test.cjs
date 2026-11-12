@@ -15,6 +15,9 @@ test('proposta de pagamento exige caixa e turno do operador antes de qualquer re
   assert.match(sql, /public\.perfis p[\s\S]*p\.ativo = true/i);
   assert.match(sql, /auth\.uid\(\)/i);
   assert.match(sql, /p_caixa_id is null/i);
+  assert.match(sql, /p_polo_code text/i);
+  assert.match(sql, /has_reception_operation_access\(p_polo_code\)/i);
+  assert.match(sql, /polo_code = p_polo_code/i);
   assert.match(sql, /p_idempotency_key text/i);
   assert.match(sql, /finance_pagamentos_idempotency_key_uidx/i);
   assert.match(sql, /pg_advisory_xact_lock/i);
@@ -61,6 +64,8 @@ test('interface e repositório não permitem pagamento sem caixa seleccionado', 
   );
   assert.match(moduleSource, /p_caixa_id: requiredId\(input\.cashboxId, 'Caixa'\)/);
   assert.match(moduleSource, /p_idempotency_key: requiredId\(input\.idempotencyKey/);
+  assert.match(moduleSource, /p_polo_code: requiredId\(input\.poloCode/);
+  assert.match(moduleSource, /poloCode: activePolo/);
   assert.match(moduleSource, /<select name="cashboxId" required class="[^"]*border rounded-lg p-2">/);
   assert.match(moduleSource, /Seleccione o caixa obrigatório/);
 });
