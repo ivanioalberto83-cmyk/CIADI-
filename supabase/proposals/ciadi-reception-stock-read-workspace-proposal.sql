@@ -80,17 +80,21 @@ begin
       where r.polo_code = p_polo_code
     ), '[]'::jsonb),
     'movements', coalesce((
-      select jsonb_agg(jsonb_build_object(
-        'id', m.id, 'item_id', m.item_id, 'item_name', i.name,
-        'warehouse_id', m.warehouse_id, 'warehouse_name', w.name,
-        'movement_type', m.movement_type, 'quantity_delta', m.quantity_delta,
-        'reference', m.reference, 'created_at', m.created_at
-      ) order by m.created_at desc)
-      from ciadi_ti.stock_movements m
-      join ciadi_ti.warehouses w on w.id = m.warehouse_id
-      join ciadi_ti.items i on i.id = m.item_id
-      where w.polo = p_polo_code
-      limit 50
+      select jsonb_agg(recent.movement order by recent.created_at desc)
+      from (
+        select jsonb_build_object(
+          'id', m.id, 'item_id', m.item_id, 'item_name', i.name,
+          'warehouse_id', m.warehouse_id, 'warehouse_name', w.name,
+          'movement_type', m.movement_type, 'quantity_delta', m.quantity_delta,
+          'reference', m.reference, 'created_at', m.created_at
+        ) as movement, m.created_at
+        from ciadi_ti.stock_movements m
+        join ciadi_ti.warehouses w on w.id = m.warehouse_id
+        join ciadi_ti.items i on i.id = m.item_id
+        where w.polo = p_polo_code
+        order by m.created_at desc
+        limit 50
+      ) recent
     ), '[]'::jsonb)
   ) into v_result;
 
