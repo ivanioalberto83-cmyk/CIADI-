@@ -35,7 +35,7 @@ begin
     raise exception 'Acesso não autorizado ao movimento de stock deste polo.' using errcode = '42501';
   end if;
 
-  if p_movement_type not in (
+  if p_movement_type is null or p_movement_type not in (
     'entrada','saida','devolucao_entrada','devolucao_saida',
     'transferencia_entrada','transferencia_saida'
   ) then
@@ -80,7 +80,11 @@ begin
        and v_existing.warehouse_id = p_warehouse_id
        and v_existing.movement_type = p_movement_type
        and v_existing.quantity_delta = v_delta
-       and v_existing.related_movement_id is not distinct from p_related_movement_id then
+       and v_existing.related_movement_id is not distinct from p_related_movement_id
+       and v_existing.reference is not distinct from nullif(btrim(p_reference),'')
+       and v_existing.notes is not distinct from nullif(btrim(p_notes),'')
+       and v_existing.unit_cost is not distinct from p_unit_cost
+       and v_existing.lot_code is not distinct from nullif(btrim(p_lot_code), '') then
       return v_existing.id;
     end if;
     raise exception 'A chave idempotente já foi utilizada noutro movimento.' using errcode = '23505';
@@ -184,7 +188,13 @@ begin
        and v_from.movement_type='transferencia_saida'
        and v_to.movement_type='transferencia_entrada'
        and v_from.quantity_delta=-p_quantity and v_to.quantity_delta=p_quantity
-       and v_to.related_movement_id=v_from.id then
+       and v_to.related_movement_id=v_from.id
+       and v_from.reference is not distinct from nullif(btrim(p_reference),'')
+       and v_to.reference is not distinct from nullif(btrim(p_reference),'')
+       and v_from.notes is not distinct from nullif(btrim(p_notes),'')
+       and v_to.notes is not distinct from nullif(btrim(p_notes),'')
+       and v_from.lot_code is not distinct from nullif(btrim(p_lot_code),'')
+       and v_to.lot_code is not distinct from nullif(btrim(p_lot_code),'' ) then
       return jsonb_build_object(
         'out_movement_id',v_from.id,'in_movement_id',v_to.id,'idempotent_replay',true
       );
