@@ -5,12 +5,18 @@ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END
 $$;
-DO $$
+DO $
 BEGIN
   CREATE ROLE authenticated NOLOGIN;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END
-$$;
+$;
+DO $
+BEGIN
+  CREATE ROLE service_role NOLOGIN;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END
+$;
 
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS ciadi_ti;
@@ -19,9 +25,20 @@ CREATE OR REPLACE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
-AS $$
+AS $
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
-$$;
+$;
+
+-- Simula a RPC antiga e os grants remotos para provar que a proposta os revoga.
+CREATE OR REPLACE FUNCTION public.finance_registar_pagamento(
+  uuid, numeric, text, text, uuid, text
+)
+RETURNS TABLE(pagamento_id uuid, recibo_id uuid, recibo_no text, estado_pagamento text)
+LANGUAGE sql AS $
+  SELECT null::uuid, null::uuid, null::text, null::text
+$;
+GRANT EXECUTE ON FUNCTION public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)
+  TO anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.ciadi_finance_can(p_capability text)
 RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT p_capability = ANY(string_to_array(current_setting('ciadi.test_finance_caps', true), ',')) $$;
