@@ -32,6 +32,11 @@ test('Recepção cria e submete requisições; só Administração/Gestão vê d
   assert.match(sql, /'stockBalances'/i);
   assert.match(sql, /'requisitions'/i);
   assert.match(sql, /'movements'/i);
+  assert.match(sql, /add column if not exists polo_code text/i);
+  assert.match(sql, /r\.polo_code = p_polo_code/i);
+  assert.match(sql, /CC-001[\s\S]*CC-002/i);
+  assert.match(sql, /purchase_requests_polo_status_idx/i);
+  assert.match(sql, /count\(distinct w\.polo\) = 1/i);
 });
 
 test('saída de stock exige linha aprovada e não excede a quantidade por entregar', () => {
