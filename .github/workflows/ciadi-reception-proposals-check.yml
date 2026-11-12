@@ -57,7 +57,7 @@ jobs:
         run: node --check renderer/modules/reception-module.js
 
       - name: Run payment and cashbox regression tests
-        run: node --test ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs
+        run: node --test ciadi-windows/tests/reception-*.test.cjs
 
       - name: Install PostgreSQL client and SQL parser
         run: |
