@@ -51,7 +51,7 @@ begin
   limit 1;
 
   v_operator_id := public.ciadi_finance_operator_id();
-  v_can_open := public.ciadi_finance_can('abrir');
+  v_can_open := public.ciadi_finance_can('abrir') and v_operator_id is not null;
   v_can_close := public.ciadi_finance_can('fechar');
   v_can_receive := public.ciadi_finance_can('receber')
     and public.ciadi_finance_can('recibo')
