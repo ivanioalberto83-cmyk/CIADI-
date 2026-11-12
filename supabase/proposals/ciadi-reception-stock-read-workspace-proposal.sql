@@ -1,4 +1,40 @@
 -- PROPOSTA APENAS — NÃO APLICAR EM PRODUÇÃO SEM HOMOLOGAÇÃO E AUTORIZAÇÃO.
+-- Pedidos de compra passam a ter polo explícito. Registos antigos sem origem inequívoca
+-- permanecem sem polo e não são expostos à Recepção até classificação por ADM/Suporte.
+alter table ciadi_ti.purchase_requests
+  add column if not exists polo_code text;
+
+do $purchase_polo_constraint$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'ciadi_ti.purchase_requests'::regclass
+      and conname = 'purchase_requests_polo_code_check'
+  ) then
+    alter table ciadi_ti.purchase_requests
+      add constraint purchase_requests_polo_code_check
+      check (polo_code is null or polo_code in ('talatona','jardim_de_rosas'));
+  end if;
+end;
+$purchase_polo_constraint$;
+
+-- Backfill apenas quando todas as recepções existentes do pedido apontam para o mesmo polo.
+update ciadi_ti.purchase_requests pr
+set polo_code = inferred.polo_code
+from (
+  select gr.purchase_request_id, min(w.polo) as polo_code
+  from ciadi_ti.goods_receipts gr
+  join ciadi_ti.warehouses w on w.id = gr.warehouse_id
+  where gr.purchase_request_id is not null
+  group by gr.purchase_request_id
+  having count(distinct w.polo) = 1
+) inferred
+where pr.id = inferred.purchase_request_id
+  and pr.polo_code is null;
+
+create index if not exists purchase_requests_polo_status_idx
+  on ciadi_ti.purchase_requests (polo_code, status);
+
 -- Leitura controlada do stock para a Recepção sem criar políticas SELECT abertas nas tabelas.
 -- A função valida a sessão e o polo e devolve apenas dados operacionais do polo autorizado.
 
@@ -44,6 +80,12 @@ begin
       ) order by c.codigo)
       from public.finance_centros_custo c
       where c.ativo = true
+        and (c.empresa_id is null or c.empresa_id = v_company_id)
+        and upper(btrim(c.codigo)) = case p_polo_code
+          when 'talatona' then 'CC-001'
+          when 'jardim_de_rosas' then 'CC-002'
+          else null
+        end
     ), '[]'::jsonb),
     'stockBalances', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -83,8 +125,8 @@ begin
     ), '[]'::jsonb),
     'purchaseRequests', coalesce((
       select jsonb_agg(jsonb_build_object(
-        'id', r.id, 'request_number', r.request_number, 'status', r.status,
-        'justification', r.justification, 'estimated_total', r.estimated_total,
+        'id', r.id, 'request_number', r.request_number, 'polo_code', r.polo_code,
+        'status', r.status, 'justification', r.justification, 'estimated_total', r.estimated_total,
         'supplier_id', r.supplier_id, 'supplier_name', s.name,
         'created_at', r.created_at,
         'lines', coalesce((
@@ -107,6 +149,7 @@ begin
       from ciadi_ti.purchase_requests r
       left join ciadi_ti.suppliers s on s.id = r.supplier_id
       where r.status = 'approved'
+        and r.polo_code = p_polo_code
         and exists (
           select 1 from ciadi_ti.purchase_request_lines l
           where l.request_id = r.id and l.item_id is not null
@@ -134,6 +177,10 @@ begin
       from ciadi_ti.goods_receipts r
       join ciadi_ti.warehouses w on w.id = r.warehouse_id
       where w.polo = p_polo_code
+        and exists (
+          select 1 from ciadi_ti.purchase_requests pr
+          where pr.id = r.purchase_request_id and pr.polo_code = p_polo_code
+        )
     ), '[]'::jsonb),
     'movements', coalesce((
       select jsonb_agg(recent.movement order by recent.created_at desc)
