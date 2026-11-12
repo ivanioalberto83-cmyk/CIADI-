@@ -179,7 +179,7 @@ begin
   )
   values (
     p_caixa_id, 'entrada', p_valor, 'pagamento', v_rc.id, v_pag.id,
-    'Recebimento ' || v_rc.document_no, v_turno.id, v_actor,
+    'Recebimento ' || v_rc.document_no, v_turno.id, v_turno.operador_id,
     trim(p_metodo), 'confirmado'
   );
 
