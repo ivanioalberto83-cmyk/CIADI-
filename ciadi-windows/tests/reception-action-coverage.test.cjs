@@ -47,3 +47,11 @@ test('PDF não oferece exportação oficial de documentos que ainda não foram e
   assert.match(source, /data-invoice-pdf-export/);
   assert.match(source, /requireIssued/);
 });
+
+test('acções confirmadas não são apresentadas como falhadas quando apenas a actualização da lista falha', () => {
+  const source = fs.readFileSync(modulePath, 'utf8');
+  assert.match(source, /Requisição submetida; a actualização da lista falhou/);
+  assert.match(source, /Transferência registada; a actualização da consulta falhou/);
+  assert.match(source, /Recepção criada; a actualização da lista falhou/);
+  assert.match(source, /A requisição tem de manter pelo menos um artigo/);
+});
