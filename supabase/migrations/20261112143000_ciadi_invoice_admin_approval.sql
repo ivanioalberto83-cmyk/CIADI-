@@ -36,6 +36,11 @@ create index if not exists invoice_change_requests_status_idx
 create index if not exists invoice_change_requests_document_idx
   on ciadi_reception.invoice_change_requests(document_id, requested_at desc);
 
+-- A restrição única fecha a condição de corrida entre pedidos simultâneos.
+create unique index if not exists invoice_change_requests_one_pending_per_document
+  on ciadi_reception.invoice_change_requests(document_id)
+  where status = 'pendente';
+
 alter table ciadi_reception.invoice_change_requests enable row level security;
 
 grant usage on schema ciadi_reception to authenticated;
