@@ -6,6 +6,27 @@
 alter table public.finance_pagamentos
   add column if not exists idempotency_key text;
 
+-- A caixa também tem de estar explicitamente atribuída a um dos polos.
+alter table public.finance_caixas
+  add column if not exists polo_code text;
+
+do $cashbox_polo_constraint$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.finance_caixas'::regclass
+      and conname = 'finance_caixas_polo_code_check'
+  ) then
+    alter table public.finance_caixas
+      add constraint finance_caixas_polo_code_check
+      check (polo_code is null or polo_code in ('talatona','jardim_de_rosas'));
+  end if;
+end;
+$cashbox_polo_constraint$;
+
+create index if not exists finance_caixas_polo_empresa_estado_idx
+  on public.finance_caixas (polo_code, empresa_id, estado);
+
 create unique index if not exists finance_pagamentos_idempotency_key_uidx
   on public.finance_pagamentos (idempotency_key)
   where idempotency_key is not null;
@@ -20,6 +41,12 @@ begin
       execute 'revoke all on function public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text) from service_role';
     end if;
   end if;
+  if to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)') is not null then
+    execute 'revoke all on function public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text) from public, anon, authenticated';
+    if exists (select 1 from pg_roles where rolname = 'service_role') then
+      execute 'revoke all on function public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text) from service_role';
+    end if;
+  end if;
 end;
 $revoke_legacy$;
 
@@ -28,6 +55,7 @@ create or replace function public.finance_registar_pagamento(
   p_valor numeric,
   p_metodo text,
   p_idempotency_key text,
+  p_polo_code text,
   p_referencia text default null,
   p_caixa_id uuid default null,
   p_observacoes text default null
@@ -69,6 +97,10 @@ begin
   if length(v_key) not between 8 and 128 then
     raise exception 'Chave idempotente obrigatória ou inválida' using errcode = '22023';
   end if;
+  if p_polo_code is null or p_polo_code not in ('talatona','jardim_de_rosas')
+     or not ciadi_ti.has_reception_operation_access(p_polo_code) then
+    raise exception 'O utilizador não tem acesso ao polo seleccionado' using errcode = '42501';
+  end if;
   if p_valor is null or p_valor <= 0 or p_valor = 'NaN'::numeric then
     raise exception 'Valor de pagamento inválido' using errcode = '22023';
   end if;
@@ -105,6 +137,18 @@ begin
   end if;
   if v_doc.document_status <> 'N' or v_doc.fiscal_status <> 'emitido' then
     raise exception 'Só é possível receber documentos com código documental N e estado fiscal emitido' using errcode = '23514';
+  end if;
+
+  -- Verifica a atribuição da caixa ao polo mesmo quando o pedido é um replay
+  -- de uma operação já confirmada e o turno entretanto foi fechado.
+  select * into v_caixa
+  from public.finance_caixas
+  where id = p_caixa_id
+    and empresa_id = v_doc.empresa_id
+    and polo_code = p_polo_code;
+
+  if not found then
+    raise exception 'Caixa não atribuído ao polo e à empresa do documento' using errcode = '42501';
   end if;
 
   -- Repetição legítima: devolve o mesmo pagamento e recibo, sem novo movimento.
@@ -151,16 +195,17 @@ begin
     return;
   end if;
 
-  -- O caixa tem de pertencer à mesma empresa e estar aberto.
+  -- Para uma nova operação, o caixa tem de continuar aberto e bloqueado.
   select * into v_caixa
   from public.finance_caixas
   where id = p_caixa_id
     and empresa_id = v_doc.empresa_id
+    and polo_code = p_polo_code
     and estado = 'aberto'
   for update;
 
   if not found then
-    raise exception 'Caixa inexistente, fechado ou pertencente a outra empresa' using errcode = '23514';
+    raise exception 'Caixa inexistente, fechado ou não atribuído ao polo seleccionado' using errcode = '23514';
   end if;
 
   -- O operador só pode receber no seu próprio turno aberto.
@@ -302,7 +347,7 @@ begin
 end;
 $function$;
 
-revoke all on function public.finance_registar_pagamento(uuid, numeric, text, text, text, uuid, text)
+revoke all on function public.finance_registar_pagamento(uuid, numeric, text, text, text, text, uuid, text)
   from public, anon;
-grant execute on function public.finance_registar_pagamento(uuid, numeric, text, text, text, uuid, text)
+grant execute on function public.finance_registar_pagamento(uuid, numeric, text, text, text, text, uuid, text)
   to authenticated;
