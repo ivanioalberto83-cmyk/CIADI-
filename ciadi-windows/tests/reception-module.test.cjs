@@ -556,7 +556,6 @@ test('painel da Recepção permite confirmar ou devolver encaminhamentos pendent
 test('adaptador financeiro da Recepção usa exclusivamente RPCs centrais para facturação, pagamentos e caixa', async () => {
   const calls = [];
   const supabase = {
-    from: query,
     async rpc(name, args) {
       calls.push({ name, args });
       return { data: { ok: true, name }, error: null };
@@ -687,6 +686,7 @@ test('motor documental da faturação compõe pré-visualização A4 com identid
     return q;
   }
   const supabase = {
+    from: query,
     async rpc(name, args) {
       calls.push({ name, args });
       return { data: {
