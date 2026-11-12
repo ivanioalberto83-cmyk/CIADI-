@@ -5,18 +5,18 @@ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END
 $$;
-DO $
+DO $role_authenticated$
 BEGIN
   CREATE ROLE authenticated NOLOGIN;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END
-$;
-DO $
+$role_authenticated$;
+DO $role_service$
 BEGIN
   CREATE ROLE service_role NOLOGIN;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END
-$;
+$role_service$;
 
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS ciadi_ti;
@@ -55,18 +55,18 @@ CREATE OR REPLACE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
-AS $
+AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
-$;
+$auth_uid$;
 
 -- Simula a RPC antiga e os grants remotos para provar que a proposta os revoga.
 CREATE OR REPLACE FUNCTION public.finance_registar_pagamento(
   uuid, numeric, text, text, uuid, text
 )
 RETURNS TABLE(pagamento_id uuid, recibo_id uuid, recibo_no text, estado_pagamento text)
-LANGUAGE sql AS $
+LANGUAGE sql AS $legacy_payment6$
   SELECT null::uuid, null::uuid, null::text, null::text
-$;
+$legacy_payment6$;
 GRANT EXECUTE ON FUNCTION public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)
   TO anon, authenticated, service_role;
 
@@ -75,18 +75,18 @@ CREATE OR REPLACE FUNCTION public.finance_registar_pagamento(
   uuid, numeric, text, text, text, uuid, text
 )
 RETURNS TABLE(pagamento_id uuid, recibo_id uuid, recibo_no text, estado_pagamento text)
-LANGUAGE sql AS $
+LANGUAGE sql AS $legacy_payment7$
   SELECT null::uuid, null::uuid, null::text, null::text
-$;
+$legacy_payment7$;
 GRANT EXECUTE ON FUNCTION public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)
   TO anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.ciadi_finance_can(p_capability text)
 RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT p_capability = ANY(string_to_array(current_setting('ciadi.test_finance_caps', true), ',')) $$;
 CREATE OR REPLACE FUNCTION public.ciadi_finance_operator_id()
-RETURNS uuid LANGUAGE sql STABLE AS $ SELECT nullif(current_setting('ciadi.test_operator_id', true), '')::uuid $;
+RETURNS uuid LANGUAGE sql STABLE AS $operator_id$ SELECT nullif(current_setting('ciadi.test_operator_id', true), '')::uuid $operator_id$;
 CREATE OR REPLACE FUNCTION public.ciadi_finance_is_staff()
-RETURNS boolean LANGUAGE sql STABLE AS $ SELECT false $;
+RETURNS boolean LANGUAGE sql STABLE AS $finance_staff$ SELECT false $finance_staff$;
 CREATE TABLE public.perfis (
   id uuid PRIMARY KEY,
   ativo boolean NOT NULL DEFAULT true,
@@ -96,9 +96,9 @@ CREATE OR REPLACE FUNCTION public.finance_recalcular_documento(p_documento_id uu
 RETURNS void LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
 
 CREATE OR REPLACE FUNCTION ciadi_ti.has_reception_operation_access(p_polo_code text)
-RETURNS boolean LANGUAGE sql STABLE AS $$
+RETURNS boolean LANGUAGE sql STABLE AS $reception_access$
   SELECT p_polo_code = ANY(string_to_array(current_setting('ciadi.test_allowed_polo', true), ','))
-$;
+$reception_access$;
 CREATE OR REPLACE FUNCTION ciadi_ti.has_finance_approval()
 RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
 
