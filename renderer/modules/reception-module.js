@@ -1236,7 +1236,8 @@
             services: businessSnapshot.services?.rows,
             cashboxes: businessSnapshot.cashboxes?.rows,
             documents: businessSnapshot.documents?.rows,
-            shifts: businessSnapshot.shifts?.rows
+            shifts: businessSnapshot.shifts?.rows,
+             invoiceChangeRequests: businessSnapshot.invoiceChangeRequests?.rows
           })}
           <section class="card p-5" data-reception-call-panel>
             <div class="flex items-center justify-between gap-3 mb-3">
