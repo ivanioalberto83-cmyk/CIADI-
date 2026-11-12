@@ -8,7 +8,7 @@ const main = fs.readFileSync(path.join(root, 'main.cjs'), 'utf8');
 const dashboard = fs.readFileSync(path.resolve(root, '..', 'CIADI_DASHBOARD_FINANCEIRO.html'), 'utf8');
 
 test('Suporte Informático e ADM não dependem de um polo da estação', () => {
-  assert.match(dashboard, /!\['adm', 'suporte_informatica'\]\.includes\(stationProfile\)/);
+  assert.match(dashboard, /stationMode && !\['adm', 'suporte_informatica'\]\.includes\(stationProfile\)/);
   assert.match(dashboard, /const stationRequiresPolo/);
   assert.match(dashboard, /stationRequiresPolo && !Object\.prototype\.hasOwnProperty\.call\(stationPoloLabels,stationPolo\)/);
   assert.match(dashboard, /stationRequiresPolo \? \(stationProfileLabels\[stationProfile\] \+ ' · ' \+ stationPoloLabels\[stationPolo\]\) : stationProfileLabels\[stationProfile\]/);
