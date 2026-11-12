@@ -24,9 +24,9 @@ AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION public.ciadi_finance_can(p_capability text)
-RETURNS boolean LANGUAGE sql STABLE AS $ SELECT p_capability = ANY(string_to_array(current_setting('ciadi.test_finance_caps', true), ',')) $;
+RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT p_capability = ANY(string_to_array(current_setting('ciadi.test_finance_caps', true), ',')) $$;
 CREATE OR REPLACE FUNCTION public.ciadi_finance_operator_id()
-RETURNS uuid LANGUAGE sql STABLE AS $ SELECT nullif(current_setting('ciadi.test_operator_id', true), '')::uuid $;
+RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('ciadi.test_operator_id', true), '')::uuid $$;
 CREATE OR REPLACE FUNCTION public.finance_recalcular_documento(p_documento_id uuid)
 RETURNS void LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
 
@@ -147,9 +147,9 @@ ALTER TABLE ciadi_ti.goods_receipt_lines
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE OR REPLACE FUNCTION extensions.digest(data text, type text)
-RETURNS bytea LANGUAGE sql IMMUTABLE AS $
+RETURNS bytea LANGUAGE sql IMMUTABLE AS $$
   SELECT public.digest(data, type)
-$;
+$$;
 ALTER TABLE public.finance_documentos
   ADD COLUMN IF NOT EXISTS serie_id uuid,
   ADD COLUMN IF NOT EXISTS numero_sequencial bigint,
