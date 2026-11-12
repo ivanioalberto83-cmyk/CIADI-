@@ -6,6 +6,8 @@ on:
       - fix/ciadi-reception-appointment-search-20261112
     paths:
       - 'renderer/modules/reception-module.js'
+      - 'index.html'
+      - 'tests/station-web-selection.test.cjs'
       - 'tests/reception-search-appointments.test.cjs'
       - '.github/workflows/ciadi-reception-appointment-search.yml'
   pull_request:
@@ -30,4 +32,4 @@ jobs:
       - name: Verificar sintaxe do módulo
         run: node --check renderer/modules/reception-module.js
       - name: Executar testes de contrato da pesquisa por polo
-        run: node --test tests/reception-search-appointments.test.cjs
+        run: node --test tests/reception-search-appointments.test.cjs tests/station-web-selection.test.cjs
