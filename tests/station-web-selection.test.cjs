@@ -35,12 +35,13 @@ test('installer-provided station profile remains authoritative in the desktop ap
 });
 
 test('Reception operator accounts are admitted only in the Reception station', () => {
-  assert.match(html, /profile\.tipo==='operador' && \['recepcao','suporte_informatica'\]\.includes\(stationProfile\)/);
+  assert.match(html, /stationProfile==='recepcao' && profile\.tipo==='operador'/);
   assert.match(html, /stationProfile==='recepcao' \? 'reception'/);
   assert.match(html, /Este utilizador não possui acesso à estação seleccionada/);
 });
 
-test('Support operator accounts are admitted only in the Support station', () => {
-  assert.match(html, /profile\.tipo==='operador' && \['recepcao','suporte_informatica'\]\.includes\(stationProfile\)/);
+test('Support accounts with suporte_informatica profile are admitted only in Support', () => {
+  assert.match(html, /stationProfile==='suporte_informatica' && profile\.tipo==='suporte_informatica'/);
   assert.match(html, /stationProfile==='suporte_informatica' \? 'support'/);
+  assert.doesNotMatch(html, /profile\.tipo==='operador' && \['recepcao','suporte_informatica'\]/);
 });
