@@ -16,6 +16,9 @@ do $revoke_legacy$
 begin
   if to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)') is not null then
     execute 'revoke all on function public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text) from public, anon, authenticated';
+    if exists (select 1 from pg_roles where rolname = 'service_role') then
+      execute 'revoke all on function public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text) from service_role';
+    end if;
   end if;
 end;
 $revoke_legacy$;
