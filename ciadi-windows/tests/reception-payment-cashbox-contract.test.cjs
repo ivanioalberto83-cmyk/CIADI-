@@ -70,3 +70,13 @@ test('formulário de recebimento chama o motor central, confirma o RC e disponib
   assert.match(moduleSource, /pdfService\.preview\(result\.recibo_id\)/);
   assert.match(moduleSource, /data-invoice-pdf-export=/);
 });
+
+test('proposta de operações de stock fecha correctamente todos os corpos PL/pgSQL', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../../supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql'),
+    'utf8'
+  );
+
+  assert.equal((sql.match(/\$\$/g) || []).length % 2, 0, 'delimitadores $$ devem estar emparelhados');
+  assert.match(sql, /return jsonb_build_object\([\s\S]*?\n  end;\n\$\$;\n\nrevoke all on function ciadi_ti\.reception_transfer_stock/i);
+});
