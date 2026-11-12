@@ -47,7 +47,8 @@
       unique.push({ ...entry });
     }
 
-    return PROFILE_ROUTES[profileId]
+    const routeIds = profileId === 'adm' ? unique.map(entry => entry.id) : PROFILE_ROUTES[profileId];
+    return routeIds
       .map(id => unique.find(entry => entry.id === id) || (id === 'support' ? { ...SUPPORT_ENTRY } : null))
       .filter(Boolean);
   }
