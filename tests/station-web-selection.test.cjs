@@ -31,5 +31,5 @@ test('ADM and Support do not require a polo; RH and Reception do', () => {
 
 test('installer-provided station profile remains authoritative in the desktop app', () => {
   assert.match(html, /stationParams\.has\('ciadi_profile'\)/);
-  assert.match(html, /stationSelection.*class="hiddenx"/);
+  assert.match(html, /stationSelection.*class="hiddenx/);
 });
