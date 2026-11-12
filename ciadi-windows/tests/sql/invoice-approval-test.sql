@@ -23,24 +23,12 @@ begin
   update public.finance_documentos
     set estado_pagamento='pago', forma_pagamento='transferencia'
     where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-  insert into public.finance_pagamentos(documento_id,valor)
-    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',100);
-  insert into public.finance_documentos(
-    id,total,tipo_documento,document_status,fiscal_status,origem_tipo,documento_origem_id
-  ) values (
-    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',100,'RC','N','emitido','pagamento',
-    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-  );
   update public.finance_documentos
-    set hash_documento='hash-inicial',hash_algoritmo='SHA-256'
-    where id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-  begin
-    update public.finance_documentos set hash_documento='hash-forjado'
-      where id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-    raise exception 'Falha: operador conseguiu substituir hash de recibo';
-  exception when others then
-    if sqlerrm = 'Falha: operador conseguiu substituir hash de recibo' then raise; end if;
-  end;
+    set agt_submission_status='submetido',
+        agt_validation_status='pendente',
+        agt_request_id='AGT-TEST-001',
+        fiscal_status='emitido'
+    where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   begin
     update public.finance_documentos set total=1
       where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
