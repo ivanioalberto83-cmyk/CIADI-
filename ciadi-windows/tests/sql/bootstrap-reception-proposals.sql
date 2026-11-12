@@ -70,6 +70,17 @@ $;
 GRANT EXECUTE ON FUNCTION public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)
   TO anon, authenticated, service_role;
 
+-- Simula a assinatura intermédia de sete argumentos para garantir revogação na migração.
+CREATE OR REPLACE FUNCTION public.finance_registar_pagamento(
+  uuid, numeric, text, text, text, uuid, text
+)
+RETURNS TABLE(pagamento_id uuid, recibo_id uuid, recibo_no text, estado_pagamento text)
+LANGUAGE sql AS $
+  SELECT null::uuid, null::uuid, null::text, null::text
+$;
+GRANT EXECUTE ON FUNCTION public.finance_registar_pagamento(uuid,numeric,text,text,text,uuid,text)
+  TO anon, authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION public.ciadi_finance_can(p_capability text)
 RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT p_capability = ANY(string_to_array(current_setting('ciadi.test_finance_caps', true), ',')) $$;
 CREATE OR REPLACE FUNCTION public.ciadi_finance_operator_id()
@@ -120,7 +131,7 @@ CREATE TABLE public.finance_series (
   empresa_id uuid,
   updated_at timestamptz
 );
-CREATE TABLE public.finance_caixas (id uuid, empresa_id uuid, estado text);
+CREATE TABLE public.finance_caixas (id uuid, empresa_id uuid, estado text, polo_code text);
 CREATE TABLE public.finance_caixa_turnos (id uuid, caixa_id uuid, operador_id uuid, estado text);
 CREATE TABLE public.finance_movimentos_caixa (
   caixa_id uuid, tipo text, valor numeric, origem text, documento_id uuid,
@@ -243,7 +254,8 @@ ALTER TABLE public.finance_caixas
   ADD COLUMN IF NOT EXISTS nome text,
   ADD COLUMN IF NOT EXISTS localizacao text,
   ADD COLUMN IF NOT EXISTS tipo text,
-  ADD COLUMN IF NOT EXISTS moeda text;
+  ADD COLUMN IF NOT EXISTS moeda text,
+  ADD COLUMN IF NOT EXISTS polo_code text;
 ALTER TABLE public.finance_caixas ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE public.finance_caixa_turnos
   ADD COLUMN IF NOT EXISTS aberto_em timestamptz NOT NULL DEFAULT now(),
