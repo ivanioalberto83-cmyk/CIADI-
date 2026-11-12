@@ -1213,3 +1213,36 @@ test('detalhe do razão de movimentos apresenta os campos operacionais e control
   assert.match(html, /data-business-close/);
   assert.match(html, /role="dialog"/);
 });
+
+
+test('caixa apresenta abertura da factura, emissão central, impressão e PDF', () => {
+  const html = reception.renderReceptionFinancePanel({
+    documents: [
+      { id: 'doc-issued', document_no: 'FT 2026/001', tipo_documento: 'FT', document_status: 'N', fiscal_status: 'emitido', total: 25000, estado_pagamento: 'por_pagar' },
+      { id: 'doc-paid', document_no: 'FT 2026/002', tipo_documento: 'FT', document_status: 'N', fiscal_status: 'emitido', total: 10000, estado_pagamento: 'pago' },
+      { id: 'doc-draft', document_no: 'RASCUNHO', tipo_documento: 'FT', document_status: 'rascunho', fiscal_status: 'em_edicao', total: 5000 }
+    ],
+    cashboxes: [],
+    clients: [],
+    documentTypes: [],
+    series: [],
+    services: [],
+    shifts: []
+  });
+  assert.match(html, /data-payment-document/);
+  assert.match(html, /data-payment-open-invoice/);
+  assert.match(html, /data-invoice-issue="doc-draft"/);
+  assert.match(html, /data-invoice-preview="doc-issued"/);
+  assert.match(html, /data-invoice-print="doc-issued"/);
+  assert.match(html, /data-invoice-pdf-export="doc-issued"/);
+  assert.doesNotMatch(html, /data-payment-document[^]*doc-paid/);
+});
+
+test('pré-visualização de documento tem controlos de impressão e exportação', () => {
+  const html = reception.renderReceptionFinancePanel({
+    documents: [{ id: 'receipt-1', document_no: 'RC 2026/001', tipo_documento: 'RC', document_status: 'N', fiscal_status: 'emitido', total: 25000, estado_pagamento: 'pago' }]
+  });
+  assert.match(html, /Abrir \/ visualizar/);
+  assert.match(html, /Imprimir/);
+  assert.match(html, /Guardar PDF/);
+});
