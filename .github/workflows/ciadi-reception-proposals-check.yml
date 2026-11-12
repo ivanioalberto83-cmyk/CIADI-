@@ -77,6 +77,9 @@ jobs:
       - name: Verify RPC registration and privilege boundaries in PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-proposals-compile.test.sql
 
+      - name: Run transactional stock, polo isolation and payment guard tests
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-transactional.test.sql
+
       - name: Parse all four SQL proposals
         run: |
           python - <<'PY'
