@@ -1774,11 +1774,22 @@
               values.reference || '', values.notes || ''
             ]);
             if (!form.dataset.paymentIdempotencyKey || form.dataset.paymentPayload !== paymentPayload) {
-              if (typeof globalThis.crypto?.randomUUID !== 'function') {
+              if (typeof globalThis.crypto?.randomUUID !== 'function' ||
+                  typeof globalThis.crypto?.subtle?.digest !== 'function') {
                 throw new Error('Este dispositivo não disponibiliza geração segura de chave idempotente. Actualize o CIADI Desktop antes de receber pagamentos.');
               }
+              const fingerprintBytes = await globalThis.crypto.subtle.digest(
+                'SHA-256', new TextEncoder().encode(paymentPayload)
+              );
+              const fingerprint = Array.from(new Uint8Array(fingerprintBytes))
+                .map(byte => byte.toString(16).padStart(2, '0')).join('');
+              const storageKey = 'ciadi:reception:payment:' + fingerprint;
+              let savedKey = null;
+              try { savedKey = globalThis.localStorage?.getItem(storageKey) || null; } catch (_) {}
               form.dataset.paymentPayload = paymentPayload;
-              form.dataset.paymentIdempotencyKey = globalThis.crypto.randomUUID();
+              form.dataset.paymentStorageKey = storageKey;
+              form.dataset.paymentIdempotencyKey = savedKey || globalThis.crypto.randomUUID();
+              try { globalThis.localStorage?.setItem(storageKey, form.dataset.paymentIdempotencyKey); } catch (_) {}
             }
             const result = await financeRepository.registerPayment({
               documentId: values.documentId,
@@ -1794,8 +1805,12 @@
               throw new Error('O motor financeiro não confirmou o pagamento e o recibo.');
             }
             notify('Pagamento confirmado. Recibo ' + result.recibo_no + ' · Estado: ' + (result.estado_pagamento || 'actualizado') + '.');
+            try {
+              if (form.dataset.paymentStorageKey) globalThis.localStorage?.removeItem(form.dataset.paymentStorageKey);
+            } catch (_) {}
             delete form.dataset.paymentIdempotencyKey;
             delete form.dataset.paymentPayload;
+            delete form.dataset.paymentStorageKey;
             form.reset();
             try { await refresh(); } catch (refreshError) { notify('Pagamento confirmado; a actualização do painel falhou: ' + (refreshError.message || 'erro de leitura.')); }
             try {
