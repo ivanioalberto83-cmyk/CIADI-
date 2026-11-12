@@ -15,7 +15,10 @@ on:
       - feature/ciadi-reception-completion-20261109
     paths:
       - 'renderer/modules/reception-module.js'
+      - 'index.html'
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'tests/reception-search-appointments.test.cjs'
+      - 'tests/station-web-selection.test.cjs'
       - '.github/workflows/ciadi-reception-appointment-search.yml'
 
 permissions:
