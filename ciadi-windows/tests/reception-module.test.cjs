@@ -568,7 +568,11 @@ test('adaptador financeiro da Recepção usa exclusivamente RPCs centrais para f
     dueDate: '2026-11-30', observations: 'Atendimento', lines: [{ serviceId: 'service-1', quantity: 1 }]
   });
   await finance.issueInvoice('document-1');
-  await finance.registerPayment({ documentId: 'document-1', amount: 5000, method: 'numerario', reference: 'PAG-001', cashboxId: 'cash-1', notes: '' });
+  await finance.registerPayment({
+    documentId: 'document-1', amount: 5000, method: 'numerario',
+    reference: 'PAG-001', cashboxId: 'cash-1', notes: '',
+    idempotencyKey: 'payment-key-0001', poloCode: 'talatona'
+  });
   await finance.openCashbox({ cashboxId: 'cash-1', openingBalance: 1000 });
   await finance.closeCashbox({ shiftId: 'shift-1', countedBalance: 6000, justification: '' });
   assert.deepEqual(calls.map(call => call.name), [
@@ -581,6 +585,8 @@ test('adaptador financeiro da Recepção usa exclusivamente RPCs centrais para f
   assert.equal(calls[0].args.p_empresa_id, 'company-1');
   assert.equal(calls[0].args.p_linhas[0].servico_id, 'service-1');
   assert.equal(calls[2].args.p_valor, 5000);
+  assert.equal(calls[2].args.p_idempotency_key, 'payment-key-0001');
+  assert.equal(calls[2].args.p_polo_code, 'talatona');
   assert.equal(calls[3].args.p_saldo_inicial, 1000);
   assert.equal(calls[4].args.p_saldo_contado, 6000);
 });
