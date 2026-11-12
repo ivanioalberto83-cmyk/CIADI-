@@ -7,6 +7,7 @@ on:
     paths:
       - 'supabase/proposals/ciadi-reception-*-proposal.sql'
       - 'ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs'
+      - 'ciadi-windows/tests/sql/**'
       - 'renderer/modules/reception-module.js'
       - '.github/workflows/ciadi-reception-proposals-check.yml'
   pull_request:
