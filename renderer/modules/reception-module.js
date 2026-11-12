@@ -752,6 +752,7 @@
           p_valor: amount,
           p_metodo: method,
           p_idempotency_key: requiredId(input.idempotencyKey, 'Chave idempotente do pagamento'),
+          p_polo_code: requiredId(input.poloCode, 'Polo'),
           p_referencia: clean(input.reference, 120) || null,
           p_caixa_id: requiredId(input.cashboxId, 'Caixa'),
           p_observacoes: clean(input.notes, 1000) || null
@@ -1786,7 +1787,8 @@
               cashboxId: values.cashboxId,
               reference: values.reference,
               notes: values.notes,
-              idempotencyKey: form.dataset.paymentIdempotencyKey
+              idempotencyKey: form.dataset.paymentIdempotencyKey,
+              poloCode: activePolo
             });
             if (!result?.pagamento_id || !result?.recibo_id || !result?.recibo_no) {
               throw new Error('O motor financeiro não confirmou o pagamento e o recibo.');
