@@ -22,6 +22,7 @@ set search_path to public
 as $function$
 declare
   v_actor uuid := auth.uid();
+  v_operator_id uuid;
   v_doc public.finance_documentos%rowtype;
   v_pag public.finance_pagamentos%rowtype;
   v_rc public.finance_documentos%rowtype;
@@ -42,6 +43,13 @@ begin
   end if;
   if p_caixa_id is null then
     raise exception 'Seleccione um caixa aberto antes de registar o pagamento';
+  end if;
+  if not public.ciadi_finance_can('receber') or not public.ciadi_finance_can('recibo') then
+    raise exception 'O operador não tem autorização para receber pagamentos e emitir recibos';
+  end if;
+  v_operator_id := public.ciadi_finance_operator_id();
+  if v_operator_id is null then
+    raise exception 'O utilizador não tem um operador de caixa activo associado';
   end if;
 
   perform public.finance_recalcular_documento(p_documento_id);
@@ -75,7 +83,7 @@ begin
   from public.finance_caixa_turnos
   where caixa_id = p_caixa_id
     and estado = 'aberto'
-    and operador_id = v_actor
+    and operador_id = v_operator_id
   order by aberto_em desc
   limit 1
   for update;
