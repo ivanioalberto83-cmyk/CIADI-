@@ -1586,6 +1586,34 @@
             }
             return;
           }
+          if (button.hasAttribute('data-goods-receipt-check')) {
+            button.disabled = true;
+            try {
+              const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo || POLOS[0] });
+              const result = await service.checkGoodsReceipt(button.getAttribute('data-goods-receipt-check'));
+              if (result?.status !== 'checked') throw new Error('O motor não confirmou a conferência da recepção.');
+              notify('Recepção conferida. Pode agora lançar as quantidades aceites no stock.');
+              await refresh();
+            } catch (error) {
+              button.disabled = false;
+              notify(error.message || 'Não foi possível conferir a recepção.');
+            }
+            return;
+          }
+          if (button.hasAttribute('data-goods-receipt-finalize')) {
+            button.disabled = true;
+            try {
+              const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo || POLOS[0] });
+              const result = await service.finalizeGoodsReceipt(button.getAttribute('data-goods-receipt-finalize'));
+              if (result?.status !== 'posted') throw new Error('O motor não confirmou a entrada das mercadorias no stock.');
+              notify('Recepção lançada no stock. Movimentos criados: ' + (result.movements_created || 0) + '.');
+              await refresh();
+            } catch (error) {
+              button.disabled = false;
+              notify(error.message || 'Não foi possível lançar a recepção no stock.');
+            }
+            return;
+          }
           if (button.hasAttribute('data-invoice-preview-close')) {
             const host = container.querySelector('[data-invoice-preview-host]');
             if (host) { host.innerHTML = ''; host.classList.add('hidden'); }
@@ -1702,6 +1730,16 @@
           }
           return;
         }
+        if (event.target.matches('[data-goods-receipt-request]')) {
+          const requestId = clean(event.target.value, 128);
+          const request = (businessSnapshot.stockWorkspace?.purchaseRequests || [])
+            .find(row => String(row.id) === requestId);
+          const linesHost = container.querySelector('[data-goods-receipt-lines]');
+          if (linesHost) linesHost.innerHTML = request
+            ? renderReceptionGoodsReceiptLines(request)
+            : '<p class="text-xs text-slate-500">Seleccione um pedido para carregar as respectivas linhas.</p>';
+          return;
+        }
         if (event.target.matches('[data-reception-polo]')) {
           activePolo = event.target.value || null;
           try { await refresh(); } catch (error) { renderUnavailable(error); }
@@ -1783,6 +1821,97 @@
           } catch (error) {
             button.disabled = false;
             if (message) message.textContent = error.message || 'Não foi possível registar a saída.';
+          }
+          return;
+        }
+        if (form.matches('[data-stock-return-form]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-stock-return-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!activePolo) throw new Error('Seleccione o polo antes de registar a devolução.');
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const movementId = await service.registerStockReturn({
+              itemId: values.itemId, warehouseId: values.warehouseId,
+              quantity: values.quantity, returnType: values.returnType,
+              reason: values.reason, reference: values.reference
+            });
+            if (!movementId) throw new Error('O motor de stock não confirmou a devolução.');
+            notify('Devolução registada no razão de stock: ' + movementId);
+            form.reset();
+            await refresh();
+          } catch (error) {
+            button.disabled = false;
+            if (message) message.textContent = error.message || 'Não foi possível registar a devolução.';
+          }
+          return;
+        }
+        if (form.matches('[data-stock-transfer-form]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-stock-transfer-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!activePolo) throw new Error('Seleccione o polo antes de transferir stock.');
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.transferStock({
+              itemId: values.itemId, fromWarehouseId: values.fromWarehouseId,
+              toWarehouseId: values.toWarehouseId, quantity: values.quantity,
+              reference: values.reference, notes: values.notes, lotCode: values.lotCode
+            });
+            if (!result?.out_movement_id || !result?.in_movement_id) {
+              throw new Error('O motor não confirmou os dois movimentos da transferência.');
+            }
+            notify('Transferência concluída. Saída e entrada registadas no razão central.');
+            form.reset();
+            await refresh();
+          } catch (error) {
+            button.disabled = false;
+            if (message) message.textContent = error.message || 'Não foi possível transferir o stock.';
+          }
+          return;
+        }
+        if (form.matches('[data-goods-receipt-form]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-goods-receipt-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!activePolo) throw new Error('Seleccione o polo antes de receber mercadorias.');
+            const request = (businessSnapshot.stockWorkspace?.purchaseRequests || [])
+              .find(row => String(row.id) === String(values.requestId));
+            if (!request) throw new Error('O pedido de compra aprovado já não está disponível. Actualize o módulo.');
+            const lines = Array.from(form.querySelectorAll('[data-goods-receipt-line]')).map(row => ({
+              requestLineId: row.querySelector('[name="requestLineId"]')?.value,
+              orderedQuantity: row.querySelector('[name="orderedQuantity"]')?.value,
+              alreadyReceivedQuantity: row.querySelector('[name="alreadyReceivedQuantity"]')?.value,
+              receivedQuantity: row.querySelector('[name="receivedQuantity"]')?.value,
+              acceptedQuantity: row.querySelector('[name="acceptedQuantity"]')?.value,
+              damagedQuantity: row.querySelector('[name="damagedQuantity"]')?.value,
+              returnedQuantity: row.querySelector('[name="returnedQuantity"]')?.value,
+              unitCost: row.querySelector('[name="unitCost"]')?.value,
+              lotCode: row.querySelector('[name="lotCode"]')?.value,
+              notes: row.querySelector('[name="lineNotes"]')?.value
+            }));
+            const service = createReceptionProcurementService({ supabase, actorId, poloCode: activePolo });
+            const result = await service.createGoodsReceipt({
+              requestId: values.requestId, requestStatus: request.status,
+              warehouseId: values.warehouseId, deliveryReference: values.deliveryReference,
+              deliveryDate: values.deliveryDate, notes: values.notes, lines
+            });
+            if (!result?.id) throw new Error('O motor não confirmou a criação da recepção.');
+            notify('Recepção GR-' + (result.receipt_number || result.id) + ' criada em rascunho. Confirme as quantidades antes de lançar no stock.');
+            form.reset();
+            const linesHost = form.querySelector('[data-goods-receipt-lines]');
+            if (linesHost) linesHost.innerHTML = '<p class="text-xs text-slate-500">Seleccione um pedido para carregar as respectivas linhas.</p>';
+            await refresh();
+          } catch (error) {
+            button.disabled = false;
+            if (message) message.textContent = error.message || 'Não foi possível criar a recepção de mercadorias.';
           }
           return;
         }
