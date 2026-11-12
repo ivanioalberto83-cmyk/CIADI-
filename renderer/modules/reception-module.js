@@ -751,6 +751,7 @@
           p_documento_id: documentId,
           p_valor: amount,
           p_metodo: method,
+          p_idempotency_key: requiredId(input.idempotencyKey, 'Chave idempotente do pagamento'),
           p_referencia: clean(input.reference, 120) || null,
           p_caixa_id: requiredId(input.cashboxId, 'Caixa'),
           p_observacoes: clean(input.notes, 1000) || null
@@ -1767,18 +1768,32 @@
           try {
             if (!activePolo) throw new Error('Seleccione o polo antes de registar o pagamento.');
             if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const paymentPayload = JSON.stringify([
+              values.documentId, values.amount, values.method, values.cashboxId,
+              values.reference || '', values.notes || ''
+            ]);
+            if (!form.dataset.paymentIdempotencyKey || form.dataset.paymentPayload !== paymentPayload) {
+              if (typeof globalThis.crypto?.randomUUID !== 'function') {
+                throw new Error('Este dispositivo não disponibiliza geração segura de chave idempotente. Actualize o CIADI Desktop antes de receber pagamentos.');
+              }
+              form.dataset.paymentPayload = paymentPayload;
+              form.dataset.paymentIdempotencyKey = globalThis.crypto.randomUUID();
+            }
             const result = await financeRepository.registerPayment({
               documentId: values.documentId,
               amount: values.amount,
               method: values.method,
               cashboxId: values.cashboxId,
               reference: values.reference,
-              notes: values.notes
+              notes: values.notes,
+              idempotencyKey: form.dataset.paymentIdempotencyKey
             });
             if (!result?.pagamento_id || !result?.recibo_id || !result?.recibo_no) {
               throw new Error('O motor financeiro não confirmou o pagamento e o recibo.');
             }
             notify('Pagamento confirmado. Recibo ' + result.recibo_no + ' · Estado: ' + (result.estado_pagamento || 'actualizado') + '.');
+            delete form.dataset.paymentIdempotencyKey;
+            delete form.dataset.paymentPayload;
             form.reset();
             try { await refresh(); } catch (refreshError) { notify('Pagamento confirmado; a actualização do painel falhou: ' + (refreshError.message || 'erro de leitura.')); }
             try {
