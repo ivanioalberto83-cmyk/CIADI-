@@ -44,7 +44,7 @@ test('cash report repository reads shifts, cash movements and accounting entries
   assert.deepEqual(snapshot.movements, movements);
   assert.deepEqual(snapshot.accountingEntries, entries);
   const shiftSelect = calls.find(call => call.table === 'finance_caixa_turnos' && call.method === 'select');
-  assert.match(shiftSelect.fields, /finance_operadores!finance_caixa_turnos_operador_id_fkey\\(funcao\\)/);
+  assert.match(shiftSelect.fields, /finance_operadores!finance_caixa_turnos_operador_id_fkey\(funcao\)/);
   assert.doesNotMatch(shiftSelect.fields, /finance_operadores\\(funcao\\)/);
   assert.deepEqual(calls.filter(call => call.method === 'in'), [
     { table: 'finance_movimentos_caixa', method: 'in', field: 'turno_id', values: ['shift-1'] },
