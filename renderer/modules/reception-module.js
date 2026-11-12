@@ -1181,7 +1181,7 @@
         '<form data-reception-cashbox-open class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Abertura de caixa</h4><label class="block text-xs font-semibold">Caixa<select name="cashboxId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o caixa') + cashboxes.map(row => option(row.id, (row.codigo || '') + ' · ' + (row.nome || row.id) + ' (' + (row.estado || 'estado não indicado') + ')')).join('') + '</select></label><label class="block text-xs font-semibold">Saldo inicial (Kz)<input name="openingBalance" type="number" min="0" step="0.01" required value="0" class="mt-1 w-full border rounded-lg p-2"></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit"' + (canOpenCashbox ? '' : ' disabled title="O motor central ainda não autorizou a abertura deste caixa."') + ' class="rounded-lg border px-4 py-2 font-bold"' + (canOpenCashbox ? '' : ' opacity-50') + '>Abrir caixa</button></form>' +
         '<form data-reception-cashbox-close class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Fecho de caixa</h4><label class="block text-xs font-semibold">Turno aberto<select name="shiftId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o turno') + shifts.map(row => option(row.id, 'Turno ' + row.id.slice(0, 8) + ' · ' + row.aberto_em)).join('') + '</select></label><label class="block text-xs font-semibold">Saldo contado (Kz)<input name="countedBalance" type="number" min="0" step="0.01" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Justificação de diferença<textarea name="justification" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit"' + (canCloseCashbox ? '' : ' disabled title="Não existe turno próprio aberto ou falta autorização para fechar."') + ' class="rounded-lg border px-4 py-2 font-bold"' + (canCloseCashbox ? '' : ' opacity-50') + '>Fechar caixa</button></form>' +
       '</div></div>' +
-      '<form data-reception-payment-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registo de recebimento</h4><p class="text-xs text-amber-800">' + (canRegisterPayment ? 'Operador autorizado e turno aberto reconhecido pelo motor central.' : 'Recebimentos bloqueados: é necessária autorização de receber/emitir recibos e um turno próprio aberto.') + '</p><fieldset' + (canRegisterPayment ? '' : ' disabled') + ' class="grid md:grid-cols-4 gap-2' + (canRegisterPayment ? '' : ' opacity-60') + '"><select name="documentId" required class="border rounded-lg p-2">' + option('', 'Documento emitido') + issuedDocuments.map(row => option(row.id, row.document_no + ' · ' + row.total + ' Kz')).join('') + '</select><input name="amount" type="number" min="0.01" step="0.01" placeholder="Valor (Kz)" class="border rounded-lg p-2"><select name="method" class="border rounded-lg p-2">' + ['numerario','transferencia','tpa','deposito','multicaixa'].map(x => option(x, x)).join('') + '</select><select name="cashboxId" required class="border rounded-lg p-2">' + option('', 'Seleccione o caixa obrigatório') + cashboxes.map(row => option(row.id, row.nome || row.codigo || row.id)).join('') + '</select></fieldset><button type="submit"' + (canRegisterPayment ? '' : ' disabled') + ' class="rounded-lg border px-4 py-2 font-bold' + (canRegisterPayment ? '' : ' opacity-50') + '">' + (canRegisterPayment ? 'Registar pagamento' : 'Recebimentos bloqueados') + '</button></form>' +
+      '<form data-reception-payment-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registo de recebimento</h4><p class="text-xs text-amber-800">' + (canRegisterPayment ? 'Operador autorizado e turno aberto reconhecido pelo motor central.' : 'Recebimentos bloqueados: é necessária autorização de receber/emitir recibos e um turno próprio aberto.') + '</p><fieldset' + (canRegisterPayment ? '' : ' disabled') + ' class="grid md:grid-cols-3 gap-2' + (canRegisterPayment ? '' : ' opacity-60') + '"><label class="text-xs font-semibold">Factura<select name="documentId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione a factura') + issuedDocuments.map(row => option(row.id, row.document_no + ' · ' + row.total + ' Kz')).join('') + '</select></label><label class="text-xs font-semibold">Valor recebido (Kz)<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0,00" class="mt-1 w-full border rounded-lg p-2"></label><label class="text-xs font-semibold">Método<select name="method" required class="mt-1 w-full border rounded-lg p-2">' + ['numerario','transferencia','tpa','deposito','multicaixa'].map(x => option(x, x)).join('') + '</select></label><label class="text-xs font-semibold">Caixa<select name="cashboxId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o caixa obrigatório') + cashboxes.map(row => option(row.id, row.nome || row.codigo || row.id)).join('') + '</select></label><label class="text-xs font-semibold">Referência<input name="reference" maxlength="120" class="mt-1 w-full border rounded-lg p-2" placeholder="N.º TPA/transferência (se aplicável)"></label><label class="text-xs font-semibold">Observações<input name="notes" maxlength="1000" class="mt-1 w-full border rounded-lg p-2"></label></fieldset><p data-reception-payment-message role="status" class="text-xs text-amber-800"></p><button type="submit"' + (canRegisterPayment ? '' : ' disabled') + ' class="rounded-lg border px-4 py-2 font-bold' + (canRegisterPayment ? '' : ' opacity-50') + '">' + (canRegisterPayment ? 'Registar pagamento e emitir recibo' : 'Recebimentos bloqueados') + '</button></form> +
       '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos em edição</h4>' + (editableDocuments.length ? editableDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem documentos em edição visíveis.</p>') + '</div>' +
       '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos emitidos — PDF</h4>' + (issuedDocuments.length ? issuedDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + ' · ' + esc(receptionMoney(row.total)) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar A4</button><button type="button" data-invoice-pdf-export="' + esc(row.id) + '" class="rounded-lg bg-orange text-white px-3 py-1">Guardar PDF</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem facturas emitidas e validadas visíveis.</p>') + '<p class="text-xs text-amber-800 mt-3">A pré-visualização é composta com os dados reais do motor financeiro. A exportação gera PDF A4 no CIADI Desktop e guarda-o no computador. O QR oficial e o arquivo digital central continuam dependentes da integração do servidor.</p></div>' +
       '<section data-invoice-preview-host class="hidden"></section>' +
@@ -1542,7 +1542,7 @@
             const host = container.querySelector('[data-invoice-preview-host]');
             if (!host) throw new Error('Área de pré-visualização documental indisponível.');
             host.classList.remove('hidden');
-            host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex items-center justify-between gap-2"><div><h3 class="font-bold">Pré-visualização A4 CIADI</h3><p class="text-xs text-slate-500">' + esc(result.document.document_no || result.document.id) + ' · ' + esc(result.document.document_status || 'rascunho') + '</p></div><button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div><iframe title="Pré-visualização da factura CIADI" sandbox="allow-same-origin" srcdoc="' + esc(result.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
+            host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex items-center justify-between gap-2"><div><h3 class="font-bold">Pré-visualização A4 CIADI</h3><p class="text-xs text-slate-500">' + esc(result.document.document_no || result.document.id) + ' · ' + esc(result.document.document_status || 'rascunho') + '</p></div><div class="flex gap-2"><button type="button" data-invoice-pdf-export="' + esc(result.document.id) + '" class="rounded-lg bg-orange text-white px-3 py-2">Guardar PDF</button><button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div></div><iframe title="Pré-visualização do documento CIADI" sandbox="allow-same-origin" srcdoc="' + esc(result.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
             host.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
           }
@@ -1653,6 +1653,46 @@
 
       container.addEventListener('submit', async event => {
         const form = event.target;
+        if (form.matches('[data-reception-payment-form]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-reception-payment-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!activePolo) throw new Error('Seleccione o polo antes de registar o pagamento.');
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            const result = await financeRepository.registerPayment({
+              documentId: values.documentId,
+              amount: values.amount,
+              method: values.method,
+              cashboxId: values.cashboxId,
+              reference: values.reference,
+              notes: values.notes
+            });
+            if (!result?.pagamento_id || !result?.recibo_id || !result?.recibo_no) {
+              throw new Error('O motor financeiro não confirmou o pagamento e o recibo.');
+            }
+            notify('Pagamento confirmado. Recibo ' + result.recibo_no + ' · Estado: ' + (result.estado_pagamento || 'actualizado') + '.');
+            form.reset();
+            try { await refresh(); } catch (refreshError) { notify('Pagamento confirmado; a actualização do painel falhou: ' + (refreshError.message || 'erro de leitura.')); }
+            try {
+              const pdfService = createReceptionInvoicePdfService({ supabase, poloCode: activePolo });
+              const preview = await pdfService.preview(result.recibo_id);
+              const host = container.querySelector('[data-invoice-preview-host]');
+              if (!host) throw new Error('Área de pré-visualização do recibo indisponível.');
+              host.classList.remove('hidden');
+              host.innerHTML = '<section class="card p-4 space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-bold">Recibo CIADI</h3><p class="text-xs text-slate-500">' + esc(preview.document.document_no || result.recibo_no) + '</p></div><div class="flex gap-2"><button type="button" data-invoice-pdf-export="' + esc(result.recibo_id) + '" class="rounded-lg bg-orange text-white px-3 py-2">Guardar PDF</button><button type="button" data-invoice-preview-close class="border rounded-lg px-3 py-2">Fechar</button></div></div><iframe title="Pré-visualização do recibo CIADI" sandbox="allow-same-origin" srcdoc="' + esc(preview.html) + '" class="w-full border rounded-lg bg-white" style="height:900px"></iframe></section>';
+              host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (pdfError) {
+              notify('Pagamento e recibo confirmados; pré-visualização PDF indisponível: ' + (pdfError.message || 'erro de leitura.'));
+            }
+          } catch (error) {
+            button.disabled = false;
+            if (message) message.textContent = error.message || 'Não foi possível registar o pagamento.';
+          }
+          return;
+        }
         if (form.matches('[data-stock-requisition-form]')) {
           event.preventDefault();
           const message = form.querySelector('[data-stock-message]');
