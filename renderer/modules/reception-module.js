@@ -620,6 +620,11 @@
           .order('data_emissao', { ascending: false })
           .limit(10));
       },
+      async getInvoiceChangeRequests() {
+        return rows(supabase.schema('ciadi_reception').from('invoice_change_requests')
+          .select('id,document_id,request_type,reason,status,requested_at,decision_note')
+          .order('requested_at', { ascending: false }).limit(50));
+      },
       async getOpenCashboxShifts() {
         return rows(supabase.from('finance_caixa_turnos')
           .select('id,caixa_id,operador_id,aberto_em,saldo_inicial,estado')
@@ -1397,6 +1402,7 @@
         ['documentTypes', () => businessRepository.getActiveDocumentTypes()],
         ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
         ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
+        ['invoiceChangeRequests', () => businessRepository.getInvoiceChangeRequests()],
         ['shifts', () => businessRepository.getOpenCashboxShifts()],
         ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()],
