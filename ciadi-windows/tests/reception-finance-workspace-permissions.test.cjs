@@ -11,7 +11,7 @@ test('workspace financeiro devolve caixas da empresa e turnos pelo ID interno do
     'utf8'
   );
   assert.match(sql, /public\.ciadi_finance_operator_id\(\)/i);
-  assert.match(sql, /public\.ciadi_finance_can\('abrir'\)/i);
+  assert.match(sql, /public\.ciadi_finance_can\('abrir'\) and v_operator_id is not null/i);
   assert.match(sql, /public\.ciadi_finance_can\('receber'\)/i);
   assert.match(sql, /from public\.finance_caixas c[\s\S]*where c\.empresa_id = v_company_id/i);
   assert.match(sql, /t\.operador_id = v_operator_id/i);
