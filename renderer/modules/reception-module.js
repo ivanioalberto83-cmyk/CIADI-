@@ -566,6 +566,12 @@
     }
 
     return Object.freeze({
+      async getFinanceWorkspace(poloCode) {
+        const { data, error } = await supabase.rpc('reception_get_finance_workspace', { p_polo_code: clean(poloCode, 32) });
+        if (error) throw error;
+        if (!data || typeof data !== 'object') throw new Error('O servidor não devolveu o espaço financeiro da Recepção.');
+        return data;
+      },
       async getActiveServices(companyId) {
         const id = requireCompany(companyId);
         return rows(supabase.from('finance_servicos')
@@ -692,61 +698,31 @@
     }
 
     return Object.freeze({
+      async createClient(input = {}) {
+        return call('reception_create_finance_client', {
+          p_polo_code: requiredId(input.poloCode, 'Polo'),
+          p_empresa_id: requiredId(input.companyId, 'Empresa'),
+          p_nome: clean(input.name, 180),
+          p_tipo_adquirente: clean(input.type, 32) || 'particular',
+          p_nif: clean(input.nif, 32) || null,
+          p_email: clean(input.email, 180) || null,
+          p_telefone: clean(input.phone, 60) || null,
+          p_endereco: clean(input.address, 240) || null,
+          p_cidade: clean(input.city, 100) || null,
+          p_provincia: clean(input.province, 100) || null
+        });
+      },
       async createInvoice(input = {}) {
-        const companyId = requiredId(input.companyId, 'Empresa');
-        const documentType = requiredId(input.documentType, 'Tipo de documento');
-        const seriesId = requiredId(input.seriesId, 'Série');
-        const clientId = requiredId(input.clientId, 'Cliente');
-        if (!Array.isArray(input.lines) || input.lines.length === 0) {
-          throw new Error('O documento precisa de pelo menos uma linha.');
-        }
-        const lines = input.lines.map((line, index) => {
-          const quantity = positiveAmount(line?.quantity, 'Quantidade da linha ' + (index + 1));
-          const serviceId = clean(line?.serviceId, 128);
-          const code = clean(line?.code, 80);
-          const description = clean(line?.description, 240);
-          const unitPrice = line?.unitPrice === undefined ? undefined : nonNegativeAmount(line.unitPrice, 'Preço unitário');
-          const discount = line?.discount === undefined ? 0 : nonNegativeAmount(line.discount, 'Desconto');
-          const taxRate = line?.taxRate === undefined ? undefined : nonNegativeAmount(line.taxRate, 'Taxa de imposto');
-          if (!serviceId && (!code || !description || unitPrice === undefined)) {
-            throw new Error('Cada linha deve indicar um serviço existente ou código, descrição e preço unitário.');
-          }
-          if (discount > 0 && unitPrice !== undefined && discount > quantity * unitPrice) {
-            throw new Error('O desconto da linha não pode exceder o valor bruto.');
-          }
-          return {
-            ...(serviceId ? { servico_id: serviceId } : {}),
-            ...(code ? { codigo: code } : {}),
-            ...(description ? { descricao: description } : {}),
-            quantidade: quantity,
-            ...(clean(line?.unit, 16) ? { unidade: clean(line.unit, 16) } : {}),
-            ...(unitPrice !== undefined ? { preco_unitario: unitPrice } : {}),
-            desconto: discount,
-            ...(taxRate !== undefined ? { taxa_imposto: taxRate } : {}),
-            ...(clean(line?.revenueAccount, 80) ? { conta_receita: clean(line.revenueAccount, 80) } : {})
-          };
-        });
-        return call('ciadi_faturacao_criar_documento', {
-          p_empresa_id: companyId,
-          p_tipo_documento: documentType,
-          p_serie_id: seriesId,
-          p_cliente_id: clientId,
-          p_paciente_id: clean(input.patientId, 128) || null,
-          p_agendamento_id: clean(input.appointmentId, 128) || null,
-          p_data_emissao: input.issueDate || new Date().toISOString(),
+        return call('reception_create_finance_invoice_draft', {
+          p_polo_code: requiredId(input.poloCode, 'Polo'),
+          p_empresa_id: requiredId(input.companyId, 'Empresa'),
+          p_tipo_documento: requiredId(input.documentType, 'Tipo de documento'),
+          p_serie_id: requiredId(input.seriesId, 'Série'),
+          p_cliente_id: requiredId(input.clientId, 'Cliente'),
+          p_servico_id: requiredId(input.serviceId, 'Serviço'),
+          p_quantidade: positiveAmount(input.quantity, 'Quantidade'),
           p_data_vencimento: input.dueDate || null,
-          p_observacoes: clean(input.observations, 1000) || null,
-          p_linhas: lines
-        });
-      },
-      async calculateInvoice(documentId) {
-        return call('ciadi_faturacao_calcular_documento', {
-          p_documento_id: requiredId(documentId, 'Documento')
-        });
-      },
-      async issueInvoice(documentId) {
-        return call('ciadi_faturacao_emitir_documento', {
-          p_documento_id: requiredId(documentId, 'Documento')
+          p_observacoes: clean(input.observations, 1000) || null
         });
       },
       async registerPayment(input = {}) {
@@ -850,7 +826,7 @@
     const qr = typeof qrDataUrl === 'string' && /^data:image\//i.test(qrDataUrl)
       ? '<img alt="QR Code de autenticação" src="' + esc(qrDataUrl) + '" style="width:92px;height:92px;object-fit:contain"><small>Autenticação documental</small>'
       : '<div class="qr-pending"><strong>QR DE AUTENTICAÇÃO NÃO DISPONÍVEL</strong><span>O motor central ainda não devolveu um código verificável. Esta cópia não substitui o PDF oficial autenticado.</span></div>';
-    const status = document.document_status === 'emitido' && document.fiscal_status === 'emitido'
+    const status = document.document_status === 'N' && document.fiscal_status === 'emitido'
       ? 'Emitido no motor financeiro central'
       : 'RASCUNHO — NÃO EMITIDO';
     return '<!doctype html><html lang="pt-AO"><head><meta charset="utf-8"><title>' + esc(document.document_no) +
@@ -878,34 +854,27 @@
       qr + '</div></footer></main></body></html>';
   }
 
-  function createReceptionInvoicePdfService({ supabase, desktop = globalThis.ciadiDesktop, identity = globalThis.CIADI_INSTITUTIONAL_IDENTITY } = {}) {
+  function createReceptionInvoicePdfService({ supabase, poloCode, desktop = globalThis.ciadiDesktop, identity = globalThis.CIADI_INSTITUTIONAL_IDENTITY } = {}) {
     if (typeof supabase?.from !== 'function') throw new Error('Ligação ao arquivo financeiro indisponível.');
     async function load(documentId, { requireIssued = false } = {}) {
       const id = clean(documentId, 128);
+      const polo = clean(poloCode, 32);
       if (!id) throw new Error('Identificador da factura obrigatório.');
-      const [documentResult, linesResult, emitterResult] = await Promise.all([
-        supabase.from('finance_documentos')
-          .select('*,finance_clientes(nome,nif,email,telefone,endereco,cidade,provincia,pais),finance_series(codigo,nome)')
-          .eq('id', id).single(),
-        supabase.from('finance_documento_linhas').select('*').eq('documento_id', id).order('created_at'),
-        supabase.from('finance_emitente_config').select('*').eq('ativo', true)
-          .order('updated_at', { ascending: false }).limit(1).maybeSingle()
-      ]);
-      if (documentResult?.error) throw documentResult.error;
-      if (linesResult?.error) throw linesResult.error;
-      if (emitterResult?.error) throw emitterResult.error;
-      if (!documentResult?.data) throw new Error('Factura não encontrada no arquivo financeiro.');
-      const document = documentResult.data;
-      if (requireIssued && (document.document_status !== 'emitido' || document.fiscal_status !== 'emitido')) {
+      if (!POLOS.includes(polo)) throw new Error('Polo de trabalho obrigatório para consultar o documento.');
+      const { data, error } = await supabase.rpc('reception_get_finance_document_print_data', {
+        p_polo_code: polo,
+        p_document_id: id
+      });
+      if (error) throw error;
+      if (!data?.document) throw new Error('Factura não encontrada ou sem autorização de consulta.');
+      const document = data.document;
+      const lines = Array.isArray(data.lines) ? data.lines : [];
+      const emitter = data.emitter || {};
+      if (requireIssued && (document.document_status !== 'N' || document.fiscal_status !== 'emitido')) {
         throw new Error('Só é possível exportar PDF de uma factura emitida e validada pelo motor central.');
       }
-      const html = buildReceptionInvoiceHtml({
-        document,
-        lines: Array.isArray(linesResult?.data) ? linesResult.data : [],
-        emitter: emitterResult?.data || {},
-        identity
-      });
-      return Object.freeze({ document, html, lines: Object.freeze(linesResult?.data || []), emitter: emitterResult?.data || {} });
+      const html = buildReceptionInvoiceHtml({ document, lines, emitter, identity });
+      return Object.freeze({ document, html, lines: Object.freeze(lines), emitter });
     }
     async function preview(documentId) {
       return load(documentId);
@@ -956,17 +925,19 @@
     }
 
     return Object.freeze({
-      async searchAppointments({ term, dateFrom, dateTo } = {}) {
+      async searchAppointments({ term, dateFrom, dateTo, poloCode } = {}) {
         const needle = clean(term, 80).replace(/[%,_(),\\]/g, ' ').replace(/\s+/g, ' ').trim();
         if (needle.length < 2) throw new Error('Introduza pelo menos dois caracteres para pesquisar o utente.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom || '') || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo || '')) {
           throw new Error('Seleccione um intervalo de datas válido.');
         }
         if (dateFrom > dateTo) throw new Error('A data inicial não pode ser posterior à data final.');
+        if (!POLOS.includes(poloCode)) throw new Error('Seleccione um polo CIADI válido.');
         const { data, error } = await db.rpc('reception_search_appointments', {
           p_search_term: needle,
           p_date_from: dateFrom,
-          p_date_to: dateTo
+          p_date_to: dateTo,
+          p_polo_code: poloCode
         });
         if (error) throw error;
         return Object.freeze(Array.isArray(data) ? data : []);
@@ -1102,30 +1073,39 @@
     const documents = list('documents');
     const shifts = list('shifts');
     const option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
-    const issuedDocuments = documents.filter(row => row.fiscal_status === 'emitido' && row.document_status === 'emitido');
-    const editableDocuments = documents.filter(row => ['em_edicao', 'rascunho', 'draft'].includes(row.document_status));
+    const issuedDocuments = documents.filter(row => row.fiscal_status === 'emitido' && row.document_status === 'N');
+    const editableDocuments = documents.filter(row => row.document_status === 'N' && ['rascunho', 'em_edicao', 'draft'].includes(row.fiscal_status));
     const brand = globalThis.CIADI_INSTITUTIONAL_IDENTITY?.getBrand?.() || null;
     const logo = brand?.logoDataUrl ? '<img src="' + esc(brand.logoDataUrl) + '" alt="Logótipo CIADI" class="h-10 w-auto object-contain">' : '<strong class="text-orange">CIADI</strong>';
     return '<section class="card p-5 space-y-4" data-reception-finance-operations>' +
       '<header class="flex items-center gap-3">' + logo + '<div><h3 class="font-black text-lg">Operações de facturação e caixa</h3><p class="text-xs text-slate-500">Formulários ligados aos motores financeiros centrais; todas as decisões são validadas pelo servidor.</p></div></header>' +
-      '<div class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>Controlo de acesso:</strong> a Recepção ainda não tem capacidade financeira homologada. As operações protegidas serão recusadas pelo servidor até à fase própria de permissões. Não existe qualquer autorização local ou contorno de RLS.</div>' +
+      '<div class="rounded-xl border border-slate-200 p-3 text-sm text-slate-700"><strong>Permissões:</strong> a Recepção pode cadastrar clientes e criar facturas em rascunho. Não pode alterar, apagar, emitir ou anular documentos; essas operações ficam reservadas ao ADM.</div>' +
       '<div class="grid xl:grid-cols-2 gap-4">' +
+      '<form data-reception-client-form class="rounded-xl border p-4 space-y-3">' +
+        '<h4 class="font-bold">Cadastrar cliente/entidade</h4>' +
+        '<label class="block text-xs font-semibold">Nome / razão social<input name="name" required minlength="2" maxlength="180" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<div class="grid grid-cols-2 gap-2"><label class="block text-xs font-semibold">Tipo<select name="type" class="mt-1 w-full border rounded-lg p-2"><option value="particular">Particular</option><option value="empresa">Empresa / entidade</option></select></label><label class="block text-xs font-semibold">NIF<input name="nif" maxlength="32" class="mt-1 w-full border rounded-lg p-2"></label></div>' +
+        '<div class="grid grid-cols-2 gap-2"><label class="block text-xs font-semibold">Telefone<input name="phone" maxlength="60" class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">E-mail<input name="email" type="email" maxlength="180" class="mt-1 w-full border rounded-lg p-2"></label></div>' +
+        '<label class="block text-xs font-semibold">Morada<input name="address" maxlength="240" class="mt-1 w-full border rounded-lg p-2"></label>' +
+        '<div class="grid grid-cols-2 gap-2"><label class="block text-xs font-semibold">Cidade<input name="city" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Província<input name="province" maxlength="100" class="mt-1 w-full border rounded-lg p-2"></label></div>' +
+        '<p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg bg-orange text-white font-bold px-4 py-2">Guardar cliente</button>' +
+      '</form>' +
       '<form data-reception-invoice-form class="rounded-xl border p-4 space-y-3">' +
-        '<h4 class="font-bold">Criar documento em edição</h4>' +
+        '<h4 class="font-bold">Criar factura em rascunho</h4>' +
         '<label class="block text-xs font-semibold">Cliente<select name="clientId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o cliente') + clients.map(row => option(row.id, row.nome_comercial || row.nome || row.nif || row.id)).join('') + '</select></label>' +
         '<div class="grid grid-cols-2 gap-2"><label class="block text-xs font-semibold">Tipo de documento<select name="documentType" data-invoice-document-type required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione') + types.map(row => option(row.codigo, row.nome + ' (' + row.codigo + ')')).join('') + '</select></label>' +
         '<label class="block text-xs font-semibold">Série<select name="seriesId" data-invoice-series required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o tipo primeiro') + series.map(row => option(row.id, row.codigo + ' · ' + (row.nome || row.ano || ''))).join('') + '</select></label></div>' +
         '<label class="block text-xs font-semibold">Serviço<select name="serviceId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o serviço') + services.map(row => option(row.id, row.nome + ' · ' + Number(row.preco_base || 0).toLocaleString('pt-PT') + ' Kz')).join('') + '</select></label>' +
         '<div class="grid grid-cols-2 gap-2"><label class="block text-xs font-semibold">Quantidade<input name="quantity" type="number" min="0.001" step="0.001" value="1" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Vencimento<input name="dueDate" type="date" class="mt-1 w-full border rounded-lg p-2"></label></div>' +
         '<label class="block text-xs font-semibold">Observações<textarea name="observations" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label>' +
-        '<p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg bg-orange text-white font-bold px-4 py-2">Criar rascunho</button>' +
+        '<p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg bg-orange text-white font-bold px-4 py-2">Criar factura</button>' +
       '</form>' +
       '<div class="space-y-3">' +
-        '<form data-reception-cashbox-open class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Abertura de caixa</h4><label class="block text-xs font-semibold">Caixa<select name="cashboxId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o caixa') + cashboxes.map(row => option(row.id, (row.codigo || '') + ' · ' + (row.nome || row.id) + ' (' + (row.estado || 'estado não indicado') + ')')).join('') + '</select></label><label class="block text-xs font-semibold">Saldo inicial (Kz)<input name="openingBalance" type="number" min="0" step="0.01" required value="0" class="mt-1 w-full border rounded-lg p-2"></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold">Abrir caixa</button></form>' +
-        '<form data-reception-cashbox-close class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Fecho de caixa</h4><label class="block text-xs font-semibold">Turno aberto<select name="shiftId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o turno') + shifts.map(row => option(row.id, 'Turno ' + row.id.slice(0, 8) + ' · ' + row.aberto_em)).join('') + '</select></label><label class="block text-xs font-semibold">Saldo contado (Kz)<input name="countedBalance" type="number" min="0" step="0.01" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Justificação de diferença<textarea name="justification" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" class="rounded-lg border px-4 py-2 font-bold" ' + (shifts.length ? '' : 'disabled') + '>Fechar turno</button></form>' +
+        '<form data-reception-cashbox-open class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Abertura de caixa</h4><label class="block text-xs font-semibold">Caixa<select name="cashboxId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o caixa') + cashboxes.map(row => option(row.id, (row.codigo || '') + ' · ' + (row.nome || row.id) + ' (' + (row.estado || 'estado não indicado') + ')')).join('') + '</select></label><label class="block text-xs font-semibold">Saldo inicial (Kz)<input name="openingBalance" type="number" min="0" step="0.01" required value="0" class="mt-1 w-full border rounded-lg p-2"></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" disabled title="A autorização do operador ainda não foi homologada." class="rounded-lg border px-4 py-2 font-bold opacity-50">Fecho pendente de autorização</button></form>' +
+        '<form data-reception-cashbox-close class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Fecho de caixa</h4><label class="block text-xs font-semibold">Turno aberto<select name="shiftId" required class="mt-1 w-full border rounded-lg p-2">' + option('', 'Seleccione o turno') + shifts.map(row => option(row.id, 'Turno ' + row.id.slice(0, 8) + ' · ' + row.aberto_em)).join('') + '</select></label><label class="block text-xs font-semibold">Saldo contado (Kz)<input name="countedBalance" type="number" min="0" step="0.01" required class="mt-1 w-full border rounded-lg p-2"></label><label class="block text-xs font-semibold">Justificação de diferença<textarea name="justification" maxlength="1000" rows="2" class="mt-1 w-full border rounded-lg p-2"></textarea></label><p data-reception-message role="status" class="text-xs text-amber-800"></p><button type="submit" disabled title="A autorização do operador ainda não foi homologada." class="rounded-lg border px-4 py-2 font-bold opacity-50">Fecho pendente de autorização</button></form>' +
       '</div></div>' +
-      '<form data-reception-payment-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registo de recebimento</h4><p class="text-xs text-amber-800">Temporariamente bloqueado: a função central de pagamentos exige document_status = N, enquanto a função de emissão actualmente grava document_status = emitido. Esta incompatibilidade deve ser corrigida e validada no motor central antes de activar recebimentos.</p><fieldset disabled class="grid md:grid-cols-4 gap-2 opacity-60"><select name="documentId" required class="border rounded-lg p-2">' + option('', 'Documento emitido') + issuedDocuments.map(row => option(row.id, row.document_no + ' · ' + row.total + ' Kz')).join('') + '</select><input name="amount" type="number" min="0.01" step="0.01" placeholder="Valor (Kz)" class="border rounded-lg p-2"><select name="method" class="border rounded-lg p-2">' + ['numerario','transferencia','tpa','deposito','multicaixa'].map(x => option(x, x)).join('') + '</select><select name="cashboxId" class="border rounded-lg p-2">' + option('', 'Caixa (opcional)') + cashboxes.map(row => option(row.id, row.nome || row.codigo || row.id)).join('') + '</select></fieldset><button type="submit" disabled class="rounded-lg border px-4 py-2 font-bold opacity-50">Registar pagamento — bloqueado</button></form>' +
-      '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos em edição</h4>' + (editableDocuments.length ? editableDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar</button><button type="button" data-invoice-calculate="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Calcular</button><button type="button" disabled title="A emissão oficial depende do QR e do arquivo documental central." class="rounded-lg border px-3 py-1 opacity-50 cursor-not-allowed">Emitir — pendente de autenticação</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem documentos em edição visíveis.</p>') + '</div>' +
+      '<form data-reception-payment-form class="rounded-xl border p-4 space-y-3"><h4 class="font-bold">Registo de recebimento</h4><p class="text-xs text-amber-800">Recebimentos continuam bloqueados até à validação das permissões individuais do operador e da existência de um turno de caixa aberto.</p><fieldset disabled class="grid md:grid-cols-4 gap-2 opacity-60"><select name="documentId" required class="border rounded-lg p-2">' + option('', 'Documento emitido') + issuedDocuments.map(row => option(row.id, row.document_no + ' · ' + row.total + ' Kz')).join('') + '</select><input name="amount" type="number" min="0.01" step="0.01" placeholder="Valor (Kz)" class="border rounded-lg p-2"><select name="method" class="border rounded-lg p-2">' + ['numerario','transferencia','tpa','deposito','multicaixa'].map(x => option(x, x)).join('') + '</select><select name="cashboxId" class="border rounded-lg p-2">' + option('', 'Caixa (opcional)') + cashboxes.map(row => option(row.id, row.nome || row.codigo || row.id)).join('') + '</select></fieldset><button type="submit" disabled class="rounded-lg border px-4 py-2 font-bold opacity-50">Registar pagamento — bloqueado</button></form>' +
+      '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos em edição</h4>' + (editableDocuments.length ? editableDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem documentos em edição visíveis.</p>') + '</div>' +
       '<div class="rounded-xl border p-4"><h4 class="font-bold mb-2">Documentos emitidos — PDF</h4>' + (issuedDocuments.length ? issuedDocuments.map(row => '<div class="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm"><span>' + esc(row.document_no || row.id) + ' · ' + esc(row.tipo_documento) + ' · ' + esc(receptionMoney(row.total)) + '</span><div class="flex gap-2"><button type="button" data-invoice-preview="' + esc(row.id) + '" class="border rounded-lg px-3 py-1">Pré-visualizar A4</button><button type="button" data-invoice-pdf-export="' + esc(row.id) + '" class="rounded-lg bg-orange text-white px-3 py-1">Guardar PDF</button></div></div>').join('') : '<p class="text-xs text-slate-500">Não existem facturas emitidas e validadas visíveis.</p>') + '<p class="text-xs text-amber-800 mt-3">A pré-visualização é composta com os dados reais do motor financeiro. A exportação gera PDF A4 no CIADI Desktop e guarda-o no computador. O QR oficial e o arquivo digital central continuam dependentes da integração do servidor.</p></div>' +
       '<section data-invoice-preview-host class="hidden"></section>' +
       '</section>';
@@ -1287,7 +1267,7 @@
 
     let appointmentResults = [];
     let selectedAppointment = null;
-    let appointmentSearch = { term: '', dateFrom: '', dateTo: '' };
+    let appointmentSearch = { term: '', dateFrom: '', dateTo: '', poloCode: activePolo || POLOS[0] };
 
     function renderArrivalForm() {
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Luanda' });
@@ -1298,11 +1278,12 @@
           <div class="flex items-center justify-between gap-3"><div><span class="text-xs font-black uppercase tracking-widest text-orange">CIADI • Recepção</span><h2 class="text-2xl font-black">Registar chegada</h2></div><button data-reception-home class="border rounded-lg px-3 py-2">Voltar</button></div>
           <section class="rounded-xl border p-4 space-y-3">
             <h3 class="font-bold">Localizar marcação existente</h3>
-            <form data-reception-appointment-search class="grid md:grid-cols-4 gap-3">
+            <form data-reception-appointment-search class="grid md:grid-cols-5 gap-3">
               <label class="text-sm font-semibold md:col-span-2">Nome ou código do utente<input name="term" required minlength="2" maxlength="80" value="${esc(appointmentSearch.term)}" class="block w-full border rounded-lg p-2 mt-1" placeholder="Pesquisar nome ou código"></label>
               <label class="text-sm font-semibold">Data inicial<input name="dateFrom" type="date" required value="${esc(dateFrom)}" class="block w-full border rounded-lg p-2 mt-1"></label>
               <label class="text-sm font-semibold">Data final<input name="dateTo" type="date" required value="${esc(dateTo)}" class="block w-full border rounded-lg p-2 mt-1"></label>
-              <div class="md:col-span-4"><button type="submit" class="border border-orange text-orange rounded-lg px-4 py-2 font-bold">Pesquisar agenda</button></div>
+              <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-lg p-2 mt-1">${POLOS.map(code => `<option value="${code}" ${(appointmentSearch.poloCode || activePolo || POLOS[0]) === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
+              <div class="md:col-span-5"><button type="submit" class="border border-orange text-orange rounded-lg px-4 py-2 font-bold">Pesquisar agenda</button></div>
             </form>
             <div data-reception-appointment-results aria-live="polite">
               ${appointmentResults.length ? appointmentResults.map(row => `<button type="button" data-appointment-select="${esc(row.id)}" class="w-full text-left border rounded-lg p-3 mt-2 hover:border-orange-400">
@@ -1314,7 +1295,7 @@
           ${selectedAppointment ? `<div class="rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm"><strong>Marcação seleccionada:</strong> ${esc(selectedAppointment.patient_name)} — ${esc(new Date(selectedAppointment.data_hora).toLocaleString('pt-PT'))}</div>` : ''}
           <form data-reception-arrival-form class="grid md:grid-cols-2 gap-4">
             <label class="text-sm font-semibold">Tipo de chegada<select name="visitType" required class="block w-full border rounded-xl p-3 mt-1"><option value="appointment" ${selectedAppointment ? 'selected' : ''}>Com marcação</option><option value="walk_in">Sem marcação</option></select></label>
-            <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-xl p-3 mt-1">${POLOS.map(code => `<option value="${code}" ${activePolo === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
+            <label class="text-sm font-semibold">Polo<select name="poloCode" required class="block w-full border rounded-xl p-3 mt-1">${POLOS.map(code => `<option value="${code}" ${(appointmentSearch.poloCode || activePolo || POLOS[0]) === code ? 'selected' : ''}>${POLO_LABELS[code]}</option>`).join('')}</select></label>
             <input type="hidden" name="appointmentId" value="${esc(selectedAppointment?.id || '')}">
             <input type="hidden" name="patientId" value="${esc(selectedAppointment?.paciente_id || '')}">
             <label class="text-sm font-semibold">Nome do responsável presente<input name="displayName" required maxlength="120" value="${esc(selectedAppointment?.responsible_name || '')}" class="block w-full border rounded-xl p-3 mt-1"></label>
@@ -1342,34 +1323,20 @@
 
     async function loadBusinessSnapshot() {
       if (!businessRepository) businessRepository = createReceptionBusinessRepository({ supabase });
-      let company = clean(configuredCompanyId, 128);
-      if (!company) {
-        try {
-          const { data, error } = await supabase.from('finance_empresas')
-            .select('id')
-            .eq('ativo', true)
-            .eq('empresa_principal', true)
-            .maybeSingle();
-          if (error) throw error;
-          company = clean(data?.id, 128);
-        } catch (error) {
-          businessSnapshot.services = { rows: [], error };
-          businessSnapshot.cashboxes = { rows: [], error };
-          businessSnapshot.documents = { rows: [], error };
-        }
+      const polo = activePolo || POLOS[0];
+      let workspace = null;
+      let workspaceError = null;
+      try { workspace = await businessRepository.getFinanceWorkspace(polo); }
+      catch (error) { workspaceError = error; }
+      activeCompanyId = clean(configuredCompanyId, 128) || clean(workspace?.companyId, 128) || null;
+      const rowsFor = key => Array.isArray(workspace?.[key]) ? workspace[key] : [];
+      const financeKeys = ['clients','services','documentTypes','series','cashboxes','documents','shifts'];
+      businessSnapshot = Object.fromEntries(financeKeys.map(key => [key, { rows: rowsFor(key), error: workspaceError }]));
+      if (!activeCompanyId && !workspaceError) {
+        const missingCompany = new Error('Empresa principal não identificada; operações financeiras indisponíveis.');
+        for (const key of financeKeys) businessSnapshot[key] = { rows: [], error: missingCompany };
       }
-      activeCompanyId = company || null;
-      if (!company && !businessSnapshot.services?.error) {
-        const missingCompany = new Error('Empresa principal não identificada; consulta financeira bloqueada.');
-        for (const key of ['services', 'clients', 'cashboxes', 'documents', 'series']) businessSnapshot[key] = { rows: [], error: missingCompany };
-      }
-      const tasks = [
-        ['services', () => company ? businessRepository.getActiveServices(company) : Promise.resolve([])],
-        ['clients', () => company ? businessRepository.getActiveClients(company) : Promise.resolve([])],
-        ['documentTypes', () => businessRepository.getActiveDocumentTypes()],
-        ['cashboxes', () => company ? businessRepository.getCashboxes(company) : Promise.resolve([])],
-        ['documents', () => company ? businessRepository.getRecentDocuments(company) : Promise.resolve([])],
-        ['shifts', () => businessRepository.getOpenCashboxShifts()],
+      const stockTasks = [
         ['stock', () => businessRepository.getStockBalances()],
         ['requests', () => businessRepository.getPurchaseRequests()],
         ['stockRequisitions', () => businessRepository.getStockRequisitions()],
@@ -1377,23 +1344,11 @@
         ['inventoryCounts', () => businessRepository.getInventoryCounts()],
         ['movements', () => businessRepository.getStockMovements()]
       ];
-      const results = await Promise.all(tasks.map(async ([key, load]) => {
-        if (businessSnapshot[key]?.error && ['services', 'clients', 'cashboxes', 'documents'].includes(key) && !company) return [key, businessSnapshot[key]];
+      const stockResults = await Promise.all(stockTasks.map(async ([key, load]) => {
         try { return [key, { rows: await load(), error: null }]; }
         catch (error) { return [key, { rows: [], error }]; }
       }));
-      businessSnapshot = Object.fromEntries(results);
-      const documentTypes = businessSnapshot.documentTypes?.rows || [];
-      if (company && documentTypes.length) {
-        try {
-          const seriesRows = await Promise.all(documentTypes.map(row => businessRepository.getActiveSeries(company, row.codigo)));
-          businessSnapshot.series = { rows: seriesRows.flat(), error: null };
-        } catch (error) {
-          businessSnapshot.series = { rows: [], error };
-        }
-      } else {
-        businessSnapshot.series = { rows: [], error: null };
-      }
+      businessSnapshot = { ...businessSnapshot, ...Object.fromEntries(stockResults) };
     }
 
     async function refresh() {
@@ -1431,7 +1386,7 @@
             return;
           }
           if (button.hasAttribute('data-invoice-preview')) {
-            const service = createReceptionInvoicePdfService({ supabase });
+            const service = createReceptionInvoicePdfService({ supabase, poloCode: activePolo });
             const result = await service.preview(button.getAttribute('data-invoice-preview'));
             const host = container.querySelector('[data-invoice-preview-host]');
             if (!host) throw new Error('Área de pré-visualização documental indisponível.');
@@ -1449,13 +1404,6 @@
             } finally { button.disabled = false; }
             return;
           }
-          if (button.hasAttribute('data-invoice-calculate')) {
-            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
-            const result = await financeRepository.calculateInvoice(button.getAttribute('data-invoice-calculate'));
-            notify('Cálculo devolvido pelo motor central: ' + JSON.stringify(result));
-            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
-            return;
-          }
           if (button.hasAttribute('data-reception-route')) {
             const route = ROUTES.find(item => item.id === button.getAttribute('data-reception-route'));
             if (route) navigate(route.id);
@@ -1467,7 +1415,7 @@
           if (button.hasAttribute('data-reception-form')) {
             selectedAppointment = null;
             appointmentResults = [];
-            appointmentSearch = { term: '', dateFrom: '', dateTo: '' };
+            appointmentSearch = { term: '', dateFrom: '', dateTo: '', poloCode: activePolo || POLOS[0] };
             return button.getAttribute('data-reception-form') === 'arrival' ? renderArrivalForm() : renderVisitorForm();
           }
           if (button.hasAttribute('data-appointment-select')) {
@@ -1554,6 +1502,30 @@
 
       container.addEventListener('submit', async event => {
         const form = event.target;
+        if (form.matches('[data-reception-client-form]')) {
+          event.preventDefault();
+          const values = Object.fromEntries(new FormData(form).entries());
+          const message = form.querySelector('[data-reception-message]');
+          const button = form.querySelector('button[type="submit"]');
+          button.disabled = true;
+          try {
+            if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
+            if (!activeCompanyId || !activePolo) throw new Error('Empresa e polo são obrigatórios.');
+            const result = await financeRepository.createClient({
+              poloCode: activePolo, companyId: activeCompanyId, name: values.name,
+              type: values.type, nif: values.nif, email: values.email,
+              phone: values.phone, address: values.address, city: values.city, province: values.province
+            });
+            if (!result?.cliente_id && !result?.id) throw new Error('O servidor não confirmou o cadastro do cliente.');
+            notify('Cliente/entidade cadastrado.');
+            form.reset();
+            try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
+          } catch (error) {
+            button.disabled = false;
+            message.textContent = error.message || 'Não foi possível cadastrar o cliente.';
+          }
+          return;
+        }
         if (form.matches('[data-reception-invoice-form]')) {
           event.preventDefault();
           const values = Object.fromEntries(new FormData(form).entries());
@@ -1564,23 +1536,20 @@
             if (!financeRepository) financeRepository = createReceptionFinanceRepository({ supabase });
             if (!activeCompanyId) throw new Error('Empresa principal não identificada; não foi criado qualquer documento.');
             const created = await financeRepository.createInvoice({
+              poloCode: activePolo,
               companyId: activeCompanyId,
               documentType: values.documentType,
               seriesId: values.seriesId,
               clientId: values.clientId,
               dueDate: values.dueDate || null,
               observations: values.observations || '',
-              lines: [{ serviceId: values.serviceId, quantity: values.quantity }]
+              serviceId: values.serviceId,
+              quantity: values.quantity
             });
             const documentId = created?.documento_id || created?.id;
             if (!documentId) throw new Error('O motor não devolveu o identificador do documento. Consulte o arquivo documental antes de repetir para evitar duplicação.');
             notify('Rascunho criado pelo motor central: ' + documentId);
-            try {
-              const calculation = await financeRepository.calculateInvoice(documentId);
-              notify('Rascunho criado e cálculo confirmado pelo motor central. ' + JSON.stringify(calculation));
-            } catch (calculationError) {
-              message.textContent = 'O rascunho ' + documentId + ' foi criado, mas o cálculo não foi confirmado: ' + (calculationError.message || 'erro do motor').toString() + '. Não volte a criar o documento; consulte-o no arquivo.';
-            }
+            notify('Factura criada em rascunho. A emissão fiscal continua reservada ao ADM.');
             try { await refresh(); } catch (refreshError) { renderUnavailable(refreshError); }
           } catch (error) {
             button.disabled = false;
@@ -1630,7 +1599,7 @@
         if (form.matches('[data-reception-appointment-search]')) {
           event.preventDefault();
           const values = Object.fromEntries(new FormData(form).entries());
-          appointmentSearch = { term: values.term, dateFrom: values.dateFrom, dateTo: values.dateTo };
+          appointmentSearch = { term: values.term, dateFrom: values.dateFrom, dateTo: values.dateTo, poloCode: values.poloCode };
           const results = form.parentElement.querySelector('[data-reception-appointment-results]');
           results.textContent = 'A pesquisar agenda...';
           try {

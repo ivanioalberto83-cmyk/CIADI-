@@ -21,7 +21,15 @@
 </style>
 </head>
 <body>
-<div id="login" class="min-h-screen flex items-center justify-center p-5"><div class="card w-full max-w-md p-8"><div class="flex items-center gap-3 mb-7"><div id="logoBox" class="w-14 h-14 rounded-2xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><h1 class="text-2xl font-black">CIADI</h1><p class="text-sm text-slate-500">Dashboard Administrativo</p></div></div><form id="loginForm" class="space-y-4"><input id="email" type="email" required class="w-full border rounded-xl p-3" placeholder="E-mail"><input id="password" type="password" required class="w-full border rounded-xl p-3" placeholder="Palavra-passe"><button class="w-full bg-orange text-white rounded-xl p-3 font-bold">Entrar</button><p id="loginMsg" class="text-sm"></p></form></div></div>
+<div id="login" class="min-h-screen flex items-center justify-center p-5"><div class="card w-full max-w-md p-8"><div class="flex items-center gap-3 mb-7"><div id="logoBox" class="w-14 h-14 rounded-2xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><h1 class="text-2xl font-black">CIADI</h1><p class="text-sm text-slate-500">Dashboard Administrativo</p></div></div><form id="loginForm" class="space-y-4">
+<div id="stationSelection" class="hiddenx rounded-xl border border-orange-200 bg-orange-50/60 p-4 space-y-3">
+  <div><label for="stationProfileSelect" class="block text-sm font-bold">Estação de trabalho</label><select id="stationProfileSelect" class="w-full border rounded-xl p-3 mt-1" required><option value="">Seleccione a estação</option><option value="adm">ADM — Administração</option><option value="suporte_informatica">Suporte Informático</option><option value="rh">Recursos Humanos</option><option value="recepcao">Recepção</option></select></div>
+  <div id="stationPoloWrap" class="hiddenx"><label for="stationPoloSelect" class="block text-sm font-bold">Polo de trabalho</label><select id="stationPoloSelect" class="w-full border rounded-xl p-3 mt-1"><option value="">Seleccione o polo</option><option value="talatona">Talatona — Polo 001</option><option value="jardim_de_rosas">Jardim de Rosas — Polo 002</option></select></div>
+  <p class="text-xs text-slate-600">ADM e Suporte Informático são estações globais. RH e Recepção exigem a selecção do polo; o acesso efectivo continua sujeito às permissões da conta.</p>
+</div>
+<input id="email" type="email" required class="w-full border rounded-xl p-3" placeholder="E-mail">
+<input id="password" type="password" required class="w-full border rounded-xl p-3" placeholder="Palavra-passe">
+<button class="w-full bg-orange text-white rounded-xl p-3 font-bold">Entrar</button><p id="loginMsg" class="text-sm"></p></form></div></div>
 <div id="app" class="hiddenx min-h-screen"><header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b"><div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between"><div class="flex items-center gap-3"><div id="appLogo" class="w-10 h-10 rounded-xl bg-orange text-white flex items-center justify-center font-black">CI</div><div><b>CIADI</b><div id="stationLabel" class="text-xs text-slate-500">A identificar estação…</div></div></div><div class="flex items-center gap-3"><span id="who" class="text-sm text-slate-600"></span><button onclick="logout()" class="border rounded-xl px-4 py-2">Sair</button></div></div></header>
 <main class="max-w-7xl mx-auto p-4 md:p-6"><div class="grid lg:grid-cols-[230px_1fr] gap-5"><aside class="card p-3 h-fit sticky top-20"><nav id="nav" class="space-y-1"></nav></aside><section id="content"></section></div></main></div>
 <div id="toast" class="fixed bottom-5 right-5 hidden max-w-sm rounded-xl bg-slate-900 text-white px-5 py-3 shadow-xl"></div>
@@ -45,9 +53,9 @@ function toast(t){const x=document.getElementById('toast');x.textContent=t;x.cla
 function canAccessAT(){ return profile?.tipo==='admin' || profile?.tipo==='gestor' || (profile?.tipo==='profissional' && me?.id); }
 // O perfil da estação apenas organiza a navegação local. As permissões reais continuam no login/Supabase.
 const stationParams = new URLSearchParams(window.location.search);
-const stationMode = stationParams.has('ciadi_profile');
-const stationProfile = (stationParams.get('ciadi_profile') || '').toLowerCase();
-const stationPolo = (stationParams.get('ciadi_polo') || '').toLowerCase();
+let stationMode = stationParams.has('ciadi_profile');
+let stationProfile = (stationParams.get('ciadi_profile') || '').toLowerCase();
+let stationPolo = (stationParams.get('ciadi_polo') || '').toLowerCase();
 const stationProfileLabels = Object.freeze({
   adm: 'Administração',
   suporte_informatica: 'Suporte Informático',
@@ -58,7 +66,22 @@ const stationPoloLabels = Object.freeze({
   talatona: 'Talatona — Polo 001',
   jardim_de_rosas: 'Jardim de Rosas — Polo 002'
 });
-const stationRequiresPolo = stationMode && !['adm', 'suporte_informatica'].includes(stationProfile);
+let stationRequiresPolo = stationMode && !['adm', 'suporte_informatica'].includes(stationProfile);
+function setStationSelection(){
+  const profileSelect = document.getElementById('stationProfileSelect');
+  const poloSelect = document.getElementById('stationPoloSelect');
+  const poloWrap = document.getElementById('stationPoloWrap');
+  if(!profileSelect || stationParams.has('ciadi_profile')) return;
+  stationProfile = (profileSelect.value || '').toLowerCase();
+  stationMode = Boolean(stationProfile);
+  stationRequiresPolo = stationMode && !['adm', 'suporte_informatica'].includes(stationProfile);
+  if(poloWrap) poloWrap.classList.toggle('hiddenx', !stationRequiresPolo);
+  if(poloSelect){
+    poloSelect.required = stationRequiresPolo;
+    stationPolo = stationRequiresPolo ? (poloSelect.value || '').toLowerCase() : '';
+    if(!stationRequiresPolo) poloSelect.value = '';
+  }
+}
 function visibleMenu(){
   return window.CIADI_STATION_PROFILE_SERVICE.getVisibleEntries(
     stationMode ? stationProfile : 'adm',
@@ -291,7 +314,7 @@ async function cancelAppointment(r){const motivo=prompt('Motivo do cancelamento:
 
 function money(v){return new Intl.NumberFormat('pt-AO',{style:'currency',currency:'AOA',maximumFractionDigits:2}).format(Number(v||0))}
 async function financeDashboard(){try{const {data,error}=await sb.from('v_ciadi_financeiro_resumo').select('*').maybeSingle();if(error)throw error;const x=data||{};tablePage('Centro Financeiro CIADI','Faturação, tesouraria, contabilidade e fiscalidade integradas.',`<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">${[['💰','Facturação do dia',money(x.faturacao_dia)],['📈','Facturação do mês',money(x.faturacao_mes)],['💳','Recebido no mês',money(x.recebido_mes)],['💸','Despesas do mês',money(x.despesas_mes)],['🩺','Consultas hoje',x.consultas_realizadas_dia||0],['🧾','Consultas facturadas',x.consultas_faturadas_dia||0],['📥','Contas a receber','Abrir'],['📦','SAF-T(AO)','Abrir']].map((k,i)=>`<button onclick="${i===6?'financeReceivables()':i===7?'financeSaft()':''}" class="card p-5 text-left"><div class="text-2xl">${k[0]}</div><div class="text-sm text-slate-500 mt-3">${k[1]}</div><div class="text-xl font-black mt-1">${k[2]}</div></button>`).join('')}</div><div class="grid lg:grid-cols-3 gap-5 mt-5"><div class="card p-6"><h3 class="font-black">Gestão Clínica</h3><p class="text-sm text-slate-500 mt-2">A agenda existente alimenta o fluxo financeiro.</p><button onclick="go('agendamentos')" class="bg-orange text-white rounded-xl px-4 py-2 mt-4 font-bold">Agenda</button></div><div class="card p-6"><h3 class="font-black">Faturação</h3><p class="text-sm text-slate-500 mt-2">Documentos, serviços, séries e pagamentos.</p><button onclick="go('faturacao')" class="bg-orange text-white rounded-xl px-4 py-2 mt-4 font-bold">Faturar</button></div><div class="card p-6"><h3 class="font-black">Contabilidade</h3><p class="text-sm text-slate-500 mt-2">Plano de contas, lançamentos e relatórios.</p><button onclick="go('contabilidade')" class="bg-orange text-white rounded-xl px-4 py-2 mt-4 font-bold">Contabilidade</button></div></div><div class="card p-6 mt-5"><h3 class="font-black">Fluxo integrado</h3><div class="grid md:grid-cols-6 gap-2 mt-4 text-center text-sm">${['Paciente','Agendamento','Atendimento','Documento clínico','Faturação','Pagamento'].map((x,i)=>`<div class="rounded-xl ${i===5?'bg-orange text-white':'bg-orange-50'} p-4 font-bold">${i+1}. ${x}</div>`).join('')}</div></div>`)}catch(e){sectionError('Financeiro',e)}}
-async function financeInvoices(){try{const {data,error}=await sb.from('finance_documentos').select('id,document_no,tipo_documento,data_emissao,total,estado_pagamento,document_status,fiscal_status,agt_validation_status,agt_submission_status,finance_clientes(nome,nif)').order('data_emissao',{ascending:false}).limit(500);if(error)throw error;tablePage('Faturação','Gerador visual A4 CIADI para FT, FR, NC, ND e RC, com validação, emissão, impressão e ligação ao fluxo contabilístico/SAF-T.',`<div class="flex flex-wrap justify-between gap-3 mb-4"><button onclick="newFinanceInvoice()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Novo documento A4</button><button onclick="financeEmitterConfig()" class="border rounded-xl px-4 py-2">Dados do emitente</button><button onclick="go('contabilidade')" class="border rounded-xl px-4 py-2">Contabilidade</button><button onclick="go('saft')" class="border rounded-xl px-4 py-2">SAF-T(AO)</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Documento</th><th>Cliente</th><th>Data</th><th>Total</th><th>Estado</th><th>Fiscal</th><th>Ações</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4 font-bold">${esc(r.document_no)}<div class="text-xs text-slate-500">${esc(r.tipo_documento)}</div></td><td>${esc(r.finance_clientes?.nome)}<div class="text-xs">${esc(r.finance_clientes?.nif||'')}</div></td><td>${esc(new Date(r.data_emissao).toLocaleDateString('pt-AO'))}</td><td>${money(r.total)}</td><td>${esc(r.document_status||'em_edicao')} · ${esc(r.estado_pagamento||'pendente')}</td><td><span class="text-xs">${esc(r.fiscal_status||r.agt_validation_status||'por validar')}</span></td><td class="p-3 whitespace-nowrap"><button class="text-orange font-bold mr-3" onclick="previewFinanceInvoice('${r.id}')">A4 / Ver</button><button class="font-bold mr-3" onclick="printFinanceInvoice('${r.id}')">Imprimir / PDF</button>${r.fiscal_status==='emitido' && r.estado_pagamento!=='pago' ? `<button class="text-emerald-700 font-bold mr-3" onclick="receiveFinanceDocument('${r.id}')">Receber</button>` : ''}${r.fiscal_status==='emitido' ? `<button class="text-blue-700 font-bold" onclick="postFinanceDocument('${r.id}')">Contabilizar</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`)}catch(e){sectionError('Faturação',e)}}
+async function financeInvoices(){try{const {data,error}=await sb.from('finance_documentos').select('id,document_no,tipo_documento,data_emissao,total,estado_pagamento,document_status,fiscal_status,agt_validation_status,agt_submission_status,finance_clientes(nome,nif)').order('data_emissao',{ascending:false}).limit(500);if(error)throw error;tablePage('Faturação','Gerador visual A4 CIADI para FT, FR, NC, ND e RC, com validação, emissão, impressão e ligação ao fluxo contabilístico/SAF-T.',`<div class="flex flex-wrap justify-between gap-3 mb-4"><button onclick="newFinanceInvoice()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">+ Novo documento A4</button><button onclick="financeEmitterConfig()" class="border rounded-xl px-4 py-2">Dados do emitente</button><button onclick="go('contabilidade')" class="border rounded-xl px-4 py-2">Contabilidade</button><button onclick="go('saft')" class="border rounded-xl px-4 py-2">SAF-T(AO)</button></div><div class="card overflow-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th class="p-4">Documento</th><th>Cliente</th><th>Data</th><th>Total</th><th>Estado</th><th>Fiscal</th><th>Ações</th></tr></thead><tbody>${(data||[]).map(r=>`<tr class="border-b"><td class="p-4 font-bold">${esc(r.document_no)}<div class="text-xs text-slate-500">${esc(r.tipo_documento)}</div></td><td>${esc(r.finance_clientes?.nome)}<div class="text-xs">${esc(r.finance_clientes?.nif||'')}</div></td><td>${esc(new Date(r.data_emissao).toLocaleDateString('pt-AO'))}</td><td>${money(r.total)}</td><td>${esc(r.document_status||'em_edicao')} · ${esc(r.estado_pagamento||'pendente')}</td><td><span class="text-xs">${esc(r.fiscal_status||r.agt_validation_status||'por validar')}</span></td><td class="p-3 whitespace-nowrap"><button class="text-orange font-bold mr-3" onclick="previewFinanceInvoice('${r.id}')">A4 / Ver</button><button class="font-bold mr-3" onclick="printFinanceInvoice('${r.id}')">Imprimir / PDF</button>${r.document_status==='N' && r.fiscal_status==='emitido' && r.estado_pagamento!=='pago' ? `<button class="text-emerald-700 font-bold mr-3" onclick="receiveFinanceDocument('${r.id}')">Receber</button>` : ''}${r.fiscal_status==='emitido' ? `<button class="text-blue-700 font-bold" onclick="postFinanceDocument('${r.id}')">Contabilizar</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`)}catch(e){sectionError('Faturação',e)}}
 
 function invoiceTypeLabel(t){return ({FT:'Fatura',FR:'Fatura-Recibo',NC:'Nota de Crédito',ND:'Nota de Débito',RC:'Recibo'}[t]||t||'Documento')}
 function invoiceIsAdjustment(t){return ['NC','ND'].includes(t)}
@@ -324,30 +347,36 @@ function buildInvoiceA4Html(x){
 }
 async function newFinanceInvoice(){
   try{
-    const [pa,ser,sv,docs,em]=await Promise.all([
+    const [pa,ser,sv,docs,em,company,agt]=await Promise.all([
       sb.from('pacientes').select('id,nome_completo').eq('ativo',true).order('nome_completo'),
-      sb.from('finance_series').select('id,codigo,nome,tipo_documento,proximo_numero,ativa,estado').eq('ativa',true).order('codigo'),
-      sb.from('finance_servicos').select('id,codigo,nome,preco_base,taxa_imposto').eq('ativo',true).order('nome'),
+      sb.from('finance_series').select('id,codigo,nome,tipo_documento,proximo_numero,ativa,estado,codigo_serie_agt,quantidade_autorizada').eq('ativa',true).order('codigo'),
+      sb.from('finance_servicos').select('id,codigo,nome,unidade,preco_base,taxa_imposto,conta_receita').eq('ativo',true).order('nome'),
       sb.from('finance_documentos').select('id,document_no,tipo_documento,total').not('document_status','eq','anulado').order('data_emissao',{ascending:false}).limit(300),
-      sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle()
+      sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle(),
+      sb.from('finance_empresas').select('id,razao_social,nif').eq('ativo',true).eq('empresa_principal',true).maybeSingle(),
+      sb.from('finance_agt_software_registos').select('id,empresa_id,estado,software_validation_number,product_id,product_version,data_certificacao,chave_estado').order('created_at',{ascending:false}).limit(20)
     ]);
-    if(pa.error)throw pa.error;if(ser.error)throw ser.error;if(sv.error)throw sv.error;if(docs.error)throw docs.error;if(em.error)throw em.error;
-    const services=sv.data||[], series=ser.data||[];
-    const body=`<div id="a4Generator" class="grid xl:grid-cols-[390px_1fr] gap-6"><div class="space-y-4"><div class="rounded-2xl bg-orange-50 p-4"><div class="font-black text-orange">Gerador visual A4</div><div class="text-sm text-slate-600">Preencha os dados e veja o documento em tempo real antes de emitir.</div></div><div class="grid grid-cols-2 gap-3">${selectField('tipo_documento','Tipo',['FT','FR','NC','ND','RC'].map(x=>({value:x,label:x+' · '+invoiceTypeLabel(x)})),'FT',true)}${selectField('serie_id','Série',series.map(x=>({value:x.id,label:x.codigo+' · '+(x.nome||'')})),series[0]?.id||'',true)}</div>${selectField('paciente_id','Paciente / Cliente',pa.data.map(x=>({value:x.id,label:x.nome_completo})),'',true)}${selectField('servico_id','Serviço',services.map(x=>({value:x.id,label:x.nome+' · '+money(x.preco_base)})),services[0]?.id||'',true)}<div class="grid grid-cols-2 gap-3">${inputField('quantidade','Quantidade','1','number',true,'min="0.001" step="0.001"')}${inputField('preco_unitario','Preço unitário',services[0]?.preco_base||0,'number',true,'min="0" step="0.01"')}${inputField('taxa_imposto','Taxa de imposto',services[0]?.taxa_imposto||0,'number',false,'min="0" step="0.01"')}${inputField('desconto','Desconto','0','number',false,'min="0" step="0.01"')}</div><div class="grid grid-cols-2 gap-3">${inputField('data_operacao','Data da operação',invoiceDateValue(),'date',true)}${inputField('data_vencimento','Vencimento','','date',false)}</div>${selectField('forma_pagamento','Forma de pagamento',['numerario','tpa','transferencia','multicaixa','referencia','outro'].map(x=>({value:x,label:x.replace('_',' ')})),'') }<div id="originWrap" class="hidden">${selectField('documento_origem_id','Documento de origem',docs.data.map(x=>({value:x.id,label:x.document_no+' · '+invoiceTypeLabel(x.tipo_documento)+' · '+money(x.total)})),'',false)}</div>${textareaField('descricao','Descrição do serviço','Serviço clínico CIADI',true)}${textareaField('observacoes','Observações','',true)}<div id="a4Summary" class="rounded-2xl bg-slate-50 p-4 space-y-2 text-sm"></div><div class="flex flex-wrap gap-2"><button type="button" onclick="updateA4Generator()" class="border rounded-xl px-4 py-2">Actualizar A4</button><button type="button" onclick="validateA4Draft()" class="border rounded-xl px-4 py-2">✓ Validar</button><button type="button" onclick="emitA4Document()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Emitir documento</button></div></div><div><div class="flex items-center justify-between mb-3"><div><b>Pré-visualização A4</b><div class="text-xs text-slate-500">Formato profissional CIADI · pronto para impressão</div></div><button type="button" onclick="printA4Generator()" class="border rounded-xl px-4 py-2 font-bold">Imprimir / Guardar PDF</button></div><div id="a4LivePreview" class="bg-slate-100 p-3 md:p-6 rounded-2xl overflow-auto"></div></div></div>`;
+    if(pa.error)throw pa.error;if(ser.error)throw ser.error;if(sv.error)throw sv.error;if(docs.error)throw docs.error;if(em.error)throw em.error;if(company.error)throw company.error;if(agt.error)throw agt.error;
+    const services=sv.data||[],series=ser.data||[];
+    const agtRegistration=(agt.data||[]).find(x=>x.empresa_id===company.data?.id)||(agt.data||[]).find(x=>!x.empresa_id)||null;
+    window.ciadiAgtReadiness={companyId:company.data?.id||null,registration:agtRegistration,registrationReady:Boolean(agtRegistration?.software_validation_number&&agtRegistration?.product_id&&agtRegistration?.product_version&&agtRegistration?.data_certificacao&&agtRegistration?.chave_estado==='ativa'),apiReady:false};
+    const initialSeries=series.filter(x=>x.tipo_documento==='FT');
+    const agtState=window.ciadiAgtReadiness.registrationReady?'Registo do software preenchido; falta confirmar a integração de assinatura/transmissão.':'Registo do software em preparação: falta número de validação, produto/versão certificados e data de certificação.';
+    const body=`<div id="a4Generator" class="grid xl:grid-cols-[390px_1fr] gap-6"><div class="space-y-4"><div class="rounded-2xl bg-orange-50 p-4"><div class="font-black text-orange">Gerador visual A4</div><div class="text-sm text-slate-600">Preencha os dados e veja o documento em tempo real antes de guardar ou emitir.</div><div class="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><b>Estado AGT:</b> ${esc(agtState)} A assinatura JWS e a transmissão/validação AGT ainda não estão operacionais. O sistema permite guardar e imprimir rascunhos, mas bloqueia a emissão fiscal até à homologação.</div></div><div class="grid grid-cols-2 gap-3">${selectField('tipo_documento','Tipo',['FT','FR','NC','ND','RC'].map(x=>({value:x,label:x+' · '+invoiceTypeLabel(x)})),'FT',true)}${selectField('serie_id','Série',initialSeries.map(x=>({value:x.id,label:x.codigo+' · '+(x.nome||'')})),initialSeries[0]?.id||'',true)}</div>${selectField('paciente_id','Paciente / Cliente',pa.data.map(x=>({value:x.id,label:x.nome_completo})),'',true)}${selectField('servico_id','Serviço',services.map(x=>({value:x.id,label:x.nome+' · '+money(x.preco_base)})),services[0]?.id||'',true)}<div class="grid grid-cols-2 gap-3">${inputField('quantidade','Quantidade','1','number',true,'min="0.001" step="0.001"')}${inputField('preco_unitario','Preço unitário',services[0]?.preco_base||0,'number',true,'min="0" step="0.01"')}${inputField('taxa_imposto','Taxa de imposto',services[0]?.taxa_imposto||0,'number',false,'min="0" step="0.01"')}${inputField('desconto','Desconto','0','number',false,'min="0" step="0.01"')}</div><div class="grid grid-cols-2 gap-3">${inputField('data_operacao','Data da operação',invoiceDateValue(),'date',true)}${inputField('data_vencimento','Vencimento','','date',false)}</div>${selectField('forma_pagamento','Forma de pagamento',['numerario','tpa','transferencia','multicaixa','referencia','outro'].map(x=>({value:x,label:x.replace('_',' ')})),'') }<div id="originWrap" class="hidden">${selectField('documento_origem_id','Documento de origem',docs.data.map(x=>({value:x.id,label:x.document_no+' · '+invoiceTypeLabel(x.tipo_documento)+' · '+money(x.total)})),'',false)}</div>${textareaField('descricao','Descrição do serviço','Serviço clínico CIADI',true)}${textareaField('observacoes','Observações','',true)}<div id="a4Summary" class="rounded-2xl bg-slate-50 p-4 space-y-2 text-sm"></div><div class="flex flex-wrap gap-2"><button type="button" onclick="updateA4Generator()" class="border rounded-xl px-4 py-2">Actualizar A4</button><button type="button" onclick="validateA4Draft()" class="border rounded-xl px-4 py-2">✓ Validar</button><button type="button" onclick="emitA4Document()" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Guardar rascunho / validar emissão</button></div></div><div><div class="flex items-center justify-between mb-3"><div><b>Pré-visualização A4</b><div class="text-xs text-slate-500">Formato profissional CIADI · rascunho até à certificação AGT</div></div><button type="button" onclick="printA4Generator()" class="border rounded-xl px-4 py-2 font-bold">Imprimir / Guardar PDF</button></div><div id="a4LivePreview" class="bg-slate-100 p-3 md:p-6 rounded-2xl overflow-auto"></div></div></div>`;
     window.ciadiA4Emitter=em.data||{};openModal('Novo documento fiscal — Gerador A4',body);document.querySelector('#ciadiModal>div').classList.remove('max-w-3xl');document.querySelector('#ciadiModal>div').classList.add('max-w-[1400px]');
     const f=document.getElementById('a4Generator');
     f.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',()=>{if(el.name==='servico_id'){const x=services.find(s=>s.id===el.value);if(x){f.querySelector('[name="preco_unitario"]').value=x.preco_base||0;f.querySelector('[name="taxa_imposto"]').value=x.taxa_imposto||0;}}updateA4Generator()}));
-    const sf=f.querySelector('[name="serie_id"]');sf.innerHTML=series.map(x=>`<option value="${esc(x.id)}" data-code="${esc(x.codigo)}" data-seq="${esc(x.proximo_numero)}">${esc(x.codigo)} · ${esc(x.nome||'')}</option>`).join('');
-    updateA4Generator();
+    const typeField=f.querySelector('[name="tipo_documento"]'),sf=f.querySelector('[name="serie_id"]');
+    const refreshA4Series=()=>{const available=series.filter(x=>x.tipo_documento===typeField.value);sf.innerHTML=available.map(x=>`<option value="${esc(x.id)}" data-code="${esc(x.codigo)}" data-seq="${esc(x.proximo_numero)}">${esc(x.codigo)} · ${esc(x.nome||'')}</option>`).join('');updateA4Generator()};
+    typeField.addEventListener('change',refreshA4Series);refreshA4Series();
   }catch(e){toast(e?.message||'Não foi possível abrir o gerador A4.')}
 }
 async function collectA4Draft(){
   const f=document.getElementById('a4Generator');if(!f)throw new Error('Gerador A4 não está aberto.');const fd=new FormData(f);const type=fd.get('tipo_documento'),sid=fd.get('serie_id'),pid=fd.get('paciente_id'),serviceId=fd.get('servico_id');if(!type||!sid||!pid)throw new Error('Preencha tipo, série e cliente.');if(invoiceIsAdjustment(type)&&!fd.get('documento_origem_id'))throw new Error('Notas de Crédito/Débito exigem documento de origem.');const q=Number(fd.get('quantidade')),price=Number(fd.get('preco_unitario')),rate=Number(fd.get('taxa_imposto')||0),discount=Number(fd.get('desconto')||0);if(q<=0||price<0)throw new Error('Quantidade/preço inválidos.');const calc=calcInvoiceLine(q,price,rate,discount);const [{data:pac,error:pe},{data:cli,error:ce},{data:se,error:seErr},{data:sv,error:svErr},{data:em,error:ee}]=await Promise.all([sb.from('pacientes').select('*').eq('id',pid).single(),sb.from('finance_clientes').select('*').eq('paciente_id',pid).maybeSingle(),sb.from('finance_series').select('*').eq('id',sid).single(),sb.from('finance_servicos').select('*').eq('id',serviceId).single(),sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle()]);if(pe)throw pe;if(seErr)throw seErr;if(svErr)throw svErr;if(ee)throw ee;return {fd,type,sid,pid,serviceId,q,price,rate,discount,calc,pac,cli,se,sv,em:em||{},descricao:fd.get('descricao')||sv.nome,observacoes:fd.get('observacoes')||'',forma_pagamento:fd.get('forma_pagamento')||null,data_operacao:fd.get('data_operacao')||invoiceDateValue(),data_vencimento:fd.get('data_vencimento')||null,documento_origem_id:fd.get('documento_origem_id')||null};
 }
-async function validateA4Draft(){try{const x=await collectA4Draft();const issues=[];if(!x.em.nif)issues.push('NIF do emitente não configurado.');if(!x.cli?.id)issues.push('Cliente financeiro ainda não está criado para este paciente.');if(!x.pac.nome_completo)issues.push('Paciente sem nome.');if(x.calc.total<=0)issues.push('Total deve ser superior a zero.');if(issues.length){toast('Validação: '+issues.join(' '));return false}toast('Pré-validação A4 concluída sem erros básicos.');return true}catch(e){toast(e.message);return false}}
+async function validateA4Draft(){try{const x=await collectA4Draft();const issues=[];if(!x.em.nif)issues.push('NIF do emitente não configurado.');if(!x.pac.nome_completo)issues.push('Paciente sem nome.');if(!x.sv?.codigo)issues.push('Serviço sem código.');if(x.calc.total<=0)issues.push('Total deve ser superior a zero.');if(issues.length){toast('Validação: '+issues.join(' '));return false}const fiscalMissing=[];if(!window.ciadiAgtReadiness?.registrationReady)fiscalMissing.push('certificação/validação do software AGT');if(!x.se?.codigo_serie_agt||!Number(x.se?.quantidade_autorizada))fiscalMissing.push('série AGT e limite autorizado');if(!window.ciadiAgtReadiness?.apiReady)fiscalMissing.push('assinatura JWS e transmissão AGT');toast(fiscalMissing.length?'Dados comerciais válidos. Emissão fiscal pendente: '+fiscalMissing.join('; ')+'.':'Pré-validação A4 concluída.');return true}catch(e){toast(e.message);return false}}
 async function emitA4Document(){
   try{
-    const valid=await validateA4Draft(); if(!valid)return;
     const x=await collectA4Draft();
     const {data:emp,error:empErr}=await sb.from('finance_empresas').select('id').eq('ativo',true).eq('empresa_principal',true).maybeSingle();
     if(empErr)throw empErr;
@@ -355,32 +384,44 @@ async function emitA4Document(){
     let cli=x.cli;
     if(!cli){
       const z=await sb.from('finance_clientes').insert({empresa_id:emp.id,paciente_id:x.pid,nome:x.pac.nome_responsavel||x.pac.nome_completo,email:x.pac.email||null,telefone:x.pac.telefone||null}).select().single();
-      if(z.error)throw z.error; cli=z.data;
+      if(z.error)throw z.error;cli=z.data;
     }
     const lines=[{servico_id:x.serviceId,codigo:x.sv.codigo,descricao:x.descricao,quantidade:x.q,unidade:x.sv.unidade||'UN',preco_unitario:x.price,desconto:x.discount,taxa_imposto:x.rate,conta_receita:x.sv.conta_receita||null}];
     const {data:d,error}=await sb.rpc('ciadi_faturacao_criar_documento',{p_empresa_id:emp.id,p_tipo_documento:x.type,p_serie_id:x.sid,p_cliente_id:cli.id,p_paciente_id:x.pid,p_agendamento_id:null,p_data_emissao:new Date().toISOString(),p_data_vencimento:x.data_vencimento||null,p_observacoes:x.observacoes||null,p_linhas:lines});
     if(error)throw error;
-    const id=d?.documento_id||d?.id; if(!id)throw new Error('O documento foi criado sem identificador.');
+    const id=d?.documento_id||d?.id;if(!id)throw new Error('O documento foi criado sem identificador.');
+    const missing=[];const agt=window.ciadiAgtReadiness||{};
+    if(!agt.registrationReady)missing.push('software sem número de validação/certificação AGT');
+    if(!x.se?.codigo_serie_agt||!Number(x.se?.quantidade_autorizada))missing.push('série sem código AGT e quantidade autorizada');
+    if(!agt.apiReady)missing.push('assinatura JWS e transmissão/validação AGT ainda não integradas');
+    if(missing.length){
+      await audit('GUARDAR_RASCUNHO_FISCAL_PENDENTE','finance_documentos',id,{tipo:x.type,total:x.calc.total,bloqueios:missing});
+      toast('Rascunho guardado. Não foi emitida factura fiscal: '+missing.join('; ')+'.');
+      closeModal();await previewFinanceInvoice(id);await financeInvoices();return;
+    }
     const {data:emissao,error:ee}=await sb.rpc('ciadi_faturacao_emitir_documento',{p_documento_id:id});
     if(ee)throw ee;
+    const {data:issued,error:issuedError}=await sb.from('finance_documentos').select('document_status,fiscal_status').eq('id',id).single();
+    if(issuedError)throw issuedError;
+    if(issued.document_status!=='N'||issued.fiscal_status!=='emitido')throw new Error('O motor fiscal não confirmou document_status=N e fiscal_status=emitido. O documento permanece em revisão.');
     await audit('EMITIR_DOCUMENTO_A4','finance_documentos',id,{document_no:emissao?.document_no||null,tipo:x.type,total:x.calc.total});
-    toast(`${emissao?.document_no||'Documento'} emitido com sucesso.`); closeModal(); await previewFinanceInvoice(id); financeInvoices();
-  }catch(e){toast(e?.message||'Não foi possível emitir o documento.')}
+    toast(`${emissao?.document_no||'Documento'} emitido com estado normal confirmado.`);closeModal();await previewFinanceInvoice(id);financeInvoices();
+  }catch(e){toast(e?.message||'Não foi possível guardar o documento.')}
 }
 function printA4Generator(){const el=document.getElementById('a4LivePreview');if(!el)return;printBase('Pré-visualização A4 CIADI',el.innerHTML)}
-async function previewFinanceInvoice(id){try{const [{data:d,error:de},{data:em,error:ee},{data:lines,error:le}]=await Promise.all([sb.from('finance_documentos').select('*,finance_clientes(nome,nif,email,telefone,endereco,cidade,provincia,pais),finance_series(codigo,nome)').eq('id',id).single(),sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle(),sb.from('finance_documento_linhas').select('*').eq('documento_id',id).order('created_at')]);if(de)throw de;if(ee)throw ee;if(le)throw le;const e=em||{};const first=(lines||[])[0]||{};const calc={base:Number(d.subtotal||0),tax:Number(d.imposto||0),total:Number(d.total||0)};const body=buildInvoiceA4Html({emitente:e,type:d.tipo_documento,code:d.finance_series?.codigo||d.documento_serie||'',seq:d.numero_sequencial||d.document_no?.split('/').pop()||'',pn:d.finance_clientes?.nome,nif:d.finance_clientes?.nif,address:[d.finance_clientes?.endereco,d.finance_clientes?.cidade,d.finance_clientes?.provincia].filter(Boolean).join(' · '),desc:first.descricao||'Documento de faturação',codeService:first.codigo,qty:first.quantidade||1,price:first.preco_unitario||0,rate:first.taxa_imposto||0,disc:first.desconto||d.desconto||0,line:calc,payment:d.forma_pagamento||'',operation:d.data_operacao||String(d.data_emissao||'').slice(0,10),due:d.data_vencimento||'',origin:d.documento_origem_id||'',notes:d.observacoes||'',preview:false});openModal(`${d.document_no} · ${invoiceTypeLabel(d.tipo_documento)}`,`<div class="space-y-4"><div class="flex flex-wrap justify-end gap-2"><button type="button" onclick="printFinanceInvoice('${id}')" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Imprimir / Guardar PDF</button><button type="button" onclick="go('contabilidade');closeModal()" class="border rounded-xl px-4 py-2">Contabilidade</button><button type="button" onclick="go('saft');closeModal()" class="border rounded-xl px-4 py-2">SAF-T(AO)</button></div><div class="a4-preview-shell">${body}</div></div>`);document.querySelector('#ciadiModal>div').classList.remove('max-w-3xl');document.querySelector('#ciadiModal>div').classList.add('max-w-[1000px]')}catch(e){toast(e?.message||'Não foi possível abrir o documento A4.')}}
+async function previewFinanceInvoice(id){try{const [{data:d,error:de},{data:em,error:ee},{data:lines,error:le}]=await Promise.all([sb.from('finance_documentos').select('*,finance_clientes(nome,nif,email,telefone,endereco,cidade,provincia,pais),finance_series(codigo,nome)').eq('id',id).single(),sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle(),sb.from('finance_documento_linhas').select('*').eq('documento_id',id).order('created_at')]);if(de)throw de;if(ee)throw ee;if(le)throw le;const e=em||{};const first=(lines||[])[0]||{};const calc={base:Number(d.subtotal||0),tax:Number(d.imposto||0),total:Number(d.total||0)};const body=buildInvoiceA4Html({emitente:e,type:d.tipo_documento,code:d.finance_series?.codigo||d.documento_serie||'',seq:d.numero_sequencial||d.document_no?.split('/').pop()||'',pn:d.finance_clientes?.nome,nif:d.finance_clientes?.nif,address:[d.finance_clientes?.endereco,d.finance_clientes?.cidade,d.finance_clientes?.provincia].filter(Boolean).join(' · '),desc:first.descricao||'Documento de faturação',codeService:first.codigo,qty:first.quantidade||1,price:first.preco_unitario||0,rate:first.taxa_imposto||0,disc:first.desconto||d.desconto||0,line:calc,payment:d.forma_pagamento||'',operation:d.data_operacao||String(d.data_emissao||'').slice(0,10),due:d.data_vencimento||'',origin:d.documento_origem_id||'',notes:d.observacoes||'',preview:d.document_status!=='N'||d.fiscal_status!=='emitido'});openModal(`${d.document_no} · ${invoiceTypeLabel(d.tipo_documento)}`,`<div class="space-y-4"><div class="flex flex-wrap justify-end gap-2"><button type="button" onclick="printFinanceInvoice('${id}')" class="bg-orange text-white rounded-xl px-4 py-2 font-bold">Imprimir / Guardar PDF</button><button type="button" onclick="go('contabilidade');closeModal()" class="border rounded-xl px-4 py-2">Contabilidade</button><button type="button" onclick="go('saft');closeModal()" class="border rounded-xl px-4 py-2">SAF-T(AO)</button></div><div class="a4-preview-shell">${body}</div></div>`);document.querySelector('#ciadiModal>div').classList.remove('max-w-3xl');document.querySelector('#ciadiModal>div').classList.add('max-w-[1000px]')}catch(e){toast(e?.message||'Não foi possível abrir o documento A4.')}}
 function printFinanceInvoice(id){previewForPrint(id)}
-async function previewForPrint(id){try{const [{data:d,error:de},{data:em,error:ee},{data:lines,error:le}]=await Promise.all([sb.from('finance_documentos').select('*,finance_clientes(nome,nif,email,telefone,endereco,cidade,provincia,pais),finance_series(codigo,nome)').eq('id',id).single(),sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle(),sb.from('finance_documento_linhas').select('*').eq('documento_id',id).order('created_at')]);if(de)throw de;if(ee)throw ee;if(le)throw le;const l=(lines||[])[0]||{};printBase(d.document_no,buildInvoiceA4Html({emitente:em||{},type:d.tipo_documento,code:d.finance_series?.codigo||'',seq:d.numero_sequencial||'',pn:d.finance_clientes?.nome,nif:d.finance_clientes?.nif,address:[d.finance_clientes?.endereco,d.finance_clientes?.cidade,d.finance_clientes?.provincia].filter(Boolean).join(' · '),desc:l.descricao||'',codeService:l.codigo,qty:l.quantidade||1,price:l.preco_unitario||0,rate:l.taxa_imposto||0,disc:l.desconto||d.desconto||0,line:{base:Number(d.subtotal||0),tax:Number(d.imposto||0),total:Number(d.total||0)},payment:d.forma_pagamento||'',operation:d.data_operacao||String(d.data_emissao||'').slice(0,10),due:d.data_vencimento||'',origin:d.documento_origem_id||'',notes:d.observacoes||'',preview:false}));}catch(e){toast(e?.message||'Não foi possível preparar a impressão.')}}
+async function previewForPrint(id){try{const [{data:d,error:de},{data:em,error:ee},{data:lines,error:le}]=await Promise.all([sb.from('finance_documentos').select('*,finance_clientes(nome,nif,email,telefone,endereco,cidade,provincia,pais),finance_series(codigo,nome)').eq('id',id).single(),sb.from('finance_emitente_config').select('*').eq('ativo',true).order('updated_at',{ascending:false}).limit(1).maybeSingle(),sb.from('finance_documento_linhas').select('*').eq('documento_id',id).order('created_at')]);if(de)throw de;if(ee)throw ee;if(le)throw le;const l=(lines||[])[0]||{};printBase(d.document_no,buildInvoiceA4Html({emitente:em||{},type:d.tipo_documento,code:d.finance_series?.codigo||'',seq:d.numero_sequencial||'',pn:d.finance_clientes?.nome,nif:d.finance_clientes?.nif,address:[d.finance_clientes?.endereco,d.finance_clientes?.cidade,d.finance_clientes?.provincia].filter(Boolean).join(' · '),desc:l.descricao||'',codeService:l.codigo,qty:l.quantidade||1,price:l.preco_unitario||0,rate:l.taxa_imposto||0,disc:l.desconto||d.desconto||0,line:{base:Number(d.subtotal||0),tax:Number(d.imposto||0),total:Number(d.total||0)},payment:d.forma_pagamento||'',operation:d.data_operacao||String(d.data_emissao||'').slice(0,10),due:d.data_vencimento||'',origin:d.documento_origem_id||'',notes:d.observacoes||'',preview:d.document_status!=='N'||d.fiscal_status!=='emitido'}));}catch(e){toast(e?.message||'Não foi possível preparar a impressão.')}}
 
 async function receiveFinanceDocument(documentId){
   try{
     const [{data:d,error:de},{data:cash,error:ce}]=await Promise.all([
-      sb.from('finance_documentos').select('id,document_no,total,estado_pagamento,fiscal_status,empresa_id').eq('id',documentId).single(),
+      sb.from('finance_documentos').select('id,document_no,total,estado_pagamento,document_status,fiscal_status,empresa_id').eq('id',documentId).single(),
       sb.from('finance_caixas').select('id,nome,estado,empresa_id').eq('estado','aberto').order('created_at',{ascending:false})
     ]);
     if(de)throw de;if(ce)throw ce;
     if(!d)throw new Error('Documento não encontrado.');
-    if(d.fiscal_status!=='emitido')throw new Error('Só é possível receber um documento emitido.');
+    if(d.document_status!=='N'||d.fiscal_status!=='emitido')throw new Error('Só é possível receber documentos fiscais emitidos em estado N (Normal).');
     const {data:paid,error:pe}=await sb.from('finance_pagamentos').select('valor').eq('documento_id',documentId);
     if(pe)throw pe;
     const recebido=(paid||[]).reduce((a,x)=>a+Number(x.valor||0),0);
@@ -394,8 +435,13 @@ async function receiveFinanceDocument(documentId){
       if(error)throw error;
       const row=Array.isArray(r)?r[0]:r;
       if(!row?.pagamento_id)throw new Error('Pagamento registado sem identificador.');
-      const integ=await sb.rpc('ciadi_finance_integrar_pagamento',{p_pagamento_id:row.pagamento_id,p_caixa_id:caixaId});
-      if(integ.error)throw integ.error;
+      const integ=await sb.rpc('ciadi_finance_integrar_pagamento',{p_pagamento_id:row.pagamento_id,p_caixa_id:null});
+      if(integ.error||integ.data?.ok===false){
+        const motivo=integ.error?.message||integ.data?.mensagem||'Integração contabilística pendente.';
+        await audit('PAGAMENTO_INTEGRACAO_PENDENTE','finance_pagamentos',row.pagamento_id,{documento_id:documentId,valor,metodo,recibo_id:row.recibo_id,recibo_no:row.recibo_no,motivo});
+        toast(`Pagamento registado · Recibo ${row.recibo_no||''}. Integração contabilística pendente: ${motivo}`);
+        closeModal();financeInvoices();if(row.recibo_id)setTimeout(()=>previewFinanceInvoice(row.recibo_id),150);return;
+      }
       await audit('RECEBER_PAGAMENTO','finance_pagamentos',row.pagamento_id,{documento_id:documentId,valor,metodo,recibo_id:row.recibo_id,recibo_no:row.recibo_no,integracao:integ.data});
       toast(`Pagamento registado · Recibo ${row.recibo_no||''}`);closeModal();financeInvoices();
       if(row.recibo_id)setTimeout(()=>previewFinanceInvoice(row.recibo_id),150);
@@ -863,6 +909,8 @@ async function boot(){
 async function enter(u){
   try{
     initSupabase();
+    if(!stationMode || !Object.prototype.hasOwnProperty.call(stationProfileLabels,stationProfile)) throw new Error('Seleccione uma estação CIADI válida antes de entrar.');
+    if(stationRequiresPolo && !Object.prototype.hasOwnProperty.call(stationPoloLabels,stationPolo)) throw new Error('Seleccione o polo de trabalho antes de entrar.');
     me=u;
     const q=await profileService.getCurrentProfile(u.id);
     if(q.error) throw new Error('Não foi possível validar o perfil administrativo: '+q.error.message);
@@ -871,12 +919,13 @@ async function enter(u){
     if(stationMode && !Object.prototype.hasOwnProperty.call(stationProfileLabels,stationProfile)) throw new Error('Perfil desta estação não identificado. Reinstale o CIADI e seleccione um perfil válido.');
     if(stationRequiresPolo && !Object.prototype.hasOwnProperty.call(stationPoloLabels,stationPolo)) throw new Error('Polo desta estação não identificado. Reinstale o CIADI e seleccione um polo válido.');
     if(profile.ativo!==true){ await authService.signOut(); throw new Error('O perfil administrativo está inactivo.'); }
-    if(!['admin','gestor','profissional'].includes(profile.tipo)){ await authService.signOut(); throw new Error('Este utilizador não possui acesso administrativo.'); }
+    const hasStationAccess = ['admin','gestor','profissional'].includes(profile.tipo) || (stationProfile==='recepcao' && profile.tipo==='operador') || (stationProfile==='suporte_informatica' && profile.tipo==='suporte_informatica');
+    if(!hasStationAccess){ await authService.signOut(); throw new Error('Este utilizador não possui acesso à estação seleccionada.'); }
     document.getElementById('login').classList.add('hiddenx');
     document.getElementById('app').classList.remove('hiddenx');
     document.getElementById('who').textContent=`${profile.nome_exibicao||profile.nome_completo||u.email} · ${profile.tipo}`;
     document.getElementById('stationLabel').textContent = stationMode ? (stationRequiresPolo ? (stationProfileLabels[stationProfile] + ' · ' + stationPoloLabels[stationPolo]) : stationProfileLabels[stationProfile]) : 'Administração';
-    nav(); await go(stationMode && stationProfile==='suporte_informatica' ? 'support' : 'overview');
+    nav(); await go(stationMode && stationProfile==='suporte_informatica' ? 'support' : stationMode && stationProfile==='recepcao' ? 'reception' : 'overview');
   }catch(e){
     console.error('CIADI perfil',e);
     document.getElementById('login').classList.remove('hiddenx');
@@ -894,6 +943,11 @@ document.getElementById('loginForm').addEventListener('submit',async e=>{
   m.className='text-sm'; m.textContent='A autenticar…';
   if(button){button.disabled=true;button.textContent='A entrar…';}
   try{
+    if(!stationParams.has('ciadi_profile')){
+      setStationSelection();
+      if(!stationProfile) throw new Error('Seleccione a estação de trabalho.');
+      if(stationRequiresPolo && !stationPolo) throw new Error('Seleccione o polo de trabalho.');
+    }
     initSupabase();
     const email=emailEl.value.trim();
     const password=passwordEl.value;
@@ -909,6 +963,11 @@ document.getElementById('loginForm').addEventListener('submit',async e=>{
     if(button){button.disabled=false;button.textContent='Entrar';}
   }
 });
+if(!stationParams.has('ciadi_profile')){
+  document.getElementById('stationSelection').classList.remove('hiddenx');
+  document.getElementById('stationProfileSelect').addEventListener('change', setStationSelection);
+  document.getElementById('stationPoloSelect').addEventListener('change', setStationSelection);
+}
 initSupabase();
 authService.onAuthStateChange((event,session)=>{
   if(event==='SIGNED_IN' && session?.user && document.getElementById('app').classList.contains('hiddenx')) enter(session.user);

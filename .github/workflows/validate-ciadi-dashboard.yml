@@ -5,6 +5,8 @@ on:
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
+      - 'supabase/proposals/ciadi-faturacao-agt-emissao-proposal.sql'
+      - 'tests/finance-invoice-engine.test.cjs'
       - '.github/workflows/validate-ciadi-dashboard.yml'
   push:
     branches:
@@ -12,6 +14,8 @@ on:
     paths:
       - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'index.html'
+      - 'supabase/proposals/ciadi-faturacao-agt-emissao-proposal.sql'
+      - 'tests/finance-invoice-engine.test.cjs'
       - '.github/workflows/validate-ciadi-dashboard.yml'
 
 jobs:
@@ -24,6 +28,8 @@ jobs:
           node-version: '20'
       - name: Confirm entry HTML matches the dashboard source
         run: cmp -s CIADI_DASHBOARD_FINANCEIRO.html index.html
+      - name: Testar contrato do motor de faturação AGT
+        run: node --test tests/finance-invoice-engine.test.cjs
       - name: Check inline JavaScript syntax
         run: |
           python - <<'PY'

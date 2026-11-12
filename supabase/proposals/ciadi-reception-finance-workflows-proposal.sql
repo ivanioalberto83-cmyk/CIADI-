@@ -1,0 +1,17 @@
+-- SUPERSEDED — DO NOT EXECUTE THIS HISTORICAL PROPOSAL.
+-- The production implementation was applied and verified on 2026-11-12.
+-- Applied migration: ciadi_reception_finance_workflows_20261112
+-- Follow-up migration: ciadi_reception_block_unpriced_invoice_drafts_20261112
+-- The deployed functions are:
+--   ciadi_ti.reception_create_finance_client_impl
+--   ciadi_ti.reception_create_finance_invoice_draft_impl
+--   ciadi_ti.reception_get_finance_workspace_impl
+--   ciadi_ti.reception_get_finance_document_print_data_impl
+-- Public RPC entry points are SECURITY INVOKER wrappers only.
+-- The SECURITY DEFINER implementations use an empty search_path, explicit auth.uid()
+-- checks, polo assignment validation, and are not exposed in the public schema.
+-- No table grants, RLS policies, or direct table mutation permissions were changed.
+-- Invoice drafts use document_status='N' with fiscal_status='rascunho' and a unique
+-- temporary negative sequence; no AGT sequence is consumed.
+-- Invoice draft creation is blocked while the selected service has no configured
+-- positive base price. The original draft below has intentionally been retired.
