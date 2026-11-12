@@ -60,6 +60,10 @@ BEGIN
      OR NOT has_function_privilege('authenticated', 'ciadi_private.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'O helper privado deve ser acessível apenas a authenticated';
   END IF;
+  IF has_schema_privilege('anon', 'ciadi_private', 'USAGE')
+     OR NOT has_schema_privilege('authenticated', 'ciadi_private', 'USAGE') THEN
+    RAISE EXCEPTION 'O schema privado não pode ser usado por anon e tem de estar disponível ao wrapper autenticado';
+  END IF;
   IF has_function_privilege('anon', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE')
      OR has_function_privilege('service_role', 'public.finance_registar_pagamento(uuid,numeric,text,text,uuid,text)', 'EXECUTE') THEN
