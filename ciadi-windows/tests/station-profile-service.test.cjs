@@ -2,19 +2,17 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const registry = require('../../renderer/core/module-registry.js');
 
-test('ADM keeps administration routes, Accounting and read-only cash reports but excludes operational stations', () => {
+test('ADM exposes the complete administrative navigation and opens all institutional modules', () => {
   const service = require('../../renderer/core/station-profile-service.js');
   const entries = [
     { id: 'support', label: 'Suporte Informático', route: 'support', moduleId: 'support' },
     ...registry.listNavigationEntries()
   ];
   const adm = service.getVisibleEntries('adm', entries).map(entry => entry.id);
-  for (const forbidden of ['support', 'reception', 'caixa', 'faturacao', 'financeiro']) {
-    assert.equal(adm.includes(forbidden), false, 'ADM must not expose ' + forbidden);
+  assert.deepEqual(adm, entries.map(entry => entry.id));
+  for (const required of ['overview', 'support', 'rh', 'reception', 'financeiro', 'faturacao', 'caixa', 'cash_reports', 'contabilidade', 'saft', 'utilizadores', 'instituicao', 'auditoria']) {
+    assert.ok(adm.includes(required), 'ADM must expose ' + required);
   }
-  assert.ok(adm.includes('cash_reports'), 'ADM must retain cash opening/closing reports');
-  assert.ok(adm.includes('contabilidade'), 'ADM must retain Accounting');
-  assert.ok(adm.includes('auditoria'), 'ADM must retain administrative audit');
 });
 
 test('Support station exposes only its own Helpdesk and IT operations module', () => {
