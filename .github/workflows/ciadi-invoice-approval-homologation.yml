@@ -5,6 +5,8 @@ on:
       - feature/ciadi-reception-cashier-role-20261112
     paths:
       - 'renderer/modules/reception-module.js'
+      - 'index.html'
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
       - 'ciadi-windows/tests/reception-module.test.cjs'
       - 'ciadi-windows/tests/support-global-polo.test.cjs'
       - 'supabase/migrations/20261112143000_ciadi_invoice_admin_approval.sql'
