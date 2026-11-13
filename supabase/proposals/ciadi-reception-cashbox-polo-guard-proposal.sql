@@ -1,5 +1,38 @@
 -- PROPOSTA APENAS — NÃO APLICAR EM PRODUÇÃO SEM HOMOLOGAÇÃO E AUTORIZAÇÃO.
--- Isolamento por polo nas RPCs centrais de caixa quando a caixa está atribuída à Recepção.
+-- O esquema remoto actual ainda não tem finance_caixas.polo_code.
+-- Esta alteração cria a coluna de associação e atribui CX001 a Talatona,
+-- conforme confirmação explícita da Direcção.
+alter table public.finance_caixas
+  add column if not exists polo_code text;
+
+do $cashbox_polo_config$
+declare
+  v_count integer;
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid='public.finance_caixas'::regclass
+      and conname='finance_caixas_polo_code_check'
+  ) then
+    alter table public.finance_caixas
+      add constraint finance_caixas_polo_code_check
+      check (polo_code is null or polo_code in ('talatona','jardim_de_rosas'));
+  end if;
+
+  select count(*) into v_count
+  from public.finance_caixas
+  where codigo='CX001';
+
+  if v_count <> 1 then
+    raise exception 'Esperada exactamente uma caixa CX001; encontradas: %',v_count;
+  end if;
+
+  update public.finance_caixas
+  set polo_code='talatona',updated_at=now()
+  where codigo='CX001';
+end;
+$cashbox_polo_config$;
+
 -- Caixas sem polo_code mantêm o comportamento legado dos restantes módulos financeiros.
 -- Para caixas com polo_code, operadores têm de estar associados ao polo e só podem
 -- fechar o próprio turno; admin/gestor mantém a capacidade global de supervisão.
