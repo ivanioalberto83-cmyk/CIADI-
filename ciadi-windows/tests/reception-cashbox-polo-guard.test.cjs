@@ -8,7 +8,7 @@ const path = require('node:path');
 test('CX001 fica associada a Talatona e a coluna aceita apenas polos CIADI', () => {
   const sql = fs.readFileSync(path.join(__dirname, '../../supabase/proposals/ciadi-reception-cashbox-polo-guard-proposal.sql'), 'utf8');
   assert.match(sql, /add column if not exists polo_code text/i);
-  assert.match(sql, /where codigo='CX001'[\\s\\S]*?set polo_code='talatona'/i);
+  assert.match(sql, /where codigo='CX001'[\s\S]*?set polo_code='talatona'/i);
   assert.match(sql, /finance_caixas_polo_code_check/);
 });
 
