@@ -156,6 +156,10 @@ CREATE TABLE public.finance_caixas (
   saldo_atual numeric, aberto_em timestamptz, fechado_em timestamptz,
   aberto_por uuid, fechado_por uuid, updated_at timestamptz
 );
+-- Registo fictício de homologação: reproduz a caixa CX001 auditada em produção.
+INSERT INTO public.finance_caixas (id,codigo,nome,empresa_id,estado,polo_code,updated_at)
+VALUES ('c1a00000-0000-4000-8000-000000000001','CX001','Caixa Principal',
+        'e1a00000-0000-4000-8000-000000000001','fechado',NULL,now());
 CREATE TABLE public.finance_caixa_turnos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), caixa_id uuid, operador_id uuid,
   estado text, saldo_inicial numeric, aberto_em timestamptz DEFAULT now(),
