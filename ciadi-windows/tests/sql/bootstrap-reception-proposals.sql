@@ -20,6 +20,15 @@ $role_service$;
 
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS ciadi_ti;
+CREATE SCHEMA IF NOT EXISTS ciadi_reception;
+
+-- Queue counter is internal: only the owner SECURITY DEFINER arrival RPC uses it.
+CREATE TABLE ciadi_reception.front_desk_queue_counters (
+  polo_code text NOT NULL,
+  service_day date NOT NULL,
+  last_ticket_number integer NOT NULL CHECK (last_ticket_number > 0),
+  PRIMARY KEY (polo_code, service_day)
+);
 
 -- Minimal polo/procurement fixtures required by the scoped workspace triggers.
 CREATE TABLE ciadi_ti.purchase_requests (
