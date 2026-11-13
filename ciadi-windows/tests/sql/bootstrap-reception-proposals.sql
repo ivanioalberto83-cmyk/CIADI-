@@ -20,6 +20,25 @@ $role_service$;
 
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS ciadi_ti;
+CREATE SCHEMA IF NOT EXISTS ciadi_reception;
+
+-- Queue counter is internal: only the owner SECURITY DEFINER arrival RPC uses it.
+CREATE TABLE ciadi_reception.front_desk_queue_counters (
+  polo_code text NOT NULL,
+  service_day date NOT NULL,
+  last_ticket_number integer NOT NULL CHECK (last_ticket_number > 0),
+  PRIMARY KEY (polo_code, service_day)
+);
+
+-- SECURITY DEFINER stub matching the remote owner/contract for isolated privilege tests.
+CREATE OR REPLACE FUNCTION ciadi_reception.reception_register_arrival(
+  text, uuid, uuid, text, text, text, uuid
+)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = pg_catalog, ciadi_reception
+AS $stub$ SELECT '{}'::jsonb $stub$;
 
 -- Minimal polo/procurement fixtures required by the scoped workspace triggers.
 CREATE TABLE ciadi_ti.purchase_requests (
@@ -131,13 +150,36 @@ CREATE TABLE public.finance_series (
   empresa_id uuid,
   updated_at timestamptz
 );
-CREATE TABLE public.finance_caixas (id uuid, empresa_id uuid, estado text, polo_code text);
-CREATE TABLE public.finance_caixa_turnos (id uuid, caixa_id uuid, operador_id uuid, estado text);
+CREATE TABLE public.finance_caixas (
+  id uuid PRIMARY KEY, empresa_id uuid, estado text, polo_code text,
+  nome text, codigo text, saldo_abertura numeric, saldo_fechamento numeric,
+  saldo_atual numeric, aberto_em timestamptz, fechado_em timestamptz,
+  aberto_por uuid, fechado_por uuid, updated_at timestamptz
+);
+-- Registo fictício de homologação: reproduz a caixa CX001 auditada em produção.
+INSERT INTO public.finance_caixas (id,codigo,nome,empresa_id,estado,polo_code,updated_at)
+VALUES ('c1a00000-0000-4000-8000-000000000001','CX001','Caixa Principal',
+        'e1a00000-0000-4000-8000-000000000001','fechado',NULL,now());
+CREATE TABLE public.finance_caixa_turnos (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), caixa_id uuid, operador_id uuid,
+  estado text, saldo_inicial numeric, aberto_em timestamptz DEFAULT now(),
+  fechado_em timestamptz, saldo_esperado numeric, saldo_contado numeric,
+  diferenca numeric, justificacao_diferenca text
+);
 CREATE TABLE public.finance_movimentos_caixa (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   caixa_id uuid, tipo text, valor numeric, origem text, documento_id uuid,
   pagamento_id uuid, descricao text, turno_id uuid, operador_id uuid,
-  metodo_pagamento text, estado text
+  metodo_pagamento text, estado text, data_movimento timestamptz,
+  criado_por uuid, categoria text
 );
+CREATE TABLE public.finance_operadores (id uuid PRIMARY KEY, funcao text);
+CREATE TABLE public.finance_auditoria_operacoes (
+  operador_id uuid, caixa_id uuid, turno_id uuid, movimento_id uuid,
+  evento text, detalhe jsonb
+);
+CREATE OR REPLACE FUNCTION public.ciadi_tesouraria_saldo_turno(p_turno_id uuid)
+RETURNS numeric LANGUAGE sql STABLE AS $turn_cash_total$ SELECT null::numeric $turn_cash_total$;
 CREATE TABLE public.finance_auditoria_fiscal (
   documento_id uuid, evento text, estado_anterior text, estado_novo text,
   detalhe jsonb, utilizador_id uuid

@@ -43,13 +43,20 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = pg_catalog, public, ciadi_ti, auth
-as $$
+as $stock_workspace$
 declare
+  v_company_id uuid;
   v_result jsonb;
 begin
   if auth.uid() is null or not ciadi_ti.has_reception_operation_access(p_polo_code) then
     raise exception 'Sem autorização para consultar o stock deste polo.' using errcode = '42501';
   end if;
+
+  select e.id into v_company_id
+  from public.finance_empresas e
+  where e.ativo = true and e.empresa_principal = true
+  order by e.created_at
+  limit 1;
   if p_polo_code is null or p_polo_code not in ('talatona','jardim_de_rosas') then
     raise exception 'Polo CIADI inválido.' using errcode = '22023';
   end if;
@@ -203,7 +210,7 @@ begin
 
   return v_result;
 end;
-$$;
+$stock_workspace$;
 
 revoke all on function ciadi_ti.reception_get_stock_workspace(text) from public, anon;
 grant execute on function ciadi_ti.reception_get_stock_workspace(text) to authenticated;

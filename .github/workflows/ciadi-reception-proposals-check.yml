@@ -4,16 +4,18 @@ on:
   push:
     branches:
       - fix/ciadi-reception-payment-cashbox-20261112
+      - fix/ciadi-reception-security-gates-20261113
     paths:
       - 'supabase/proposals/ciadi-reception-*-proposal.sql'
-      - 'ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs'
+      - 'ciadi-windows/tests/reception-*.test.cjs'
       - 'ciadi-windows/tests/sql/**'
       - 'renderer/modules/reception-module.js'
       - '.github/workflows/ciadi-reception-proposals-check.yml'
   pull_request:
     paths:
       - 'supabase/proposals/ciadi-reception-*-proposal.sql'
-      - 'ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs'
+      - 'ciadi-windows/tests/reception-*.test.cjs'
+      - 'ciadi-windows/tests/sql/**'
       - 'renderer/modules/reception-module.js'
       - '.github/workflows/ciadi-reception-proposals-check.yml'
 
@@ -26,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -68,12 +70,14 @@ jobs:
       - name: Bootstrap isolated PostgreSQL fixture
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-reception-proposals.sql
 
-      - name: Compile all four proposals in isolated PostgreSQL
+      - name: Compile all six proposals in isolated PostgreSQL
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-security-hardening-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-cashbox-polo-guard-proposal.sql
 
       - name: Verify RPC registration and privilege boundaries in PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-proposals-compile.test.sql
@@ -81,7 +85,10 @@ jobs:
       - name: Run transactional stock, polo isolation and payment guard tests
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-transactional.test.sql
 
-      - name: Parse all four SQL proposals
+      - name: Run cashbox polo and shift ownership tests
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-cashbox-polo-guard.test.sql
+
+      - name: Parse all six SQL proposals
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -92,6 +99,8 @@ jobs:
               "ciadi-reception-finance-workspace-permissions-proposal.sql",
               "ciadi-reception-stock-read-workspace-proposal.sql",
               "ciadi-reception-stock-operations-permissions-proposal.sql",
+              "ciadi-reception-security-hardening-proposal.sql",
+              "ciadi-reception-cashbox-polo-guard-proposal.sql",
           ]
           for name in names:
               file = Path("supabase/proposals") / name
@@ -107,10 +116,12 @@ jobs:
             supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql \
             supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql \
             supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql \
-            supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql; do
+            supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql \
+            supabase/proposals/ciadi-reception-security-hardening-proposal.sql \
+            supabase/proposals/ciadi-reception-cashbox-polo-guard-proposal.sql; do
             grep -qi 'PROPOSTA APENAS' "$file" || {
               echo "Falta o marcador de protecção em $file"
               exit 1
             }
           done
-          echo "As quatro propostas continuam identificadas como propostas não aplicadas."
+          echo "As seis propostas continuam identificadas como propostas não aplicadas."
