@@ -3,6 +3,15 @@ DO $$
 DECLARE
   v_helper regprocedure;
 BEGIN
+  IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'ciadi_reception.front_desk_queue_counters'::regclass) THEN
+    RAISE EXCEPTION 'A tabela de contadores da fila tem de ter RLS activo';
+  END IF;
+  IF has_table_privilege('anon','ciadi_reception.front_desk_queue_counters','SELECT')
+     OR has_table_privilege('anon','ciadi_reception.front_desk_queue_counters','INSERT')
+     OR has_table_privilege('authenticated','ciadi_reception.front_desk_queue_counters','SELECT')
+     OR has_table_privilege('authenticated','ciadi_reception.front_desk_queue_counters','INSERT') THEN
+    RAISE EXCEPTION 'A tabela de contadores da fila não pode conceder acesso directo a anon/authenticated';
+  END IF;
   IF to_regprocedure('public.finance_registar_pagamento(uuid,numeric,text,text,text,text,uuid,text)') IS NULL THEN
     RAISE EXCEPTION 'RPC de pagamento não foi criada';
   END IF;
