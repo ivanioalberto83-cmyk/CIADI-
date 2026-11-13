@@ -150,13 +150,32 @@ CREATE TABLE public.finance_series (
   empresa_id uuid,
   updated_at timestamptz
 );
-CREATE TABLE public.finance_caixas (id uuid, empresa_id uuid, estado text, polo_code text);
-CREATE TABLE public.finance_caixa_turnos (id uuid, caixa_id uuid, operador_id uuid, estado text);
+CREATE TABLE public.finance_caixas (
+  id uuid PRIMARY KEY, empresa_id uuid, estado text, polo_code text,
+  nome text, codigo text, saldo_abertura numeric, saldo_fechamento numeric,
+  saldo_atual numeric, aberto_em timestamptz, fechado_em timestamptz,
+  aberto_por uuid, fechado_por uuid, updated_at timestamptz
+);
+CREATE TABLE public.finance_caixa_turnos (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), caixa_id uuid, operador_id uuid,
+  estado text, saldo_inicial numeric, aberto_em timestamptz DEFAULT now(),
+  fechado_em timestamptz, saldo_esperado numeric, saldo_contado numeric,
+  diferenca numeric, justificacao_diferenca text
+);
 CREATE TABLE public.finance_movimentos_caixa (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   caixa_id uuid, tipo text, valor numeric, origem text, documento_id uuid,
   pagamento_id uuid, descricao text, turno_id uuid, operador_id uuid,
-  metodo_pagamento text, estado text
+  metodo_pagamento text, estado text, data_movimento timestamptz,
+  criado_por uuid, categoria text
 );
+CREATE TABLE public.finance_operadores (id uuid PRIMARY KEY, funcao text);
+CREATE TABLE public.finance_auditoria_operacoes (
+  operador_id uuid, caixa_id uuid, turno_id uuid, movimento_id uuid,
+  evento text, detalhe jsonb
+);
+CREATE OR REPLACE FUNCTION public.ciadi_tesouraria_saldo_turno(p_turno_id uuid)
+RETURNS numeric LANGUAGE sql STABLE AS $turn_cash_total$ SELECT null::numeric $turn_cash_total$;
 CREATE TABLE public.finance_auditoria_fiscal (
   documento_id uuid, evento text, estado_anterior text, estado_novo text,
   detalhe jsonb, utilizador_id uuid
