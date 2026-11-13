@@ -64,3 +64,10 @@ test('novos pedidos de compra são criados com polo explícito', () => {
   assert.match(supportSource, /polo_code:poloCode/);
   assert.match(supportSource, /Seleccione um polo válido para o pedido de compra/);
 });
+
+test('workspace de stock resolve empresa antes de filtrar centros de custo', () => {
+  const sql = fs.readFileSync(sqlPath, 'utf8');
+  const workspace = sql.slice(sql.indexOf('create or replace function ciadi_ti.reception_get_stock_workspace'));
+  assert.match(workspace, /v_company_id uuid/i);
+  assert.match(workspace, /select e\.id into v_company_id[\s\S]*from public\.finance_empresas e[\s\S]*e\.ativo = true/i);
+});
