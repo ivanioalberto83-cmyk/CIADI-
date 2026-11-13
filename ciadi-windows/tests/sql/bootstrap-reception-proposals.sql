@@ -38,7 +38,7 @@ RETURNS jsonb
 LANGUAGE sql
 SECURITY DEFINER
 SET search_path = pg_catalog, ciadi_reception
-AS $ SELECT '{}'::jsonb $;
+AS $stub$ SELECT '{}'::jsonb $stub$;
 
 -- Minimal polo/procurement fixtures required by the scoped workspace triggers.
 CREATE TABLE ciadi_ti.purchase_requests (
