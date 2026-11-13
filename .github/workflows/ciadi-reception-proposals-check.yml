@@ -68,12 +68,13 @@ jobs:
       - name: Bootstrap isolated PostgreSQL fixture
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-reception-proposals.sql
 
-      - name: Compile all four proposals in isolated PostgreSQL
+      - name: Compile all five proposals in isolated PostgreSQL
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql
           psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-security-hardening-proposal.sql
 
       - name: Verify RPC registration and privilege boundaries in PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-proposals-compile.test.sql
@@ -81,7 +82,7 @@ jobs:
       - name: Run transactional stock, polo isolation and payment guard tests
         run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-transactional.test.sql
 
-      - name: Parse all four SQL proposals
+      - name: Parse all five SQL proposals
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -92,6 +93,7 @@ jobs:
               "ciadi-reception-finance-workspace-permissions-proposal.sql",
               "ciadi-reception-stock-read-workspace-proposal.sql",
               "ciadi-reception-stock-operations-permissions-proposal.sql",
+              "ciadi-reception-security-hardening-proposal.sql",
           ]
           for name in names:
               file = Path("supabase/proposals") / name
@@ -107,10 +109,11 @@ jobs:
             supabase/proposals/ciadi-reception-payment-cashbox-hardening-proposal.sql \
             supabase/proposals/ciadi-reception-finance-workspace-permissions-proposal.sql \
             supabase/proposals/ciadi-reception-stock-read-workspace-proposal.sql \
-            supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql; do
+            supabase/proposals/ciadi-reception-stock-operations-permissions-proposal.sql \
+            supabase/proposals/ciadi-reception-security-hardening-proposal.sql; do
             grep -qi 'PROPOSTA APENAS' "$file" || {
               echo "Falta o marcador de protecção em $file"
               exit 1
             }
           done
-          echo "As quatro propostas continuam identificadas como propostas não aplicadas."
+          echo "As cinco propostas continuam identificadas como propostas não aplicadas."
