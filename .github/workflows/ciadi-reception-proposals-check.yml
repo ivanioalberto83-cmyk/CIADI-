@@ -6,7 +6,7 @@ on:
       - fix/ciadi-reception-payment-cashbox-20261112
     paths:
       - 'supabase/proposals/ciadi-reception-*-proposal.sql'
-      - 'ciadi-windows/tests/reception-payment-cashbox-contract.test.cjs'
+      - 'ciadi-windows/tests/reception-*.test.cjs'
       - 'ciadi-windows/tests/sql/**'
       - 'renderer/modules/reception-module.js'
       - '.github/workflows/ciadi-reception-proposals-check.yml'
