@@ -30,6 +30,16 @@ CREATE TABLE ciadi_reception.front_desk_queue_counters (
   PRIMARY KEY (polo_code, service_day)
 );
 
+-- SECURITY DEFINER stub matching the remote owner/contract for isolated privilege tests.
+CREATE OR REPLACE FUNCTION ciadi_reception.reception_register_arrival(
+  text, uuid, uuid, text, text, text, uuid
+)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = pg_catalog, ciadi_reception
+AS $ SELECT '{}'::jsonb $;
+
 -- Minimal polo/procurement fixtures required by the scoped workspace triggers.
 CREATE TABLE ciadi_ti.purchase_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
