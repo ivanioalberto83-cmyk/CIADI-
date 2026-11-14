@@ -43,6 +43,7 @@ create table public.agendamentos (
   data_hora timestamptz not null,
   duracao_minutos integer not null default 45,
   tipo text not null default 'presencial',
+  modalidade text,
   estado text not null,
   checkin_em timestamptz,
   faltou_em timestamptz,
