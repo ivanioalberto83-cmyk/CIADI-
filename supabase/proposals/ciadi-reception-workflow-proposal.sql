@@ -124,7 +124,8 @@ create index if not exists visitor_entries_inside_idx
 create or replace function ciadi_reception.reception_search_appointments(
   p_search_term text,
   p_date_from date,
-  p_date_to date
+  p_date_to date,
+  p_polo_code text default null
 ) returns jsonb
 language plpgsql
 stable
@@ -143,8 +144,9 @@ begin
      or p_date_from is null
      or p_date_to is null
      or p_date_from > p_date_to
-     or p_date_to > p_date_from + 30 then
-    raise exception 'Critérios de pesquisa inválidos; o intervalo máximo é de 31 dias.' using errcode = '22023';
+     or p_date_to > p_date_from + 30
+     or (p_polo_code is not null and p_polo_code not in ('talatona', 'jardim_de_rosas')) then
+    raise exception 'Critérios de pesquisa inválidos; o intervalo máximo é de 31 dias e o polo deve ser válido.' using errcode = '22023';
   end if;
 
   select coalesce(jsonb_agg(q.item order by q.data_hora), '[]'::jsonb)
@@ -168,6 +170,7 @@ begin
       and a.data_hora < ((p_date_to + 1)::timestamp at time zone 'Africa/Luanda')
       and a.estado in ('agendada', 'confirmada')
       and a.checkin_em is null
+      and (p_polo_code is null or a.polo_code = p_polo_code)
       and (
         p.nome_completo ilike '%' || v_term || '%'
         or coalesce(p.codigo_paciente, '') ilike '%' || v_term || '%'
