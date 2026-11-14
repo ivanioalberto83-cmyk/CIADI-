@@ -1016,6 +1016,18 @@
         if (poloCode && !POLOS.includes(poloCode)) throw new Error('Polo inválido.');
         return call('reception_get_dashboard', { p_polo_code: poloCode || null });
       },
+      async getAttendanceMetrics({ dateFrom, dateTo, poloCode } = {}) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom || '') ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(dateTo || '') || dateFrom > dateTo) {
+          throw new Error('Período de indicadores inválido.');
+        }
+        if (poloCode && !POLOS.includes(poloCode)) throw new Error('Polo inválido.');
+        return call('reception_get_attendance_metrics', {
+          p_date_from: dateFrom,
+          p_date_to: dateTo,
+          p_polo_code: poloCode || null
+        });
+      },
       async getDestinations() {
         const rows = await call('reception_get_destinations', {});
         return Object.freeze((Array.isArray(rows) ? rows : []).filter(row =>
@@ -1105,6 +1117,44 @@
     return String(value ?? '').replace(/[&<>"']/g, char => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[char]));
+  }
+
+  function renderAttendanceMetricsPanel(snapshot = {}) {
+    const metrics = snapshot.data || null;
+    if (snapshot.error || !metrics) {
+      return '<section class="card p-5 space-y-2" data-reception-attendance-metrics>' +
+        '<h3 class="font-black text-lg">Pontualidade, atrasos e faltas</h3>' +
+        '<p class="text-sm text-amber-800">Indicadores ainda não disponíveis. A proposta SQL e as permissões de leitura continuam por homologar; a fila e os restantes serviços mantêm-se disponíveis.</p>' +
+        '</section>';
+    }
+    const summary = metrics.summary || {};
+    const cards = [
+      ['Marcações elegíveis', summary.scheduled || 0],
+      ['Dentro da tolerância', summary.within_tolerance || 0],
+      ['Chegadas atrasadas', summary.late || 0],
+      ['Minutos totais de atraso', summary.late_minutes_total || 0],
+      ['Possíveis faltas', summary.possible_no_show || 0],
+      ['Faltas confirmadas', summary.confirmed_no_show || 0]
+    ];
+    const polos = Array.isArray(metrics.by_polo) ? metrics.by_polo : [];
+    const timestamp = metrics.server_now
+      ? new Date(metrics.server_now).toLocaleString('pt-PT', { timeZone: 'Africa/Luanda' })
+      : 'Hora do servidor não indicada';
+    return '<section class="card p-5 space-y-4" data-reception-attendance-metrics>' +
+      '<div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="font-black text-lg">Pontualidade, atrasos e faltas</h3>' +
+      '<p class="text-xs text-slate-500">Tolerância: ' + APPOINTMENT_ATTENDANCE_TOLERANCE_MINUTES + ' minutos · cálculo pelo servidor · ' + esc(timestamp) + '</p></div>' +
+      '<span class="text-xs text-slate-500">Período: hoje · hora de Luanda</span></div>' +
+      '<div class="grid grid-cols-2 xl:grid-cols-3 gap-3">' +
+      cards.map(([label, value]) => '<article class="rounded-xl border p-3"><p class="text-xs text-slate-500">' + esc(label) + '</p><p class="text-2xl font-black mt-1">' + esc(value) + '</p></article>').join('') +
+      '</div>' +
+      '<div class="space-y-2"><h4 class="font-bold text-sm">Distribuição por polo</h4>' +
+      (polos.length ? '<div class="grid md:grid-cols-3 gap-2">' + polos.map(row =>
+        '<article class="rounded-xl bg-slate-50 border p-3"><strong>' + esc(row.polo_label || row.polo_code || 'Polo não definido') + '</strong>' +
+        '<p class="text-xs text-slate-600 mt-1">Atrasos: ' + esc(row.late || 0) + ' · Faltas possíveis: ' + esc(row.possible_no_show || 0) +
+        ' · Confirmadas: ' + esc(row.confirmed_no_show || 0) + '</p></article>'
+      ).join('') + '</div>' : '<p class="text-sm text-slate-500">Sem marcações no período.</p>') +
+      '<p class="text-xs text-slate-500">Cancelamentos, reagendamentos e pedidos rejeitados não entram na contagem de faltas. Uma possível falta permanece pendente até confirmação.</p>' +
+      '</div></section>';
   }
 
   function renderBusinessPanel(snapshot = {}) {
@@ -1367,6 +1417,7 @@
               ['Tempo médio de espera', (summary.averageWaitMinutes || 0) + ' min']
             ].map(([label, value]) => `<article class="card p-4"><p class="text-sm text-slate-500">${label}</p><p class="text-2xl font-black mt-1">${esc(value)}</p></article>`).join('')}
           </div>
+          ${renderAttendanceMetricsPanel({ data: data.attendance, error: data.attendanceError })}
           ${renderBusinessPanel(businessSnapshot)}
           ${renderReceptionStockOperationsPanel({
             items: businessSnapshot.stockItems?.rows,
@@ -1572,11 +1623,15 @@
 
     async function refresh() {
       if (!repository) repository = createReceptionRepository({ supabase });
-      const [nextDashboard, nextDestinations] = await Promise.all([
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Luanda' });
+      const [nextDashboard, nextDestinations, attendanceResult] = await Promise.all([
         repository.getDashboard(activePolo),
-        repository.getDestinations()
+        repository.getDestinations(),
+        repository.getAttendanceMetrics({ dateFrom: today, dateTo: today, poloCode: activePolo })
+          .then(data => ({ data, error: null }))
+          .catch(error => ({ data: null, error }))
       ]);
-      dashboard = nextDashboard;
+      dashboard = { ...nextDashboard, attendance: attendanceResult.data, attendanceError: attendanceResult.error };
       destinations = nextDestinations;
       await loadBusinessSnapshot();
       renderDashboard();
