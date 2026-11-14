@@ -1,0 +1,67 @@
+name: CIADI Reception Attendance Metrics SQL Homologation
+
+on:
+  push:
+    branches:
+      - feature/ciadi-reception-attendance-metrics-20261114
+    paths:
+      - 'renderer/modules/reception-module.js'
+      - 'supabase/proposals/ciadi-reception-workflow-proposal.sql'
+      - 'ciadi-windows/tests/reception-attendance-*.test.cjs'
+      - 'ciadi-windows/tests/sql/bootstrap-reception-attendance.sql'
+      - 'ciadi-windows/tests/sql/reception-attendance-metrics.test.sql'
+      - '.github/workflows/ciadi-reception-attendance-sql.yml'
+  pull_request:
+    paths:
+      - 'renderer/modules/reception-module.js'
+      - 'supabase/proposals/ciadi-reception-workflow-proposal.sql'
+      - 'ciadi-windows/tests/reception-attendance-*.test.cjs'
+      - 'ciadi-windows/tests/sql/bootstrap-reception-attendance.sql'
+      - 'ciadi-windows/tests/sql/reception-attendance-metrics.test.sql'
+      - '.github/workflows/ciadi-reception-attendance-sql.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  attendance-metrics:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ciadi_reception_attendance_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ciadi_reception_attendance_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: ciadi_reception_attendance_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify Reception module syntax
+        run: node --check renderer/modules/reception-module.js
+      - name: Run focused attendance contracts
+        run: node --test ciadi-windows/tests/reception-attendance-*.test.cjs
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Bootstrap isolated appointment schema
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-reception-attendance.sql
+      - name: Apply Reception workflow proposal only to ephemeral PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-reception-workflow-proposal.sql
+      - name: Verify 20-minute rule, polo buckets, exclusions and privacy
+        run: psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/reception-attendance-metrics.test.sql
