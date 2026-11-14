@@ -251,7 +251,7 @@ for(const [motorId,titles] of GROUPS){
    description:title+' do motor '+motor.title+'.',
    dataSources:Object.freeze(sourceFor(motor)),
    formProfile:outputKind==='document'?motorId:'report',
-   formFields:motorId==='procurement'?PROCUREMENT_FORM_FIELDS[title]:null,
+   formFields:motorId==='procurement'?PROCUREMENT_FORM_FIELDS[title]:operationalFields(title),
    lifecycle:outputKind==='document'?Object.freeze(['draft','submitted','validated','approved','issued','archived','cancelled']):Object.freeze(['available','generated','archived']),
    requiresServerNumber:outputKind==='document',
    immutableAfterIssue:outputKind==='document',
