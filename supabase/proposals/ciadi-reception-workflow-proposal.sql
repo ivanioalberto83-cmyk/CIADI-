@@ -618,6 +618,143 @@ begin
 end;
 $$;
 
+-- Indicadores de pontualidade e assiduidade das marcações existentes.
+-- Devolve apenas agregados, sem nomes ou dados clínicos. A possível falta é calculada
+-- dinamicamente com a hora do servidor; esta função não altera o estado da marcação.
+create or replace function ciadi_reception.reception_get_attendance_metrics(
+  p_date_from date,
+  p_date_to date,
+  p_polo_code text default null
+) returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = pg_catalog, ciadi_reception, public, auth
+as $attendance$
+declare
+  v_server_now timestamptz := now();
+  v_result jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Sessão autenticada necessária.' using errcode = '42501';
+  end if;
+  if p_date_from is null or p_date_to is null
+     or p_date_from > p_date_to
+     or p_date_to > p_date_from + 365 then
+    raise exception 'Período inválido; o intervalo máximo é de 366 dias.' using errcode = '22023';
+  end if;
+  if p_polo_code is not null
+     and p_polo_code not in ('talatona', 'jardim_de_rosas') then
+    raise exception 'Polo inválido.' using errcode = '22023';
+  end if;
+
+  with base as (
+    select
+      a.data_hora,
+      a.checkin_em,
+      a.estado,
+      a.polo_code,
+      (timezone('Africa/Luanda', a.data_hora))::date as service_day
+    from public.agendamentos a
+    where a.data_hora >= (p_date_from::timestamp at time zone 'Africa/Luanda')
+      and a.data_hora < ((p_date_to + 1)::timestamp at time zone 'Africa/Luanda')
+      and (p_polo_code is null or a.polo_code = p_polo_code)
+  ),
+  classified as (
+    select *,
+      case
+        when estado in ('solicitada', 'cancelada', 'reagendada', 'rejeitada') then 'excluded'
+        when estado = 'faltou' then 'confirmed_no_show'
+        when checkin_em is not null
+          and checkin_em > data_hora + interval '20 minutes' then 'late'
+        when checkin_em is not null then 'within_tolerance'
+        when estado in ('check-in', 'em_atendimento', 'concluida') then 'inconsistent_data'
+        when estado in ('agendada', 'confirmada')
+          and v_server_now > data_hora + interval '20 minutes' then 'possible_no_show'
+        when estado in ('agendada', 'confirmada') then 'within_tolerance'
+        else 'excluded'
+      end as attendance_classification,
+      case
+        when checkin_em is not null
+          and checkin_em > data_hora + interval '20 minutes'
+        then greatest(1, ceil(extract(epoch from (checkin_em - data_hora)) / 60)::integer)
+        else 0
+      end as lateness_minutes
+    from base
+  ),
+  summary as (
+    select
+      count(*) filter (where attendance_classification <> 'excluded')::integer as scheduled,
+      count(*) filter (where attendance_classification = 'within_tolerance')::integer as within_tolerance,
+      count(*) filter (where attendance_classification = 'late')::integer as late,
+      coalesce(sum(lateness_minutes) filter (where attendance_classification = 'late'), 0)::integer as late_minutes_total,
+      count(*) filter (where attendance_classification = 'possible_no_show')::integer as possible_no_show,
+      count(*) filter (where attendance_classification = 'confirmed_no_show')::integer as confirmed_no_show,
+      count(*) filter (where attendance_classification = 'inconsistent_data')::integer as inconsistent_data,
+      count(*) filter (where attendance_classification = 'excluded')::integer as excluded
+    from classified
+  ),
+  by_polo as (
+    select
+      polo_code,
+      count(*) filter (where attendance_classification <> 'excluded')::integer as scheduled,
+      count(*) filter (where attendance_classification = 'within_tolerance')::integer as within_tolerance,
+      count(*) filter (where attendance_classification = 'late')::integer as late,
+      coalesce(sum(lateness_minutes) filter (where attendance_classification = 'late'), 0)::integer as late_minutes_total,
+      count(*) filter (where attendance_classification = 'possible_no_show')::integer as possible_no_show,
+      count(*) filter (where attendance_classification = 'confirmed_no_show')::integer as confirmed_no_show
+    from classified
+    group by polo_code
+  ),
+  by_day as (
+    select
+      service_day,
+      count(*) filter (where attendance_classification <> 'excluded')::integer as scheduled,
+      count(*) filter (where attendance_classification = 'late')::integer as late,
+      coalesce(sum(lateness_minutes) filter (where attendance_classification = 'late'), 0)::integer as late_minutes_total,
+      count(*) filter (where attendance_classification = 'possible_no_show')::integer as possible_no_show,
+      count(*) filter (where attendance_classification = 'confirmed_no_show')::integer as confirmed_no_show
+    from classified
+    group by service_day
+  )
+  select jsonb_build_object(
+    'server_now', v_server_now,
+    'tolerance_minutes', 20,
+    'summary', (select to_jsonb(s) from summary s),
+    'by_polo', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'polo_code', p.polo_code,
+        'polo_label', case
+          when p.polo_code = 'talatona' then 'Talatona'
+          when p.polo_code = 'jardim_de_rosas' then 'Jardim de Rosas'
+          else 'Polo não definido'
+        end,
+        'scheduled', p.scheduled,
+        'within_tolerance', p.within_tolerance,
+        'late', p.late,
+        'late_minutes_total', p.late_minutes_total,
+        'possible_no_show', p.possible_no_show,
+        'confirmed_no_show', p.confirmed_no_show
+      ) order by p.polo_code nulls last)
+      from by_polo p
+    ), '[]'::jsonb),
+    'daily', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'date', d.service_day,
+        'scheduled', d.scheduled,
+        'late', d.late,
+        'late_minutes_total', d.late_minutes_total,
+        'possible_no_show', d.possible_no_show,
+        'confirmed_no_show', d.confirmed_no_show
+      ) order by d.service_day)
+      from by_day d
+    ), '[]'::jsonb)
+  ) into v_result;
+
+  return v_result;
+end;
+$attendance$;
+
 alter table ciadi_reception.front_desk_visits enable row level security;
 alter table ciadi_reception.front_desk_visit_events enable row level security;
 alter table ciadi_reception.visitor_entries enable row level security;
