@@ -17,7 +17,7 @@ test('attendance metrics proposal calculates delay and possible absence with ser
 test('attendance metrics proposal is read-only, authenticated and has no remote grants', () => {
   const start = sql.toLowerCase().indexOf('function ciadi_reception.reception_get_attendance_metrics');
   assert.notEqual(start, -1);
-  const end = sql.indexOf('$$;', start);
+  const end = sql.indexOf('$attendance$;', start);
   assert.notEqual(end, -1);
   const body = sql.slice(start, end + 3).toLowerCase();
   assert.match(body, /security invoker/);
