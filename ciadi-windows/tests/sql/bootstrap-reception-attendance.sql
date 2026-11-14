@@ -12,6 +12,9 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END
 $;
 
+CREATE ROLE anon NOLOGIN;
+CREATE ROLE authenticated NOLOGIN;
+
 create schema if not exists auth;
 create schema if not exists public;
 
