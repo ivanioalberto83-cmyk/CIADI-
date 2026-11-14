@@ -165,7 +165,7 @@ test('cria formulários reutilizáveis para todos os tipos documentais não-dash
       ? engine.TEMPLATES.find(item=>item.code===definition.legacyTemplateCode)
       : null;
     const template=engine.createCatalogTemplate(definition,legacy);
-    assert.equal(engine.validateTemplate(template).valid,true,definition.code);
+    assert.equal(engine.validateTemplate(template).valid,true,definition.code+': '+engine.validateTemplate(template).errors.join(' | '));
     assert.equal(template.code,definition.code);
     assert.equal(template.title,definition.title);
     assert.ok(template.fields.length>0);
