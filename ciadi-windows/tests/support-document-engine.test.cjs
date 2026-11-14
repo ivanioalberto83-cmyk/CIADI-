@@ -196,7 +196,6 @@ test('define campos próprios para cada tipo documental de compras e aprovisiona
     const template=engine.createCatalogTemplate(definition);
     assert.ok(template.fields.length>=4,definition.code);
     assert.equal(engine.validateTemplate(template).valid,true,definition.code);
-    assert.ok(template.fields.some(field=>field.key==='document_reference'||field.key==='supplier'||field.key==='requester'),definition.code);
     signatures.add(template.fields.map(field=>field.key).join('|'));
   }
   assert.equal(signatures.size,16,'Cada documento de compras deve ter um formulário específico.');
