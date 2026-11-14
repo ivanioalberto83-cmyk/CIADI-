@@ -529,10 +529,10 @@
 
     if (['agendada', 'confirmada'].includes(status)) {
       const deadline = scheduledAt + APPOINTMENT_ATTENDANCE_TOLERANCE_MINUTES * 60000;
-      return Object.freeze({
-        classification: now > deadline ? 'possible_no_show' : 'within_tolerance',
-        latenessMinutes: 0
-      });
+      const classification = now < scheduledAt
+        ? 'upcoming'
+        : now > deadline ? 'possible_no_show' : 'within_tolerance';
+      return Object.freeze({ classification, latenessMinutes: 0 });
     }
 
     return Object.freeze({ classification: 'excluded', latenessMinutes: 0 });
@@ -1130,6 +1130,7 @@
     const summary = metrics.summary || {};
     const cards = [
       ['Marcações elegíveis', summary.scheduled || 0],
+      ['Agendamentos futuros', summary.upcoming || 0],
       ['Dentro da tolerância', summary.within_tolerance || 0],
       ['Chegadas atrasadas', summary.late || 0],
       ['Minutos totais de atraso', summary.late_minutes_total || 0],
