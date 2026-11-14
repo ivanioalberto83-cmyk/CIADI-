@@ -673,6 +673,8 @@ begin
         when checkin_em is not null then 'within_tolerance'
         when estado in ('check-in', 'em_atendimento', 'concluida') then 'inconsistent_data'
         when estado in ('agendada', 'confirmada')
+          and v_server_now < data_hora then 'upcoming'
+        when estado in ('agendada', 'confirmada')
           and v_server_now > data_hora + interval '20 minutes' then 'possible_no_show'
         when estado in ('agendada', 'confirmada') then 'within_tolerance'
         else 'excluded'
@@ -688,7 +690,10 @@ begin
   summary as (
     select
       count(*) filter (where attendance_classification <> 'excluded')::integer as scheduled,
+      count(*) filter (where attendance_classification = 'upcoming')::integer as upcoming,
+      count(*) filter (where attendance_classification = 'upcoming')::integer as upcoming,
       count(*) filter (where attendance_classification = 'within_tolerance')::integer as within_tolerance,
+      count(*) filter (where attendance_classification = 'upcoming')::integer as upcoming,
       count(*) filter (where attendance_classification = 'late')::integer as late,
       coalesce(sum(lateness_minutes) filter (where attendance_classification = 'late'), 0)::integer as late_minutes_total,
       count(*) filter (where attendance_classification = 'possible_no_show')::integer as possible_no_show,
@@ -733,6 +738,7 @@ begin
           else 'Polo não definido'
         end,
         'scheduled', p.scheduled,
+        'upcoming', p.upcoming,
         'within_tolerance', p.within_tolerance,
         'late', p.late,
         'late_minutes_total', p.late_minutes_total,
@@ -745,6 +751,7 @@ begin
       select jsonb_agg(jsonb_build_object(
         'date', d.service_day,
         'scheduled', d.scheduled,
+        'upcoming', d.upcoming,
         'late', d.late,
         'late_minutes_total', d.late_minutes_total,
         'possible_no_show', d.possible_no_show,
