@@ -113,3 +113,13 @@ test('attendance metrics reject invalid date ranges and unknown polos before RPC
   );
   assert.equal(calls, 0);
 });
+
+test('keeps future appointments separate from the 20-minute grace period', () => {
+  const result = reception.classifyAppointmentAttendance({
+    data_hora: '2026-11-14T09:00:00.000Z',
+    checkin_em: null,
+    estado: 'confirmada'
+  }, '2026-11-14T08:59:59.000Z');
+
+  assert.equal(result.classification, 'upcoming');
+});
