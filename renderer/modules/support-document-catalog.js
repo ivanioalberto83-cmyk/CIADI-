@@ -52,6 +52,95 @@ const LEGACY_TEMPLATES=Object.freeze({
  'Acta de verificação técnica':'SUP-HOM',
  'Relatório de intervenção':'SUP-REL'
 });
+
+const pf=(key,label,type='text',required=true,options=[])=>Object.freeze({key,label,type,required,options:Object.freeze(options)});
+const PROCUREMENT_FORM_FIELDS=Object.freeze({
+ 'Pedido de aquisição':[
+  pf('requester','Unidade requisitante'),pf('department','Departamento'),pf('destination','Polo de destino'),
+  pf('need_description','Necessidade a satisfazer','textarea'),pf('estimated_value','Valor estimado (Kz)','number'),
+  pf('required_date','Data pretendida','date'),pf('justification','Fundamentação','textarea'),pf('priority','Prioridade','select',true,['Normal','Alta','Urgente'])
+ ],
+ 'Requisição interna de compra':[
+  pf('requester','Requisitante'),pf('cost_center','Centro de custo'),pf('item_code','Código do artigo','text',false),
+  pf('item_description','Descrição do artigo','textarea'),pf('quantity','Quantidade','number'),pf('unit','Unidade de medida'),
+  pf('required_date','Data necessária','date'),pf('purpose','Finalidade','textarea')
+ ],
+ 'Pedido de cotação':[
+  pf('quotation_reference','Referência do pedido'),pf('supplier_candidates','Fornecedores convidados','textarea'),
+  pf('scope','Objecto da cotação','textarea'),pf('quantity','Quantidade','number'),pf('submission_deadline','Prazo de entrega das propostas','date'),
+  pf('delivery_location','Local de entrega'),pf('commercial_conditions','Condições comerciais pretendidas','textarea')
+ ],
+ 'Mapa comparativo de propostas':[
+  pf('quotation_reference','Referência da cotação'),pf('supplier_a','Fornecedor A'),pf('price_a','Preço A (Kz)','number'),
+  pf('supplier_b','Fornecedor B'),pf('price_b','Preço B (Kz)','number'),pf('supplier_c','Fornecedor C','text',false),
+  pf('price_c','Preço C (Kz)','number',false),pf('technical_comparison','Comparação técnica','textarea'),pf('recommended_supplier','Fornecedor recomendado')
+ ],
+ 'Parecer técnico de aquisição':[
+  pf('request_reference','Referência da requisição'),pf('technical_requirements','Requisitos técnicos','textarea'),
+  pf('compliance_analysis','Análise de conformidade','textarea'),pf('alternatives','Alternativas avaliadas','textarea',false),
+  pf('technical_recommendation','Recomendação técnica','textarea'),pf('reviewer','Responsável pelo parecer'),pf('review_date','Data do parecer','date')
+ ],
+ 'Autorização de compra':[
+  pf('purchase_request','Pedido de compra'),pf('approved_supplier','Fornecedor proposto'),pf('approved_amount','Montante autorizado (Kz)','number'),
+  pf('budget_reference','Referência orçamental'),pf('approval_conditions','Condições da autorização','textarea',false),
+  pf('authorization_date','Data da autorização','date'),pf('authorization_reference','Referência da autorização')
+ ],
+ 'Ordem de compra':[
+  pf('purchase_order_number','Número da ordem'),pf('supplier','Fornecedor'),pf('supplier_tax_id','NIF do fornecedor'),
+  pf('delivery_address','Morada de entrega','textarea'),pf('order_lines','Artigos, quantidades e preços','textarea'),
+  pf('total_amount','Valor total (Kz)','number'),pf('delivery_deadline','Prazo de entrega','date'),pf('payment_terms','Condições de pagamento','textarea')
+ ],
+ 'Nota de encomenda':[
+  pf('order_reference','Referência da encomenda'),pf('supplier','Fornecedor'),pf('supplier_contact','Contacto do fornecedor'),
+  pf('ordered_items','Descrição dos bens/serviços','textarea'),pf('net_amount','Valor líquido (Kz)','number'),
+  pf('tax_amount','Impostos (Kz)','number'),pf('gross_amount','Total (Kz)','number'),pf('expected_delivery','Entrega prevista','date')
+ ],
+ 'Ficha de fornecedor':[
+  pf('legal_name','Denominação social'),pf('tax_id','NIF'),pf('commercial_registration','Registo comercial','text',false),
+  pf('address','Endereço','textarea'),pf('contact_person','Pessoa de contacto'),pf('phone','Telefone'),pf('email','Correio electrónico','text',false),
+  pf('bank_details','Dados bancários','textarea',false),pf('supplied_categories','Categorias fornecidas','textarea')
+ ],
+ 'Contrato de fornecimento':[
+  pf('contract_reference','Referência do contrato'),pf('supplier_legal_name','Denominação do fornecedor'),pf('supplier_tax_id','NIF'),
+  pf('contract_object','Objecto do contrato','textarea'),pf('contract_value','Valor contratual (Kz)','number'),
+  pf('start_date','Início de vigência','date'),pf('end_date','Fim de vigência','date'),pf('obligations','Obrigações e condições','textarea')
+ ],
+ 'Guia de remessa':[
+  pf('delivery_note_number','Número da guia'),pf('supplier','Fornecedor'),pf('purchase_order','Ordem de compra'),
+  pf('dispatch_date','Data de expedição','date'),pf('transport_reference','Referência de transporte','text',false),
+  pf('packages','Volumes/embalagens','number'),pf('goods_description','Descrição dos bens','textarea'),pf('destination','Destino')
+ ],
+ 'Nota de recepção de mercadorias':[
+  pf('goods_receipt_reference','Referência da recepção'),pf('supplier','Fornecedor'),pf('purchase_order','Ordem de compra'),
+  pf('delivery_note','Guia de remessa'),pf('received_date','Data de recepção','date'),pf('received_by','Recebido por'),
+  pf('received_quantities','Quantidades recebidas por artigo','textarea'),pf('warehouse','Armazém de entrada')
+ ],
+ 'Auto de conferência da entrega':[
+  pf('inspection_reference','Referência do auto'),pf('goods_receipt','Nota de recepção'),pf('inspection_date','Data da conferência','date'),
+  pf('inspected_items','Artigos conferidos','textarea'),pf('accepted_quantity','Quantidade aceite','number'),
+  pf('damaged_quantity','Quantidade danificada','number'),pf('rejected_quantity','Quantidade rejeitada','number'),
+  pf('inspection_result','Resultado da conferência','select',true,['Conforme','Conforme com reservas','Não conforme'])
+ ],
+ 'Relatório de divergência de fornecimento':[
+  pf('discrepancy_reference','Referência da divergência'),pf('supplier','Fornecedor'),pf('purchase_order','Ordem de compra'),
+  pf('expected_delivery','Entrega esperada','textarea'),pf('actual_delivery','Entrega verificada','textarea'),
+  pf('discrepancy_type','Tipo de divergência','select',true,['Falta','Excesso','Dano','Qualidade','Atraso','Outro']),
+  pf('impact','Impacto operacional','textarea'),pf('corrective_action','Acção correctiva proposta','textarea')
+ ],
+ 'Nota de devolução ao fornecedor':[
+  pf('return_reference','Referência da devolução'),pf('supplier','Fornecedor'),pf('original_receipt','Recepção original'),
+  pf('return_date','Data da devolução','date'),pf('returned_items','Artigos e quantidades devolvidas','textarea'),
+  pf('return_reason','Motivo da devolução','textarea'),pf('transport_reference','Referência de transporte','text',false),
+  pf('supplier_acknowledgement','Comprovativo de recepção do fornecedor','text',false)
+ ],
+ 'Relatório de compras':[
+  pf('report_period','Período do relatório'),pf('purchase_count','Número de compras','number'),
+  pf('total_committed','Valor total comprometido (Kz)','number'),pf('supplier_breakdown','Compras por fornecedor','textarea'),
+  pf('category_breakdown','Compras por categoria','textarea'),pf('delivery_performance','Desempenho das entregas','textarea'),
+  pf('variances','Divergências e desvios','textarea'),pf('conclusions','Conclusões e recomendações','textarea')
+ ]
+});
+
 const sourceFor=m=>m.sources;
 const documents=[];
 for(const [motorId,titles] of GROUPS){
@@ -65,6 +154,7 @@ for(const [motorId,titles] of GROUPS){
    description:title+' do motor '+motor.title+'.',
    dataSources:Object.freeze(sourceFor(motor)),
    formProfile:outputKind==='document'?motorId:'report',
+   formFields:motorId==='procurement'?PROCUREMENT_FORM_FIELDS[title]:null,
    lifecycle:outputKind==='document'?Object.freeze(['draft','submitted','validated','approved','issued','archived','cancelled']):Object.freeze(['available','generated','archived']),
    requiresServerNumber:outputKind==='document',
    immutableAfterIssue:outputKind==='document',
