@@ -28,6 +28,19 @@ function summarizeTickets(rows=[]){
  }
  return Object.freeze(result);
 }
+function describeSla(row={},now=Date.now()){
+ const status=clean(row.status,40);
+ const raw=row.sla_due_at;
+ if(['resolved','closed'].includes(status))return Object.freeze({state:'completed',label:'Concluído',dueAt:raw||null});
+ if(!raw)return Object.freeze({state:'undefined',label:'Prazo não definido',dueAt:null});
+ const due=Date.parse(raw);
+ if(!Number.isFinite(due))return Object.freeze({state:'undefined',label:'Prazo inválido',dueAt:null});
+ const current=now instanceof Date?now.getTime():Number(now);
+ if(!Number.isFinite(current))return Object.freeze({state:'undefined',label:'Prazo não validado',dueAt:null});
+ return due<current
+  ?Object.freeze({state:'overdue',label:'Em atraso',dueAt:new Date(due).toISOString()})
+  :Object.freeze({state:'within',label:'Dentro do prazo',dueAt:new Date(due).toISOString()});
+}
 function createRepository({supabase}={}){
  const db=supabase?.schema?.('ciadi_ti');
  if(!db)throw new Error('O schema ciadi_ti não está disponível nesta sessão.');
@@ -58,10 +71,13 @@ function create({root,supabase,notify=()=>{},onBack=()=>{}}={}){
   const ticket=tickets.find(x=>String(x.id)===String(ticketId));if(!ticket)return render();
   let events=[];let eventError=null;try{events=await repo.events(ticketId);}catch(e){eventError=e;}
   const auth=await supabase.auth?.getUser?.();const actor=auth?.data?.user?.id||'';
+  const sla=describeSla(ticket);
+  const slaDate=sla.dueAt?new Date(sla.dueAt).toLocaleString('pt-PT'):'';
   root.innerHTML=`<section class="card p-5">
    <div class="flex justify-between gap-3"><div><small class="text-orange font-bold">${esc(ticket.ticket_number||ticket.id)}</small><h2 class="text-xl font-black">${esc(ticket.title)}</h2></div><button id="hd-detail-back" class="border rounded-lg px-3 py-1">Voltar</button></div>
    <p class="text-sm text-slate-600 mt-3">${esc(ticket.description)}</p>
    <div class="grid sm:grid-cols-3 gap-3 mt-4 text-sm"><div><b>Estado</b><div>${esc(LABELS[ticket.status]||ticket.status)}</div></div><div><b>Prioridade</b><div>${esc(LABELS[ticket.priority]||ticket.priority)}</div></div><div><b>Localização</b><div>${esc(ticket.location)}</div></div></div>
+   <div class="mt-4 rounded-xl border p-3 text-sm"><b>Prazo de resposta / resolução (SLA)</b><div class="font-bold mt-1">${esc(sla.label)}</div>${slaDate?'<small class="text-slate-500">Prazo registado: '+esc(slaDate)+'</small>':'<small class="text-slate-500">O prazo ainda não foi definido pela política institucional.</small>'}</div>
    <div class="grid md:grid-cols-2 gap-3 mt-6">
     <form id="hd-assign-form" class="border rounded-xl p-3"><h3 class="font-black mb-2">Atribuir técnico</h3><label class="text-sm">ID do técnico<input name="assignedTo" required maxlength="128" value="${esc(ticket.assigned_to||'')}" class="block w-full border rounded-lg p-2 mt-1"></label><button class="bg-orange text-white rounded-lg px-3 py-2 mt-3" type="submit">Guardar atribuição</button></form>
     <form id="hd-status-form" class="border rounded-xl p-3"><h3 class="font-black mb-2">Actualizar estado</h3><label class="text-sm">Estado<select name="status" class="block w-full border rounded-lg p-2 mt-1">${STATUSES.map(s=>'<option value="'+s+'" '+(s===ticket.status?'selected':'')+'>'+esc(LABELS[s]||s)+'</option>').join('')}</select></label><button class="bg-orange text-white rounded-lg px-3 py-2 mt-3" type="submit">Actualizar estado</button></form>
