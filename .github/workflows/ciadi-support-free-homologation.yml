@@ -1,0 +1,97 @@
+name: CIADI Suporte — homologação gratuita integrada
+
+on:
+  push:
+    branches:
+      - feature/ciadi-helpdesk-lifecycle-20261108
+    paths:
+      - 'renderer/**'
+      - 'ciadi-windows/**'
+      - 'supabase/proposals/**'
+      - 'supabase/tests/**'
+      - 'supabase/functions/**'
+      - '.github/workflows/ciadi-support-free-homologation.yml'
+  pull_request:
+    paths:
+      - 'renderer/**'
+      - 'ciadi-windows/**'
+      - 'supabase/proposals/**'
+      - 'supabase/tests/**'
+      - 'supabase/functions/**'
+      - '.github/workflows/ciadi-support-free-homologation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-homologation:
+    name: PostgreSQL 16 + módulos + Edge Functions (sem produção)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ciadi_test_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: ciadi_test_only
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Criar bases descartáveis separadas
+        run: |
+          psql -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE ciadi_helpdesk_test"
+          psql -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE ciadi_inventory_test"
+          psql -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE ciadi_documents_test"
+
+      - name: Homologar Helpdesk em PostgreSQL isolado
+        env:
+          PGDATABASE: ciadi_helpdesk_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-helpdesk.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-helpdesk-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/helpdesk-proposal.test.sql
+
+      - name: Homologar inventário e recepção em PostgreSQL isolado
+        env:
+          PGDATABASE: ciadi_inventory_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/bootstrap-inventory-lifecycle.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-inventory-lifecycle-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f ciadi-windows/tests/sql/inventory-lifecycle-proposal.test.sql
+
+      - name: Homologar emissão documental em PostgreSQL isolado
+        env:
+          PGDATABASE: ciadi_documents_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/ciadi-ti-postgres-fixture.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/proposals/ciadi-ti-document-engine-proposal.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/ciadi-ti-document-engine.integration.sql
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Executar testes de módulos, PDF e arquitectura
+        run: node --test ciadi-windows/tests/*.test.cjs
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.8
+
+      - name: Verificar tipos das Edge Functions
+        run: deno check --frozen --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/ciadi-ti-prepare-document/index.ts supabase/functions/ciadi-ti-issue-document/index.ts supabase/functions/ciadi-ti-verify-document/index.ts supabase/functions/_shared/document.test.ts
+
+      - name: Executar testes das Edge Functions
+        run: deno test --frozen --lock=supabase/functions/deno.lock --config supabase/functions/deno.json supabase/functions/_shared/document.test.ts
