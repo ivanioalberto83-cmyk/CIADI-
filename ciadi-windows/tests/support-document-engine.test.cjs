@@ -186,3 +186,18 @@ test('rascunho de modelo do catálogo guarda o código institucional do tipo doc
   assert.equal(draft.document.templateCode,'SUP-COM-001');
   assert.equal(draft.document.title,definition.title);
 });
+
+test('define campos próprios para cada tipo documental de compras e aprovisionamento',()=>{
+  const catalog=require('../../renderer/modules/support-document-catalog.js');
+  const definitions=catalog.getDocumentsByMotor('procurement');
+  assert.equal(definitions.length,16);
+  const signatures=new Set();
+  for(const definition of definitions){
+    const template=engine.createCatalogTemplate(definition);
+    assert.ok(template.fields.length>=4,definition.code);
+    assert.equal(engine.validateTemplate(template).valid,true,definition.code);
+    assert.ok(template.fields.some(field=>field.key==='document_reference'||field.key==='supplier'||field.key==='requester'),definition.code);
+    signatures.add(template.fields.map(field=>field.key).join('|'));
+  }
+  assert.equal(signatures.size,16,'Cada documento de compras deve ter um formulário específico.');
+});
