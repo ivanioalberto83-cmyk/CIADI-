@@ -34,3 +34,13 @@ test('proposta SQL concede privilégios mínimos ao schema e às tabelas do Help
  assert.match(sql,/grant select,\s*insert on ciadi_ti\.helpdesk_ticket_events to authenticated/i);
  assert.doesNotMatch(sql,/grant\s+[^;]*delete\s+on\s+ciadi_ti\.helpdesk_(tickets|ticket_events)\s+to\s+authenticated/i);
 });
+
+test('apresenta o prazo SLA sem inventar prazos ausentes e respeita estados finais',()=>{
+ const now=Date.parse('2026-11-15T09:00:00Z');
+ assert.deepEqual(hd.describeSla({status:'open'},now),{state:'undefined',label:'Prazo não definido',dueAt:null});
+ assert.equal(hd.describeSla({status:'open',sla_due_at:'2026-11-15T08:00:00Z'},now).state,'overdue');
+ assert.equal(hd.describeSla({status:'in_progress',sla_due_at:'2026-11-15T10:00:00Z'},now).state,'within');
+ assert.equal(hd.describeSla({status:'resolved',sla_due_at:'2026-11-15T08:00:00Z'},now).state,'completed');
+ assert.equal(hd.describeSla({status:'closed'},now).label,'Concluído');
+ assert.equal(hd.describeSla({status:'open',sla_due_at:'data-inválida'},now).state,'undefined');
+});
