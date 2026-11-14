@@ -691,9 +691,7 @@ begin
     select
       count(*) filter (where attendance_classification <> 'excluded')::integer as scheduled,
       count(*) filter (where attendance_classification = 'upcoming')::integer as upcoming,
-      count(*) filter (where attendance_classification = 'upcoming')::integer as upcoming,
       count(*) filter (where attendance_classification = 'within_tolerance')::integer as within_tolerance,
-      count(*) filter (where attendance_classification = 'upcoming')::integer as upcoming,
       count(*) filter (where attendance_classification = 'late')::integer as late,
       coalesce(sum(lateness_minutes) filter (where attendance_classification = 'late'), 0)::integer as late_minutes_total,
       count(*) filter (where attendance_classification = 'possible_no_show')::integer as possible_no_show,
@@ -706,6 +704,7 @@ begin
     select
       polo_code,
       count(*) filter (where attendance_classification <> 'excluded')::integer as scheduled,
+      count(*) filter (where attendance_classification = 'upcoming')::integer as upcoming,
       count(*) filter (where attendance_classification = 'within_tolerance')::integer as within_tolerance,
       count(*) filter (where attendance_classification = 'late')::integer as late,
       coalesce(sum(lateness_minutes) filter (where attendance_classification = 'late'), 0)::integer as late_minutes_total,
@@ -718,6 +717,7 @@ begin
     select
       service_day,
       count(*) filter (where attendance_classification <> 'excluded')::integer as scheduled,
+      count(*) filter (where attendance_classification = 'upcoming')::integer as upcoming,
       count(*) filter (where attendance_classification = 'late')::integer as late,
       coalesce(sum(lateness_minutes) filter (where attendance_classification = 'late'), 0)::integer as late_minutes_total,
       count(*) filter (where attendance_classification = 'possible_no_show')::integer as possible_no_show,
