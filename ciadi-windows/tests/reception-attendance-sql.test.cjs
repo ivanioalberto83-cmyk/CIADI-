@@ -25,3 +25,13 @@ test('attendance metrics proposal is read-only, authenticated and has no remote 
   assert.doesNotMatch(body, /\b(insert into|update\s+public\.agendamentos|delete from)\b/);
   assert.match(sql, /revoke execute on all functions in schema ciadi_reception from public, anon, authenticated/i);
 });
+
+test('appointment search SQL accepts the polo argument used by the Reception repository', () => {
+  const start = sql.toLowerCase().indexOf('function ciadi_reception.reception_search_appointments');
+  assert.notEqual(start, -1);
+  const end = sql.indexOf('$$;', start);
+  assert.notEqual(end, -1);
+  const body = sql.slice(start, end + 3);
+  assert.match(body, /p_polo_code\\s+text\\s+default\\s+null/i);
+  assert.match(body, /a\\.polo_code\\s*=\\s*p_polo_code/i);
+});
