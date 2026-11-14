@@ -200,3 +200,18 @@ test('define campos próprios para cada tipo documental de compras e aprovisiona
   }
   assert.equal(signatures.size,16,'Cada documento de compras deve ter um formulário específico.');
 });
+
+test('define formulários próprios para os restantes motores operacionais',()=>{
+  const catalog=require('../../renderer/modules/support-document-catalog.js');
+  for(const motorId of ['stock','losses','assets','technical','security','administration']){
+    const definitions=catalog.getDocumentsByMotor(motorId).filter(item=>item.outputKind==='document');
+    const signatures=new Set();
+    for(const definition of definitions){
+      const template=engine.createCatalogTemplate(definition);
+      assert.ok(template.fields.length>=4,definition.code+' sem campos específicos suficientes');
+      assert.equal(engine.validateTemplate(template).valid,true,definition.code+': '+engine.validateTemplate(template).errors.join(' | '));
+      signatures.add(template.fields.map(field=>field.key).join('|'));
+    }
+    assert.equal(signatures.size,definitions.length,motorId+' contém formulários genéricos repetidos');
+  }
+});
