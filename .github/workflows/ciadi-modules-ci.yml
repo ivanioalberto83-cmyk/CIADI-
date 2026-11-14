@@ -1,0 +1,32 @@
+name: CIADI Workstation Modules CI
+
+on:
+  push:
+    branches: ['feature/ciadi-workstation-modules-20261104', 'feature/ciadi-support-operations-phase1-20261106']
+    paths:
+      - 'renderer/**'
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'index.html'
+      - 'ciadi-windows/tests/**'
+      - '.github/workflows/ciadi-modules-ci.yml'
+  pull_request:
+    branches: ['integration/ciadi-setup-homologacao-20261104', 'feature/ciadi-workstation-modules-20261104']
+    paths:
+      - 'renderer/**'
+      - 'CIADI_DASHBOARD_FINANCEIRO.html'
+      - 'ciadi-windows/tests/**'
+      - '.github/workflows/ciadi-modules-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Executar testes de módulos e arquitectura
+        run: node --test ciadi-windows/tests/*.test.cjs

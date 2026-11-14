@@ -26,6 +26,11 @@ jobs:
             throw "Falta o ficheiro '$source' na raiz do repositório. Carregue o dashboard financeiro CIADI para o GitHub e volte a executar."
           }
           Copy-Item $source "ciadi-windows/index.html" -Force
+          if (Test-Path "ciadi-windows/renderer") { Remove-Item "ciadi-windows/renderer" -Recurse -Force }
+          Copy-Item "renderer" "ciadi-windows/renderer" -Recurse -Force
+          if (!(Test-Path "ciadi-windows/renderer/modules/support-operations-module.js")) {
+            throw "O módulo de Suporte Informático não foi copiado para o pacote Windows."
+          }
 
       - name: Criar ícone Windows a partir do logótipo CIADI
         shell: pwsh

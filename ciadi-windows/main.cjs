@@ -1,30 +1,93 @@
 const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let biometricWindow;
+
+const STATION_PROFILES = Object.freeze({
+  adm: 'ADM — Administração',
+  suporte_informatica: 'Suporte Informático',
+  rh: 'Recursos Humanos (RH)',
+  recepcao: 'Receção'
+});
+
+const STATION_POLOS = Object.freeze({
+  talatona: 'Talatona — Polo 001',
+  jardim_de_rosas: 'Jardim de Rosas — Polo 002'
+});
+
+function getStationProfileId() {
+  if (!app.isPackaged || process.platform !== 'win32') return null;
+  const argument = process.argv.find(value => value.startsWith('--ciadi-profile='));
+  if (argument) {
+    const requestedProfile = argument.slice('--ciadi-profile='.length).trim();
+    return Object.prototype.hasOwnProperty.call(STATION_PROFILES, requestedProfile) ? requestedProfile : null;
+  }
+  try {
+    const profilePath = path.join(path.dirname(process.execPath), 'ciadi-install-profile.txt');
+    const profileId = fs.readFileSync(profilePath, 'utf8').trim();
+    return Object.prototype.hasOwnProperty.call(STATION_PROFILES, profileId) ? profileId : null;
+  } catch (error) {
+    console.warn('Não foi possível ler o perfil da estação CIADI:', error.message);
+    return null;
+  }
+}
+
+function getStationPoloId() {
+  if (!app.isPackaged || process.platform !== 'win32') return null;
+  const argument = process.argv.find(value => value.startsWith('--ciadi-polo='));
+  if (argument) {
+    const requestedPolo = argument.slice('--ciadi-polo='.length).trim();
+    return Object.prototype.hasOwnProperty.call(STATION_POLOS, requestedPolo) ? requestedPolo : null;
+  }
+  try {
+    const poloPath = path.join(path.dirname(process.execPath), 'ciadi-install-polo.txt');
+    const poloId = fs.readFileSync(poloPath, 'utf8').trim();
+    return Object.prototype.hasOwnProperty.call(STATION_POLOS, poloId) ? poloId : null;
+  } catch (error) {
+    console.warn('Não foi possível ler o polo da estação CIADI:', error.message);
+    return null;
+  }
+}
+
+function getStationLabel() {
+  const profileId = getStationProfileId();
+  return profileId ? STATION_PROFILES[profileId] : null;
+}
+
 function openBiometricWindow() {
   if (biometricWindow && !biometricWindow.isDestroyed()) { biometricWindow.focus(); return; }
   biometricWindow = new BrowserWindow({ width: 1120, height: 820, minWidth: 760, minHeight: 600, title: 'CIADI — Assiduidade Biométrica (K20 Pro)', backgroundColor: '#fbfdff', webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
   biometricWindow.loadFile(path.join(__dirname, 'biometric-k20pro.html'));
   biometricWindow.on('closed', () => { biometricWindow = null; });
 }
+
 function installApplicationMenu() {
   const menu = Menu.buildFromTemplate([{ label: 'CIADI', submenu: [{ label: 'Assiduidade Biométrica (ZKTeco K20 Pro) — Homologação', click: openBiometricWindow }, { type: 'separator' }, { role: 'quit', label: 'Sair' }] }]);
   Menu.setApplicationMenu(menu);
 }
 
 function createWindow() {
+  const stationLabel = getStationLabel();
+  const windowTitle = stationLabel ? `CIADI Dashboard — Estação: ${stationLabel}` : 'CIADI Dashboard';
   mainWindow = new BrowserWindow({
     width: 1440, height: 940, minWidth: 1024, minHeight: 700,
-    title: 'CIADI Dashboard', backgroundColor: '#fbfdff',
+    title: windowTitle, backgroundColor: '#fbfdff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false, sandbox: true
     }
   });
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  const stationProfile = getStationProfileId();
+  const stationPolo = getStationPoloId();
+  mainWindow.loadFile(path.join(__dirname, 'index.html'), {
+    query: {
+      ciadi_profile: stationProfile || 'unconfigured',
+      ciadi_polo: stationPolo || ''
+    }
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://') || url.startsWith('http://')) {
       dialog.showMessageBox(mainWindow, {
