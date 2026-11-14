@@ -488,6 +488,56 @@
     });
   }
 
+  const APPOINTMENT_ATTENDANCE_TOLERANCE_MINUTES = 20;
+  const EXCLUDED_APPOINTMENT_STATES = Object.freeze(['cancelada', 'reagendada', 'rejeitada']);
+
+  function classifyAppointmentAttendance(appointment = {}, serverNow) {
+    const status = clean(appointment.estado, 32).toLowerCase();
+    const excluded = EXCLUDED_APPOINTMENT_STATES.includes(status) || status === 'solicitada';
+    if (excluded) {
+      return Object.freeze({ classification: 'excluded', latenessMinutes: 0 });
+    }
+    if (status === 'faltou') {
+      return Object.freeze({ classification: 'confirmed_no_show', latenessMinutes: 0 });
+    }
+
+    const scheduledAt = Date.parse(appointment.data_hora || '');
+    const now = Date.parse(serverNow || '');
+    if (!Number.isFinite(scheduledAt) || !Number.isFinite(now)) {
+      return Object.freeze({ classification: 'inconsistent_data', latenessMinutes: 0 });
+    }
+
+    const checkinValue = appointment.checkin_em;
+    if (checkinValue !== null && checkinValue !== undefined && clean(checkinValue, 64)) {
+      const checkinAt = Date.parse(checkinValue);
+      if (!Number.isFinite(checkinAt)) {
+        return Object.freeze({ classification: 'inconsistent_data', latenessMinutes: 0 });
+      }
+      const delayMs = checkinAt - scheduledAt;
+      if (delayMs > APPOINTMENT_ATTENDANCE_TOLERANCE_MINUTES * 60000) {
+        return Object.freeze({
+          classification: 'late',
+          latenessMinutes: Math.max(1, Math.ceil(delayMs / 60000))
+        });
+      }
+      return Object.freeze({ classification: 'within_tolerance', latenessMinutes: 0 });
+    }
+
+    if (['check-in', 'em_atendimento', 'concluida'].includes(status)) {
+      return Object.freeze({ classification: 'inconsistent_data', latenessMinutes: 0 });
+    }
+
+    if (['agendada', 'confirmada'].includes(status)) {
+      const deadline = scheduledAt + APPOINTMENT_ATTENDANCE_TOLERANCE_MINUTES * 60000;
+      return Object.freeze({
+        classification: now > deadline ? 'possible_no_show' : 'within_tolerance',
+        latenessMinutes: 0
+      });
+    }
+
+    return Object.freeze({ classification: 'excluded', latenessMinutes: 0 });
+  }
+
   function summarizeReception(rows = []) {
     const result = {
       total: 0, waiting: 0, inService: 0, referred: 0,
@@ -2152,6 +2202,7 @@
     validateReceptionStockExitInput, validateReceptionStockRequisitionInput, validateReceptionStockReturnInput,
     validateReceptionStockTransferInput, validateReceptionGoodsInput, createReceptionProcurementService,
     buildReceptionInvoiceHtml, createReceptionInvoicePdfService,
+    classifyAppointmentAttendance, APPOINTMENT_ATTENDANCE_TOLERANCE_MINUTES,
     summarizeReception, selectNextWaitingVisit, buildPublicCallPanelModel, createReceptionRepository, createReceptionBusinessRepository, createReceptionFinanceRepository, renderReceptionFinancePanel, renderReceptionDocumentHeader, create
   });
 });
