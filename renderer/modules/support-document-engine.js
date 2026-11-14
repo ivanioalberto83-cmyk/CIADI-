@@ -99,7 +99,7 @@
     if(!definition||!/^SUP-[A-Z0-9-]{3,20}$/.test(clean(definition.code))||!clean(definition.title)) {
       throw new Error('Definição de documento do catálogo inválida.');
     }
-    const fields=legacyTemplate?.fields||CATALOG_FIELDS[definition.motorId];
+    const fields=legacyTemplate?.fields||definition.formFields||CATALOG_FIELDS[definition.motorId];
     if(!Array.isArray(fields)||!fields.length)throw new Error('Não existe perfil de formulário para o motor documental.');
     const template=Object.freeze({
       code:clean(definition.code),title:clean(definition.title),version:1,
