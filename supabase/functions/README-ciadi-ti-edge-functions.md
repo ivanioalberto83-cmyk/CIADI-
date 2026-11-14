@@ -69,6 +69,10 @@ Resposta: `document.id`, `document.number`, `document.type`, `document.title`, `
 
 Resposta pública allowlisted: `valid`, `status`, `issuer`, `document_number`, `document_type`, `issued_at`.
 
+- Leitura por câmara/telemóvel: o navegador recebe a página HTML CIADI (cabeçalho `Accept: text/html`).
+- Integrações automáticas: enviar `Accept: application/json` para receber a resposta estruturada.
+- Tokens inválidos ou documentos não encontrados devolvem estado não validado sem divulgar dados do documento.
+
 ## Limites conhecidos
 
 - O SQL continua uma proposta, não aplicada. O código depende das tabelas, RPC e bucket previstos no PR #36.

@@ -1,10 +1,23 @@
 -- PostgreSQL harness only. This fixture is NOT a Supabase migration.
 -- Creates the minimum Supabase-shaped objects required to parse and exercise
 -- the proposal in an isolated PostgreSQL service container.
+--
+-- Roles are cluster-wide in PostgreSQL, so create them idempotently: the
+-- Helpdesk/Inventory test databases may already have introduced these roles.
 
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin bypassrls;
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role nologin bypassrls;
+  end if;
+end
+$$;
 
 create schema auth;
 create schema storage;
