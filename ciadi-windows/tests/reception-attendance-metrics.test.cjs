@@ -62,3 +62,54 @@ test('does not invent attendance timing when a check-in state has no check-in ti
 
   assert.equal(result.classification, 'inconsistent_data');
 });
+
+
+test('attendance metrics use the dedicated RPC with date range and optional polo', async () => {
+  const calls = [];
+  const repository = reception.createReceptionRepository({
+    supabase: {
+      schema(schemaName) {
+        assert.equal(schemaName, 'ciadi_reception');
+        return {
+          async rpc(name, args) {
+            calls.push({ name, args });
+            return { data: { server_now: '2026-11-14T08:00:00.000Z', summary: {} }, error: null };
+          }
+        };
+      }
+    }
+  });
+
+  const result = await repository.getAttendanceMetrics({
+    dateFrom: '2026-11-14',
+    dateTo: '2026-11-14',
+    poloCode: 'talatona'
+  });
+
+  assert.equal(result.server_now, '2026-11-14T08:00:00.000Z');
+  assert.deepEqual(calls, [{
+    name: 'reception_get_attendance_metrics',
+    args: {
+      p_date_from: '2026-11-14',
+      p_date_to: '2026-11-14',
+      p_polo_code: 'talatona'
+    }
+  }]);
+});
+
+test('attendance metrics reject invalid date ranges and unknown polos before RPC', async () => {
+  let calls = 0;
+  const repository = reception.createReceptionRepository({
+    supabase: { schema() { return { async rpc() { calls += 1; return { data: {}, error: null }; } }; } }
+  });
+
+  await assert.rejects(
+    repository.getAttendanceMetrics({ dateFrom: '14-11-2026', dateTo: '2026-11-14' }),
+    /Período de indicadores inválido/
+  );
+  await assert.rejects(
+    repository.getAttendanceMetrics({ dateFrom: '2026-11-14', dateTo: '2026-11-14', poloCode: 'luanda' }),
+    /Polo inválido/
+  );
+  assert.equal(calls, 0);
+});
