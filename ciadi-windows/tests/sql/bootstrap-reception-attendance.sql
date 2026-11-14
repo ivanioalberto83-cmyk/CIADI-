@@ -1,4 +1,17 @@
 -- PostgreSQL fixture isolated to GitHub Actions; contains no CIADI production data.
+DO $
+BEGIN
+  CREATE ROLE anon NOLOGIN;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END
+$;
+DO $
+BEGIN
+  CREATE ROLE authenticated NOLOGIN;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END
+$;
+
 create schema if not exists auth;
 create schema if not exists public;
 
