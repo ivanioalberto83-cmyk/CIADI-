@@ -75,6 +75,17 @@ begin
   if v_metrics::text like '%patient_name%' or v_metrics::text like '%Responsável Teste%' then
     raise exception 'Aggregate attendance metrics must not expose personal data.';
   end if;
+
+  if not (select relrowsecurity from pg_class where oid = 'ciadi_reception.front_desk_visits'::regclass) then
+    raise exception 'Front-desk visits must have RLS enabled.';
+  end if;
+  if has_function_privilege('authenticated',
+       'ciadi_reception.reception_get_attendance_metrics(date,date,text)', 'EXECUTE') then
+    raise exception 'Authenticated must not receive execute before the permission phase.';
+  end if;
+  if has_table_privilege('authenticated', 'ciadi_reception.front_desk_visits', 'SELECT') then
+    raise exception 'Authenticated must not receive table access before the permission phase.';
+  end if;
 end;
 $attendance_test$;
 
