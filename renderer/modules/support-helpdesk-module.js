@@ -98,5 +98,5 @@ function create({root,supabase,notify=()=>{},onBack=()=>{}}={}){
  }
  return Object.freeze({render});
 }
-return Object.freeze({STATUSES,PRIORITIES,CATEGORIES,LABELS,validateTicket,validateAssignment,validateTicketStatus,validateIntervention,summarizeTickets,createRepository,create});
+return Object.freeze({STATUSES,PRIORITIES,CATEGORIES,LABELS,validateTicket,validateAssignment,validateTicketStatus,validateIntervention,summarizeTickets,describeSla,createRepository,create});
 });
